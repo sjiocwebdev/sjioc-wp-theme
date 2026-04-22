@@ -1,0 +1,44 @@
+# WordPress
+wp-config.php
+wp-content/uploads/
+wp-content/cache/
+wp-content/upgrade/
+wp-content/backup-db/
+wp-content/advanced-cache.php
+wp-content/wp-cache-config.php
+*.log
+
+# AI / API keys — never commit these
+*.env
+.env*
+secrets.php
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# IDE / editors
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+nbproject/
+.pyre/
+
+# Node (if ever used for build tools)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+dist/
+.cache/
+
+# PHP
+*.phar
+vendor/
+composer.lock

@@ -1,0 +1,152 @@
+<?php
+/**
+ * Template Name: Home Page
+ * The home/front page for SJIOC Delaware Valley.
+ */
+get_header();
+$hero_title   = sjioc_get('sjioc_hero_title',   "St. John's Indian Orthodox Church");
+$hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tradition · Delaware Valley');
+ $hero_eyebrow = sjioc_get('sjioc_hero_eyebrow', '✦ Est. 2006 · Drexel Hill, PA ✦'); 
+?>
+
+<!-- ════ HERO ════ -->
+<section class="home-hero" aria-label="Welcome banner">
+  <div class="hero-bg" role="presentation"></div>
+  <div class="hero-overlay" role="presentation"></div>
+  <div class="hero-content">
+    <span class="hero-eyebrow"><?php echo esc_html($hero_eyebrow); ?></span>
+    <h1><?php echo esc_html($hero_title); ?></h1>
+    <span class="hero-sub"><?php echo esc_html($hero_sub); ?></span>
+    <div class="hero-btns">
+      <a href="<?php echo esc_url(home_url('/worship-services/')); ?>" class="btn btn-cr">Worship &amp; Services</a>
+	  <a href="<?php echo esc_url(home_url('/contact-us/')); ?>" class="btn btn-ol">Contact Us</a>
+    </div>
+  </div>
+</section>
+
+<!-- ════ WELCOME ════ -->
+<div class="bg-cream">
+  <div class="sec container">
+    <div class="welcome-grid">
+      <div class="welcome-text">
+        <span class="stag">Our Community</span>
+        <h2>Welcome to <?php echo esc_html(sjioc_name()); ?></h2>
+        <div class="divider divider-l"></div>
+        <p>We warmly welcome you to <?php echo esc_html(sjioc_name()); ?>. Our church at <?php echo esc_html(sjioc_address()); ?> is a place of faith, fellowship, and ancient Orthodox tradition.</p>
+        <p>Serving the communities of Exton, Downingtown, West Chester, Upper Darby, King of Prussia, Springfield, Broomall, Drexel Hill, Glen Mills, and all of Delaware Valley since November 2006.</p>
+        <p>Rooted in the Malankara Orthodox Syrian Church — the ancient apostolic faith brought to India by St. Thomas the Apostle in 52 AD.</p>
+        <br>
+        <a href="<?php echo esc_url(home_url('/about-us/')); ?>" class="btn btn-cr">Learn More About Us</a>
+      </div>
+      <div class="welcome-img">
+        <?php
+        $img_url = get_theme_mod('sjioc_welcome_img', 'https://sjioc.org/images/20250419_123136.jpg');
+        ?>
+        <img src="<?php echo esc_url($img_url); ?>" alt="<?php echo esc_attr(sjioc_name()); ?>"
+             loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1548625149-720754956904?w=800&q=80'">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SERVICE TIMES ════ -->
+<section class="times-band" aria-labelledby="times-heading">
+  <div class="container" style="position:relative">
+    <h2 id="times-heading">Worship &amp; Service Times</h2>
+    <div class="divider"></div>
+    <div class="times-row">
+      <div class="time-col">
+        <span class="time-label">Sunday Holy Qurbana</span>
+        <span class="time-val"><?php echo esc_html(sjioc_qurbana()); ?></span>
+      </div>
+      <div class="time-col">
+        <span class="time-label">Sunday School</span>
+        <span class="time-val"><?php echo esc_html(sjioc_school()); ?></span>
+      </div>
+      <div class="time-col">
+        <span class="time-label">Saturday Office Hours</span>
+        <span class="time-val"><?php echo esc_html(sjioc_get('sjioc_saturday','5:00 – 7:30 PM')); ?></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════ MINISTRIES PREVIEW ════ -->
+<div class="bg-cream">
+  <div class="sec container tc">
+    <span class="stag">Serve &amp; Grow</span>
+    <h2 class="stitle">Our Ministries</h2>
+    <div class="divider"></div>
+    <p class="slead">Connecting every member of our parish through faith, service, and fellowship in Christ.</p>
+    <div class="mcards-3">
+      <?php
+      $ministries = [
+        ['img'=>'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=70','tag'=>'Youth',      'title'=>'Youth Ministry',      'desc'=>'Nurturing faith in our young parishioners through worship, scripture study, retreats, and community service.'],
+        ['img'=>'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&q=70','tag'=>'Education',  'title'=>'Sunday School',       'desc'=>'Helping children and youth encounter God through interactive lessons every Sunday at '.esc_html(sjioc_school()).'.'],
+        ['img'=>'https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=600&q=70','tag'=>'Fellowship', 'title'=>"Women's Fellowship",   'desc'=>"A vibrant community of women gathering monthly for prayer, fellowship, and outreach in Christ's love."],
+      ];
+      foreach ($ministries as $m): ?>
+      <article class="mcard">
+        <img src="<?php echo esc_url($m['img']); ?>" alt="<?php echo esc_attr($m['title']); ?>" loading="lazy">
+        <div class="mcard-body">
+          <span class="mcard-tag"><?php echo esc_html($m['tag']); ?></span>
+          <h3><?php echo esc_html($m['title']); ?></h3>
+          <p><?php echo esc_html($m['desc']); ?></p>
+          <a class="mlink" href="<?php echo esc_url(home_url('/ministries/')); ?>">Learn More →</a>
+        </div>
+      </article>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</div>
+
+<!-- ════ EVENTS + FELLOWSHIP CTA ════ -->
+<div class="bg-ww">
+  <div class="sec container">
+    <div class="ev-home-grid">
+
+      <!-- Upcoming Events -->
+      <div>
+        <span class="stag">What's Coming</span>
+        <h2 class="stitle">Upcoming Events</h2>
+        <div class="divider divider-l"></div>
+        <?php
+        $events = new WP_Query(['post_type'=>'sjioc_event','posts_per_page'=>3,'orderby'=>'meta_value','meta_key'=>'event_date','order'=>'ASC']);
+        if ($events->have_posts()) :
+          while ($events->have_posts()) : $events->the_post();
+            $date  = get_post_meta(get_the_ID(),'event_date',true);
+            $mon   = $date ? date('M',strtotime($date)) : 'TBD';
+            $day   = $date ? date('j',strtotime($date)) : '—';
+        ?>
+        <div class="ev-item">
+          <div class="ev-date-box"><span class="ev-mon"><?php echo esc_html($mon); ?></span><span class="ev-day"><?php echo esc_html($day); ?></span></div>
+          <div class="ev-info"><h4><?php the_title(); ?></h4><p><?php echo wp_trim_words(get_the_excerpt(),14); ?></p></div>
+        </div>
+        <?php endwhile; wp_reset_postdata();
+        else:
+          $sample = [
+            ['May','15','Parish Picnic','Annual outdoor gathering — food, games, and fellowship at the church grounds.'],
+            ['May','20','Bible Study','Weekly adult Bible study exploring the Epistles of St. Paul. All welcome.'],
+            ['Jun','5', 'Family Retreat','Annual parish spiritual retreat. Limited spots — register early!'],
+          ];
+          foreach ($sample as $e): ?>
+        <div class="ev-item">
+          <div class="ev-date-box"><span class="ev-mon"><?php echo esc_html($e[0]); ?></span><span class="ev-day"><?php echo esc_html($e[1]); ?></span></div>
+          <div class="ev-info"><h4><?php echo esc_html($e[2]); ?></h4><p><?php echo esc_html($e[3]); ?></p></div>
+        </div>
+        <?php endforeach; endif; ?>
+        <br>
+        <a href="<?php echo esc_url(home_url('/events/')); ?>" class="btn btn-cr">View All Events</a>
+      </div>
+
+      <!-- Fellowship CTA -->
+      <div class="fellowship-box">
+        <h3>Join Us in Worship<br>and Fellowship</h3>
+        <p>Every Sunday at <?php echo esc_html(sjioc_address()); ?>. We'd love to have you join our parish family.</p>
+        <a href="<?php echo esc_url(home_url('/contact-us/')); ?>" class="btn btn-cr">Contact Us</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<?php sjioc_footer(); get_footer(); ?>
