@@ -210,22 +210,6 @@
   /* ─────────────────────────────────────────
      CHAT ENGINE
   ───────────────────────────────────────── */
-  var chatReplies = {
-    'service times' : 'Our Sunday Holy Qurbana begins at <strong>8:30 AM</strong>. Sunday School is at <strong>12:00 PM</strong>. Saturday office hours: <strong>5:00–7:30 PM</strong>. We hope to see you soon! 🙏',
-    'location'      : 'We are at <strong>4400 State Road, Drexel Hill, PA 19026</strong>. <a href="https://share.google/zTkW7YSgj41LVTwW9" target="_blank" style="color:var(--go-lt)">Open in Google Maps →</a>',
-    'directions'    : 'Find us at <strong>4400 State Road, Drexel Hill, PA 19026</strong>. We serve Exton, West Chester, Upper Darby, King of Prussia, Springfield, Broomall, Glen Mills and all of Delaware Valley.',
-    'events'        : 'Upcoming events include our <strong>Parish Picnic (May 15)</strong>, <strong>Bible Study (May 20)</strong>, and <strong>Family Retreat (June 5)</strong>. Check the Events page for all details!',
-    'ministry'      : 'We have Youth Ministry, Sunday School, Women\'s Fellowship, Men\'s Fellowship, FOCUS Choir, and MGOCSM Outreach. Call <strong>(610) 822-0033</strong> to get involved!',
-    'vicar'         : 'Our parish is led by <strong>Rev. Fr. Tojo Baby</strong>. Please call <strong>(610) 822-0033</strong> or email <strong>info@sjioc.org</strong> to reach him.',
-    'contact'       : 'Reach us at <strong>(610) 822-0033</strong> or <strong>info@sjioc.org</strong>. Office hours: Saturday 5–7:30 PM and Sunday after Holy Qurbana.',
-    'qurbana'       : 'Holy Qurbana is celebrated every Sunday at <strong>8:30 AM</strong> at 4400 State Road, Drexel Hill PA. All are welcome!',
-    'sunday school' : 'Sunday School meets every Sunday at <strong>12:00 PM</strong> following Holy Qurbana. Children of all ages are warmly welcome!',
-    'birthday'      : 'What a wonderful wish! 🎂 I\'ll pass along your warm birthday greetings to the parish family.',
-    'anniversary'   : 'How beautiful! 💍 I\'ll make sure your anniversary wishes reach the parish family. God bless their marriage!',
-    'prayer'        : 'We would be honored to pray for you. Please share your prayer request and we will lift it up before the Lord. You can also email us at <strong>info@sjioc.org</strong>.',
-    'default'       : 'Thank you for your message! 🙏 A member of our parish team will respond soon. For urgent matters please call <strong>(610) 822-0033</strong> or email <strong>info@sjioc.org</strong>. God bless!'
-  };
-
   window.sjiocQuickSend = function (text) {
     var qr = document.getElementById('quickReplies');
     if (qr) qr.style.display = 'none';
@@ -250,18 +234,27 @@
     msgs.appendChild(ty);
     msgs.scrollTop = msgs.scrollHeight;
 
-    // Reply
-    var delay = 900 + Math.random() * 600;
-    setTimeout(function () {
-      var ind = document.getElementById('typingInd');
-      if (ind) msgs.removeChild(ind);
-      var key = text.toLowerCase();
-      var reply = chatReplies['default'];
-      for (var k in chatReplies) {
-        if (k !== 'default' && key.includes(k)) { reply = chatReplies[k]; break; }
-      }
-      appendMsg(reply, 'bot');
-    }, delay);
+    var data = new FormData();
+    data.append('action',  'sjioc_chat');
+    data.append('nonce',   (window.sjioData || {}).nonce  || '');
+    data.append('message', text);
+
+    var ajax = (window.sjioData || {}).ajaxUrl || '/wp-admin/admin-ajax.php';
+    fetch(ajax, { method: 'POST', body: data })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        var ind = document.getElementById('typingInd');
+        if (ind) msgs.removeChild(ind);
+        var html = (res.success && res.data && res.data.html)
+          ? res.data.html
+          : 'Sorry, something went wrong. Please call us directly. &#128222;';
+        appendMsg(html, 'bot');
+      })
+      .catch(function () {
+        var ind = document.getElementById('typingInd');
+        if (ind) msgs.removeChild(ind);
+        appendMsg('Network error. Please call us at <strong>' + ((window.sjioData || {}).phone || '(610) 822-0033') + '</strong>.', 'bot');
+      });
   };
 
   function appendMsg(html, who) {

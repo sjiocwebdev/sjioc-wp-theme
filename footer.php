@@ -109,7 +109,7 @@
   </div>
   <div class="panel-footer">
     <a href="<?php echo esc_url(home_url('/contact-us/')); ?>" class="panel-footer-btn" style="text-align:center"><?php esc_html_e('Contact Page','sjioc'); ?></a>
-    <a href="tel:<?php echo preg_replace('/\D','',sjioc_phone()); ?>" class="panel-footer-btn gold" style="text-align:center">📞 <?php esc_html_e('Call Now','sjioc'); ?></a>
+    <a href="tel:<?php echo preg_replace('/\D/','',sjioc_phone()); ?>" class="panel-footer-btn gold" style="text-align:center">📞 <?php esc_html_e('Call Now','sjioc'); ?></a>
   </div>
 </div>
 
@@ -221,7 +221,7 @@
   <div class="panel-header">
     <div>
       <h3>💬 <?php esc_html_e('Parish Chat','sjioc'); ?></h3>
-      <p><?php esc_html_e('We usually reply within a few hours','sjioc'); ?></p>
+      <p><?php esc_html_e('Ask about services, parking, or parish info','sjioc'); ?></p>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block" title="Online" aria-label="Online"></span>
