@@ -119,3 +119,55 @@ define( 'SJIOC_AZURE_OAI_DEPLOY',   'gpt-4o' );
 1. Go to **wp-admin → SJIOC → Vehicle Registry** *(coming in next build)*
 2. Add member vehicles: plate, owner name, phone, vehicle description
 3. Any plate number typed in the chat window is looked up against this table automatically
+
+---
+
+## 7. Deploying Theme to Azure (Production Checklist)
+
+> These steps apply when uploading the theme zip to the live Azure WordPress instance.
+> The theme code travels with the zip — database content and credentials do not.
+
+### 7a. wp-config.php path on Azure
+
+| Environment | Path |
+|---|---|
+| Local (OrbStack/Docker) | `/var/www/html/wp-config.php` |
+| Azure App Service | `/home/site/wwwroot/wp-config.php` |
+
+On Azure you can edit it via:
+- **Azure Portal** → App Service → **SSH** (Development Tools) → navigate to path above, or
+- **Kudu console:** `https://<your-app>.scm.azurewebsites.net` → Debug Console → CMD
+
+### 7b. Add credentials to Azure wp-config.php
+
+Add these three lines **before** `/* That's all, stop editing! */`:
+
+```php
+define( 'SJIOC_AZURE_OAI_ENDPOINT', 'https://sjioc-openai.openai.azure.com/' );
+define( 'SJIOC_AZURE_OAI_KEY',      'paste-key-1-here' );
+define( 'SJIOC_AZURE_OAI_DEPLOY',   'gpt-4o' );
+```
+
+### 7c. Run vehicle registry SQL on Azure database
+
+1. Get DB credentials from Azure Portal → App Service → **Configuration** → Application Settings
+2. Connect via **MySQL Workbench** or **Azure Cloud Shell**:
+   ```bash
+   mysql -h <db-host> -u <db-user> -p<db-password> <db-name> < SQL_VEHICLE_REGISTRY.sql
+   ```
+
+### 7d. Re-enter knowledge base text
+
+1. Log in to **wp-admin** on Azure
+2. Go to **SJIOC → Chat Settings**
+3. Paste the church PDF text → click **Save Knowledge Base**
+
+### 7e. Post-upload checklist
+
+- [ ] Theme uploaded & activated
+- [ ] `SQL_VEHICLE_REGISTRY.sql` run on Azure DB
+- [ ] Azure OpenAI credentials added to `wp-config.php`
+- [ ] Knowledge base text saved via wp-admin → SJIOC → Chat Settings
+- [ ] **Settings → Permalinks** → Save Changes (flush rewrite rules)
+- [ ] All 7 pages created with correct slugs and templates
+- [ ] Primary nav menu assigned

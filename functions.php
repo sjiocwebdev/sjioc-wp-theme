@@ -1,4 +1,4 @@
-<?php
+    <?php
 /**
  * SJIOC Delaware Valley — WordPress Theme Functions
  * St. John's Indian Orthodox Church of Delaware Valley
