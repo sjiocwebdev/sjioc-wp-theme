@@ -37,6 +37,23 @@ if ($events_q->have_posts()) {
     wp_reset_postdata();
 }
 
+// ── CALENDAR FEATURE: flat event list for JS calendar ──────────────────
+$cal_events = [];
+foreach ($grouped as $_ym => $_posts) {
+    foreach ($_posts as $_p) {
+        $cal_events[] = [
+            'date'   => get_post_meta($_p->ID, 'event_date',     true) ?: '',
+            'title'  => $_p->post_title,
+            'cat'    => get_post_meta($_p->ID, 'event_category', true) ?: '',
+            'time'   => get_post_meta($_p->ID, 'event_time',     true) ?: '',
+            'end'    => get_post_meta($_p->ID, 'event_end_time', true) ?: '',
+            'loc'    => get_post_meta($_p->ID, 'event_location', true) ?: '',
+            'allday' => get_post_meta($_p->ID, 'event_all_day',  true) === '1',
+        ];
+    }
+}
+// ── END CALENDAR FEATURE ───────────────────────────────────────────────
+
 // Build full month list with offset metadata
 $month_list = [];
 for ($i = -SJIOC_EV_MONTHS_MAX; $i <= SJIOC_EV_MONTHS_MAX; $i++) {
@@ -101,6 +118,13 @@ get_header();
       <p class="slead">Stay connected with the vibrant life of our parish through worship, fellowship, and service events.</p>
     </div>
 
+    <!-- ── CALENDAR FEATURE: view toggle ── -->
+    <div class="ev-view-toggle" id="ev-view-toggle" role="group" aria-label="View mode">
+      <button class="ev-vtab is-active" id="btn-list-view">≡ List</button>
+      <button class="ev-vtab" id="btn-cal-view">📅 Calendar</button>
+    </div>
+    <!-- ── END CALENDAR FEATURE ── -->
+
     <!-- ── Category filter ── -->
     <div class="filter-bar" role="group" aria-label="Filter events">
       <button class="filter-btn is-active" data-cat="all">All Events</button>
@@ -110,6 +134,22 @@ get_header();
       <button class="filter-btn" data-cat="outreach">Outreach</button>
       <button class="filter-btn" data-cat="special">Special</button>
     </div>
+
+    <!-- ── CALENDAR FEATURE: calendar grid container ── -->
+    <div id="ev-calendar-wrap" style="display:none" aria-hidden="true">
+      <div class="ev-cal-nav">
+        <button class="ev-cal-arrow" id="ev-cal-prev" aria-label="Previous month">&#8249;</button>
+        <h3 class="ev-cal-heading" id="ev-cal-heading"></h3>
+        <button class="ev-cal-arrow" id="ev-cal-next" aria-label="Next month">&#8250;</button>
+        <button class="ev-cal-today-btn" id="ev-cal-today">Today</button>
+      </div>
+      <div class="ev-cal-grid" id="ev-cal-grid" role="grid" aria-label="Event calendar"></div>
+      <div id="ev-cal-day-panel" class="ev-cal-day-panel" style="display:none">
+        <h4 class="ev-cal-day-title" id="ev-cal-day-title"></h4>
+        <div id="ev-cal-day-list"></div>
+      </div>
+    </div>
+    <!-- ── END CALENDAR FEATURE ── -->
 
     <!-- ── Expand: older months ── -->
     <div class="ev-expand-wrap" id="ev-expand-past">
@@ -270,6 +310,95 @@ get_header();
   color: #888;
   padding: 48px 0;
 }
+
+/* ── CALENDAR FEATURE styles ─────────────────────────────────── */
+.ev-view-toggle {
+  display:flex; width:fit-content; margin-bottom:18px;
+  border:1px solid var(--border); border-radius:6px; overflow:hidden;
+}
+.ev-vtab {
+  padding:8px 22px; font-size:.76rem; font-weight:700;
+  letter-spacing:.07em; text-transform:uppercase;
+  background:transparent; border:none; cursor:pointer;
+  color:var(--tm); transition:background .18s,color .18s;
+}
+.ev-vtab.is-active { background:var(--cr); color:#fff; }
+.ev-vtab:not(.is-active):hover { background:var(--bg-cream,#fdf8f0); }
+
+.ev-cal-nav {
+  display:flex; align-items:center; gap:10px; margin-bottom:14px;
+}
+.ev-cal-heading {
+  flex:1; text-align:center; font-family:'Playfair Display',serif;
+  font-size:1.18rem; color:var(--cr); margin:0;
+}
+.ev-cal-arrow {
+  background:none; border:1px solid var(--border); border-radius:5px;
+  width:34px; height:34px; font-size:1.4rem; line-height:1;
+  cursor:pointer; color:var(--cr); display:flex;
+  align-items:center; justify-content:center; transition:all .18s;
+}
+.ev-cal-arrow:hover { background:var(--cr); color:#fff; border-color:var(--cr); }
+.ev-cal-today-btn {
+  font-size:.7rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.07em; padding:6px 14px;
+  border:1px solid var(--border); border-radius:5px;
+  background:none; cursor:pointer; color:var(--tm); transition:all .18s;
+}
+.ev-cal-today-btn:hover { border-color:var(--go); color:var(--go); }
+
+.ev-cal-grid {
+  display:grid; grid-template-columns:repeat(7,1fr); gap:5px;
+  margin-bottom:22px;
+}
+.ev-cal-dow {
+  text-align:center; font-size:.65rem; font-weight:700;
+  color:#aaa; text-transform:uppercase; letter-spacing:.05em; padding:5px 0;
+}
+.ev-cal-cell {
+  min-height:60px; border-radius:6px; border:1px solid var(--border);
+  padding:6px 7px; cursor:pointer; position:relative;
+  background:var(--ww); display:flex; flex-direction:column;
+  transition:border-color .18s,background .18s;
+}
+.ev-cal-cell:focus { outline:2px solid var(--cr); outline-offset:1px; }
+.ev-cal-empty { background:transparent; border:none; cursor:default; }
+.ev-cal-cell:not(.ev-cal-empty):hover { border-color:var(--cr); }
+.ev-cal-today-cell { background:#fdf0f0; border-color:var(--cr) !important; }
+.ev-cal-selected { background:var(--cr) !important; border-color:var(--cr) !important; }
+.ev-cal-selected .ev-cal-daynum { color:#fff !important; }
+.ev-cal-daynum { font-size:.84rem; font-weight:600; color:var(--tb); }
+.ev-cal-has-events .ev-cal-daynum { color:var(--cr); font-weight:700; }
+.ev-cal-dots { display:flex; gap:3px; flex-wrap:wrap; margin-top:4px; }
+.ev-cal-dot {
+  width:6px; height:6px; border-radius:50%; background:var(--go); flex-shrink:0;
+}
+.ev-cal-selected .ev-cal-dot { background:rgba(255,255,255,.85); }
+
+.ev-cal-day-panel {
+  border-top:2px solid var(--cr); padding-top:20px; margin-top:4px;
+  animation:fadeUp .25s ease;
+}
+@keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+.ev-cal-day-title {
+  font-family:'Playfair Display',serif; font-size:1rem;
+  color:var(--cr); margin:0 0 14px;
+}
+.ev-cal-event-row {
+  background:var(--bg-cream,#fdf8f0); border:1px solid var(--border);
+  border-radius:8px; padding:12px 16px; margin-bottom:10px;
+  display:flex; flex-direction:column; gap:4px;
+}
+.ev-cal-event-row strong { font-size:.93rem; color:var(--tb); }
+.ev-cal-ev-meta { font-size:.78rem; color:var(--tl); }
+.ev-cal-no-events { color:#bbb; font-style:italic; font-size:.86rem; padding:6px 0; }
+
+@media(max-width:640px) {
+  .ev-cal-cell { min-height:44px; padding:4px 5px; }
+  .ev-cal-daynum { font-size:.76rem; }
+  .ev-cal-dot { width:5px; height:5px; }
+}
+/* ── END CALENDAR FEATURE styles ─────────────────────────────── */
 </style>
 
 <script>
@@ -383,5 +512,174 @@ get_header();
   syncExpandBtns();
 })();
 </script>
+
+<!-- ── CALENDAR FEATURE script — remove this block to revert ── -->
+<script>
+(function () {
+  var EVENTS   = <?php echo wp_json_encode(array_values($cal_events)); ?>;
+  var today    = new Date();
+  var curYear  = today.getFullYear();
+  var curMonth = today.getMonth();
+  var selDate  = null;
+  var MONTHS   = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+
+  var listView    = document.getElementById('ev-timeline');
+  var calWrap     = document.getElementById('ev-calendar-wrap');
+  var filterBar   = document.querySelector('.filter-bar[aria-label="Filter events"]');
+  var expandPast  = document.getElementById('ev-expand-past');
+  var expandFut   = document.getElementById('ev-expand-future');
+  var btnList     = document.getElementById('btn-list-view');
+  var btnCal      = document.getElementById('btn-cal-view');
+
+  // ── View toggle ─────────────────────────────────────
+  function setView(v) {
+    var isCal = v === 'cal';
+    listView.style.display   = isCal ? 'none' : '';
+    filterBar.style.display  = isCal ? 'none' : '';
+    expandPast.style.display = isCal ? 'none' : '';
+    expandFut.style.display  = isCal ? 'none' : '';
+    calWrap.style.display    = isCal ? '' : 'none';
+    calWrap.setAttribute('aria-hidden', isCal ? 'false' : 'true');
+    btnCal.classList.toggle('is-active', isCal);
+    btnList.classList.toggle('is-active', !isCal);
+    if (isCal) {
+      renderCal(curYear, curMonth);
+      history.replaceState(null, '', '#calendar');
+    } else {
+      clearDayPanel();
+      history.replaceState(null, '', location.pathname);
+    }
+  }
+  btnList.addEventListener('click', function () { setView('list'); });
+  btnCal.addEventListener('click',  function () { setView('cal'); });
+
+  // ── Build date → events index ────────────────────────
+  var idx = {};
+  EVENTS.forEach(function (e) {
+    if (!e.date) return;
+    if (!idx[e.date]) idx[e.date] = [];
+    idx[e.date].push(e);
+  });
+
+  // ── Render a calendar month ──────────────────────────
+  function renderCal(year, month) {
+    curYear = year; curMonth = month;
+    document.getElementById('ev-cal-heading').textContent = MONTHS[month] + ' ' + year;
+    var grid = document.getElementById('ev-cal-grid');
+    grid.innerHTML = '';
+
+    // Day-of-week headers
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(function (d) {
+      var h = document.createElement('div');
+      h.className = 'ev-cal-dow'; h.textContent = d;
+      grid.appendChild(h);
+    });
+
+    var firstDay    = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var todayStr    = pad(today.getFullYear(), today.getMonth() + 1, today.getDate());
+
+    for (var i = 0; i < firstDay; i++) {
+      var empty = document.createElement('div');
+      empty.className = 'ev-cal-cell ev-cal-empty';
+      grid.appendChild(empty);
+    }
+    for (var d = 1; d <= daysInMonth; d++) {
+      var ds   = pad(year, month + 1, d);
+      var cell = document.createElement('div');
+      cell.className = 'ev-cal-cell';
+      cell.setAttribute('role', 'gridcell');
+      cell.setAttribute('tabindex', '0');
+      cell.dataset.date = ds;
+      if (ds === todayStr) cell.classList.add('ev-cal-today-cell');
+      if (ds === selDate)  cell.classList.add('ev-cal-selected');
+
+      var num = document.createElement('span');
+      num.className = 'ev-cal-daynum'; num.textContent = d;
+      cell.appendChild(num);
+
+      if (idx[ds] && idx[ds].length) {
+        cell.classList.add('ev-cal-has-events');
+        var dots = document.createElement('div');
+        dots.className = 'ev-cal-dots';
+        var n = Math.min(idx[ds].length, 3);
+        for (var k = 0; k < n; k++) {
+          var dot = document.createElement('span'); dot.className = 'ev-cal-dot'; dots.appendChild(dot);
+        }
+        cell.appendChild(dots);
+      }
+      cell.addEventListener('click', (function (s) { return function () { dayClick(s); }; })(ds));
+      cell.addEventListener('keydown', (function (s) { return function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dayClick(s); }
+      }; })(ds));
+      grid.appendChild(cell);
+    }
+  }
+
+  function pad(y, m, d) {
+    return y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+  }
+
+  // ── Day click ────────────────────────────────────────
+  function dayClick(ds) {
+    selDate = ds;
+    document.querySelectorAll('#ev-cal-grid .ev-cal-cell').forEach(function (c) {
+      c.classList.toggle('ev-cal-selected', c.dataset.date === ds);
+    });
+    var evs   = idx[ds] || [];
+    var panel = document.getElementById('ev-cal-day-panel');
+    var parts = ds.split('-');
+    var dt    = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+    document.getElementById('ev-cal-day-title').textContent =
+      dt.toLocaleDateString('en-US', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+    var list = document.getElementById('ev-cal-day-list');
+    if (!evs.length) {
+      list.innerHTML = '<p class="ev-cal-no-events">No events on this day.</p>';
+    } else {
+      list.innerHTML = evs.map(function (e) {
+        var tl = e.allday ? 'All Day' : (e.time ? e.time + (e.end ? ' – ' + e.end : '') : '');
+        return '<div class="ev-cal-event-row">'
+          + (e.cat ? '<span class="ecard-cat" style="font-size:.65rem;margin-bottom:2px">' + esc(e.cat) + '</span>' : '')
+          + '<strong>' + esc(e.title) + '</strong>'
+          + (tl    ? '<span class="ev-cal-ev-meta">🕐 ' + esc(tl)    + '</span>' : '')
+          + (e.loc ? '<span class="ev-cal-ev-meta">📍 ' + esc(e.loc) + '</span>' : '')
+          + '</div>';
+      }).join('');
+    }
+    panel.style.display = '';
+    panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  function clearDayPanel() {
+    selDate = null;
+    document.getElementById('ev-cal-day-panel').style.display = 'none';
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Prev / Next / Today ──────────────────────────────
+  document.getElementById('ev-cal-prev').addEventListener('click', function () {
+    var m = curMonth - 1, y = curYear;
+    if (m < 0) { m = 11; y--; }
+    renderCal(y, m); clearDayPanel();
+  });
+  document.getElementById('ev-cal-next').addEventListener('click', function () {
+    var m = curMonth + 1, y = curYear;
+    if (m > 11) { m = 0; y++; }
+    renderCal(y, m); clearDayPanel();
+  });
+  document.getElementById('ev-cal-today').addEventListener('click', function () {
+    renderCal(today.getFullYear(), today.getMonth()); clearDayPanel();
+  });
+
+  // ── Auto-activate from #calendar hash (e.g. from home page button) ──
+  if (location.hash === '#calendar') { setView('cal'); }
+}());
+</script>
+<!-- ── END CALENDAR FEATURE script ── -->
 
 <?php sjioc_footer(); get_footer(); ?>

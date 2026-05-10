@@ -137,6 +137,7 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
         <?php endforeach; endif; ?>
         <br>
         <a href="<?php echo esc_url(home_url('/events/')); ?>" class="btn btn-cr">View All Events</a>
+        <a href="<?php echo esc_url(home_url('/events/')); ?>#calendar" class="btn btn-ol" style="margin-left:10px">📅 Calendar</a>
       </div>
 
       <!-- Fellowship CTA -->
