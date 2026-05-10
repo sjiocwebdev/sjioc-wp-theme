@@ -45,15 +45,17 @@ For each page:
 After publishing each page, click **View Page** and confirm the URL matches:
 
 ```
-http://localhost:8080/about-us/
-http://localhost:8080/worship-services/
-http://localhost:8080/ministries/
-http://localhost:8080/events/
-http://localhost:8080/photos/
-http://localhost:8080/contact-us/
+https://your-site.com/about-us/
+https://your-site.com/worship-services/
+https://your-site.com/ministries/
+https://your-site.com/events/
+https://your-site.com/photos/
+https://your-site.com/contact-us/
 ```
 
 If a URL returns 404, go back to **Settings → Permalinks** and click **Save Changes** again to flush rewrite rules.
+
+> **Note:** The Events page uses a custom page template (`page-events.php`) that runs its own queries. The `sjioc_event` CPT archive is intentionally disabled — `/events/` must always be served by the WordPress page, not the CPT archive.
 
 ---
 
@@ -67,14 +69,91 @@ If a URL returns 404, go back to **Settings → Permalinks** and click **Save Ch
 
 ---
 
-## 6. Vehicle Registry & AI Chat Setup
+## 6. Members Database Table
 
-### 6a. Create the Database Table
-Run the SQL in `SQL_VEHICLE_REGISTRY.sql` via:
-- **phpMyAdmin** → select your WP database → SQL tab → paste & run, or
-- **WP-CLI:** `wp db query < SQL_VEHICLE_REGISTRY.sql`
+The member management system (admin roster, Enable/Disable, Import, Celebrations cron) requires a custom table.
 
-### 6b. Create Azure OpenAI Resource
+### 6a. Create the table
+
+Run the following SQL via **phpMyAdmin** or **MySQL Workbench** on your WordPress database:
+
+```sql
+CREATE TABLE IF NOT EXISTS wp_sjioc_members (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  cardex_no     VARCHAR(20)  NOT NULL,
+  member_seq    TINYINT      NOT NULL DEFAULT 1,
+  first_name    VARCHAR(80)  NOT NULL,
+  middle_name   VARCHAR(80)  NOT NULL DEFAULT '',
+  last_name     VARCHAR(80)  NOT NULL DEFAULT '',
+  gender        CHAR(1)      NOT NULL DEFAULT 'M',
+  date_of_birth DATE         NULL,
+  marital_status CHAR(1)     NOT NULL DEFAULT 'S',
+  wedding_date  DATE         NULL,
+  phone_number  VARCHAR(30)  NOT NULL DEFAULT '',
+  email         VARCHAR(120) NOT NULL DEFAULT '',
+  address       VARCHAR(200) NOT NULL DEFAULT '',
+  city          VARCHAR(80)  NOT NULL DEFAULT '',
+  state         CHAR(2)      NOT NULL DEFAULT '',
+  zip_code      VARCHAR(10)  NOT NULL DEFAULT '',
+  country       VARCHAR(60)  NOT NULL DEFAULT 'USA',
+  is_active     TINYINT(1)   NOT NULL DEFAULT 1,
+  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_cardex_seq (cardex_no, member_seq),
+  KEY idx_name (last_name, first_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+> On Azure the table prefix may differ. Replace `wp_` with your actual prefix (check `wp-config.php` for `$table_prefix`).
+
+### 6b. Import member data
+
+1. Prepare your member roster as a `.csv` or `.xlsx` file with these headers:
+   `Cardex No, Member Seq, First Name, Middle Name, Last Name, Gender, Date of Birth, Marital Status, Wedding Date, Phone Number, Email Address, Address, City, State, Zip Code, Country`
+2. Go to **wp-admin → SJIOC → Import Members**
+3. Upload the file → choose **Update existing** or **Skip duplicates** → click **Upload & Import**
+
+---
+
+## 7. Events Setup
+
+### 7a. Add events manually
+
+Go to **wp-admin → SJIOC → Events** to view the monthly calendar grid. Click **+** on any day to create an event with the date pre-filled.
+
+### 7b. Import events from spreadsheet
+
+1. Prepare your events file (`.csv` or `.xlsx`) with headers:
+   `Title, Date, Time, End Time, All Day, Location, Category, Description`
+   - **Date format:** DD/MM/YYYY or YYYY-MM-DD
+   - **Category:** worship · fellowship · education · outreach · special
+2. Go to **wp-admin → SJIOC → Import Events**
+3. Upload the file → click **Upload & Import**
+
+The public Events page caps display at **12 upcoming** and **8 past** events. A "Show all" button appears when there are more.
+
+---
+
+## 8. Celebrations Cron (Birthdays & Anniversaries)
+
+The footer panel shows this week's birthdays and wedding anniversaries, refreshed every **Monday at 12:01 AM**.
+
+### 8a. Trigger the first run manually
+
+After the members table is populated, force an immediate cache build:
+
+1. Go to **wp-admin → SJIOC → Celebrations**
+2. Click **Run Now** — this populates the cache so the footer panel isn't blank on first load
+
+### 8b. Verify the cron schedule
+
+The `sjioc_weekly_cron` event should appear in the WP Cron list. If you have the **WP Crontrol** plugin installed, you can confirm it's scheduled for next Monday at 12:01 AM.
+
+---
+
+## 9. AI Chat Setup (Azure OpenAI)
+
+### 9a. Create Azure OpenAI Resource
 
 1. Go to **portal.azure.com** and sign in
 2. Click **Create a resource** → search **"Azure OpenAI"** → click **Create**
@@ -90,55 +169,15 @@ Run the SQL in `SQL_VEHICLE_REGISTRY.sql` via:
    - **KEY 1** (your API key)
    - **Endpoint** (e.g. `https://sjioc-openai.openai.azure.com/`)
 
-### 6c. Deploy a GPT-4o Model
+### 9b. Deploy a GPT-4o Model
 
-1. In your Azure OpenAI resource, click **Go to Azure OpenAI Studio** (or visit oai.azure.com)
+1. In your Azure OpenAI resource, click **Go to Azure OpenAI Studio**
 2. Click **Deployments** → **Deploy model** → **Deploy base model**
 3. Select **gpt-4o** → click **Confirm**
 4. Set **Deployment name** to `gpt-4o` → click **Deploy**
 5. Wait ~1 minute for deployment to complete
 
-### 6d. Add Credentials to wp-config.php
-
-Add these three lines to `wp-config.php` **before** `/* That's all, stop editing! */`:
-
-```php
-define( 'SJIOC_AZURE_OAI_ENDPOINT', 'https://sjioc-openai.openai.azure.com/' );
-define( 'SJIOC_AZURE_OAI_KEY',      'paste-key-1-here' );
-define( 'SJIOC_AZURE_OAI_DEPLOY',   'gpt-4o' );
-```
-
-### 6e. Add Church Knowledge Base (PDF text)
-
-1. Open your church PDF → select all text → copy
-2. Go to **wp-admin → SJIOC → Chat Settings**
-3. Paste the text into the textarea → click **Save Knowledge Base**
-
-### 6f. Manage Vehicle Registry
-
-1. Go to **wp-admin → SJIOC → Vehicle Registry** *(coming in next build)*
-2. Add member vehicles: plate, owner name, phone, vehicle description
-3. Any plate number typed in the chat window is looked up against this table automatically
-
----
-
-## 7. Deploying Theme to Azure (Production Checklist)
-
-> These steps apply when uploading the theme zip to the live Azure WordPress instance.
-> The theme code travels with the zip — database content and credentials do not.
-
-### 7a. wp-config.php path on Azure
-
-| Environment | Path |
-|---|---|
-| Local (OrbStack/Docker) | `/var/www/html/wp-config.php` |
-| Azure App Service | `/home/site/wwwroot/wp-config.php` |
-
-On Azure you can edit it via:
-- **Azure Portal** → App Service → **SSH** (Development Tools) → navigate to path above, or
-- **Kudu console:** `https://<your-app>.scm.azurewebsites.net` → Debug Console → CMD
-
-### 7b. Add credentials to Azure wp-config.php
+### 9c. Add Credentials to wp-config.php
 
 Add these three lines **before** `/* That's all, stop editing! */`:
 
@@ -148,82 +187,92 @@ define( 'SJIOC_AZURE_OAI_KEY',      'paste-key-1-here' );
 define( 'SJIOC_AZURE_OAI_DEPLOY',   'gpt-4o' );
 ```
 
-### 7c. Run vehicle registry SQL on Azure database
+### 9d. Add Church Knowledge Base
 
-1. Get DB credentials from Azure Portal → App Service → **Configuration** → Application Settings
-2. Connect via **MySQL Workbench** or **Azure Cloud Shell**:
-   ```bash
-   mysql -h <db-host> -u <db-user> -p<db-password> <db-name> < SQL_VEHICLE_REGISTRY.sql
-   ```
-
-### 7d. Re-enter knowledge base text
-
-1. Log in to **wp-admin** on Azure
-2. Go to **SJIOC → Chat Settings**
-3. Paste the church PDF text → click **Save Knowledge Base**
-
-### 7e. Post-upload checklist
-
-- [ ] Theme uploaded & activated
-- [ ] `SQL_VEHICLE_REGISTRY.sql` run on Azure DB
-- [ ] Azure OpenAI credentials added to `wp-config.php`
-- [ ] Knowledge base text saved via wp-admin → SJIOC → Chat Settings
-- [ ] **Settings → Permalinks** → Save Changes (flush rewrite rules)
-- [ ] All 7 pages created with correct slugs and templates
-- [ ] Primary nav menu assigned
-- [ ] WP Mail SMTP configured (see Section 8)
+1. Open your church PDF → select all text → copy
+2. Go to **wp-admin → SJIOC → Chat Settings**
+3. Paste the text into the textarea → click **Save Knowledge Base**
 
 ---
 
-## 8. Email / Contact Form — Microsoft 365 (Outlook) SMTP
+## 10. Deploying Theme to Azure (Production Checklist)
 
-> The contact form routes emails to different people based on the subject selected:
+> The theme code travels with the zip — database content and credentials do not.
+
+### 10a. wp-config.php path on Azure
+
+| Environment | Path |
+|---|---|
+| Local (Docker) | `/var/www/html/wp-config.php` |
+| Azure App Service | `/home/site/wwwroot/wp-config.php` |
+
+Edit via **Azure Portal → App Service → SSH** or Kudu console:
+`https://<your-app>.scm.azurewebsites.net`
+
+### 10b. Add credentials to Azure wp-config.php
+
+```php
+define( 'SJIOC_AZURE_OAI_ENDPOINT', 'https://sjioc-openai.openai.azure.com/' );
+define( 'SJIOC_AZURE_OAI_KEY',      'paste-key-1-here' );
+define( 'SJIOC_AZURE_OAI_DEPLOY',   'gpt-4o' );
+
+define( 'SJIOC_SMTP_HOST', 'smtp.office365.com' );
+define( 'SJIOC_SMTP_USER', 'info@sjioc.org' );
+define( 'SJIOC_SMTP_PASS', 'your-password-or-app-password' );
+define( 'SJIOC_SMTP_PORT', 587 );
+```
+
+### 10c. Post-upload checklist
+
+- [ ] Theme zip uploaded & activated
+- [ ] **Settings → Permalinks → Save Changes** (flush rewrite rules)
+- [ ] All 7 pages created with correct slugs and templates (Section 3)
+- [ ] Primary nav menu assigned (Section 5)
+- [ ] `wp_sjioc_members` table created on Azure DB (Section 6a)
+- [ ] Member data imported via SJIOC → Import Members (Section 6b)
+- [ ] Events imported via SJIOC → Import Events (Section 7b)
+- [ ] Celebrations cache triggered via SJIOC → Celebrations → Run Now (Section 8a)
+- [ ] Azure OpenAI credentials added to `wp-config.php` (Section 9c)
+- [ ] Knowledge base text saved via SJIOC → Chat Settings (Section 9d)
+- [ ] SMTP credentials added to `wp-config.php` (Section 10b)
+- [ ] Contact form tested — email arrives in correct inbox (Section 11d)
+
+---
+
+## 11. Email / Contact Form — Microsoft 365 (Outlook) SMTP
+
+> The contact form routes emails based on the subject selected:
 > - **Contact the Vicar** → Vicar's email
 > - **Contact the Trustee** → Trustee's email
 > - **Contact the Secretary** → Secretary's email
 > - **Everything else** → General church email
 >
-> Each email address is configured in **wp-admin → Appearance → Customize → Church Information**.
+> Each address is configured in **wp-admin → Appearance → Customize → Church Information**.
 
-### 8a. Set individual routing emails in Customizer
+### 11a. Set routing emails in Customizer
 
 1. Go to **wp-admin → Appearance → Customize → Church Information**
-2. Fill in:
-   - **Vicar Email** — Father's personal/church email
-   - **Trustee Email** — Trustee's email
-   - **Secretary Email** — Secretary's email
+2. Fill in: Vicar Email, Trustee Email, Secretary Email
 3. Click **Publish**
 
-### 8b. Enable SMTP AUTH on the sending mailbox (Microsoft 365 Admin)
+### 11b. Enable SMTP AUTH on the sending mailbox (Microsoft 365 Admin)
 
 1. Go to **admin.microsoft.com → Users → Active Users**
 2. Click the church sending account (e.g. `info@sjioc.org`)
 3. Click **Mail tab → Manage email apps**
 4. Tick **Authenticated SMTP** ✓ → Save
 
-> **If MFA is enabled** — App Password is the only option for SMTP:
+> **If MFA is enabled** — use an App Password:
 > 1. Go to **myaccount.microsoft.com → Security → Advanced security options → App passwords**
 > 2. Create one labelled `WordPress SMTP` → copy the 16-character password
-> 3. Use that as `SJIOC_SMTP_PASS` below
+> 3. Use that as `SJIOC_SMTP_PASS`
 >
-> **If App passwords option is not visible** — tenant admin has disabled it. Two options:
->
-> **Option A — Ask admin to enable App Passwords:**
-> 1. Admin goes to **admin.microsoft.com → Users → Active Users**
-> 2. Click **Multi-factor authentication** (top menu) → select the user → **Service settings**
-> 3. Under App passwords → tick **Allow users to create app passwords to sign in to non-browser apps** ✓ → Save
->
-> **Option B — Use a dedicated shared mailbox (recommended):**
-> A shared mailbox has no MFA requirement and no licence cost.
-> 1. **admin.microsoft.com → Teams & groups → Shared mailboxes → Add a shared mailbox**
+> **Recommended alternative — Shared mailbox (no MFA, no licence cost):**
+> 1. **admin.microsoft.com → Teams & groups → Shared mailboxes → Add**
 > 2. Name: `WordPress Notifications`, Email: `noreply@sjioc.org`
-> 3. Once created → go to **Active Users** → find `noreply@sjioc.org` → **Mail tab → Manage email apps** → tick **Authenticated SMTP** ✓
-> 4. Set a password for the account → use that in `SJIOC_SMTP_PASS`
-> 5. No MFA, no App Password needed — cleanest long-term solution
+> 3. Enable **Authenticated SMTP** on the account → set a password → use in `SJIOC_SMTP_PASS`
 
-### 8c. Add SMTP credentials to wp-config.php
-
-Add these four lines **before** `/* That's all, stop editing! */`:
+### 11c. Add SMTP credentials to wp-config.php
 
 ```php
 define( 'SJIOC_SMTP_HOST', 'smtp.office365.com' );
@@ -232,12 +281,8 @@ define( 'SJIOC_SMTP_PASS', 'your-password-or-app-password' );
 define( 'SJIOC_SMTP_PORT', 587 );
 ```
 
-> No plugin needed — SMTP is configured directly in the theme via `phpmailer_init`.
-
-### 8d. Test the contact form
+### 11d. Test the contact form
 
 1. Visit `https://your-site.com/contact-us/`
-2. Fill in the form → select **Contact the Vicar** as subject → Submit
+2. Fill in the form → select **Contact the Vicar** → Submit
 3. Check the Vicar's inbox — confirm the email arrived
-
-> If it fails: re-check SMTP AUTH is enabled (step 8b) and the password/app password is correct.

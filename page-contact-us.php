@@ -39,15 +39,18 @@ get_header();
       </div>
 
       <!-- Map -->
-      <div class="map-placeholder">
-        <div>
-          <div style="font-size:2.2rem;margin-bottom:8px">📍</div>
-          <strong><?php echo esc_html(sjioc_address()); ?></strong><br>
-          <a href="<?php echo esc_url(sjioc_maps()); ?>" target="_blank" rel="noopener" style="color:var(--cr);font-size:.82rem;margin-top:8px;display:inline-block;font-weight:700">Open in Google Maps →</a>
+      <div style="margin-top:28px;border:1px solid var(--border);overflow:hidden">
+        <iframe
+          src="https://maps.google.com/maps?q=4400+State+Road,+Drexel+Hill,+PA+19026&t=&z=15&ie=UTF8&iwloc=&output=embed"
+          width="100%" height="240" style="border:0;display:block" loading="lazy"
+          allowfullscreen referrerpolicy="no-referrer-when-downgrade"
+          title="St. John's Indian Orthodox Church — 4400 State Road, Drexel Hill PA"></iframe>
+        <div style="padding:10px 14px;background:var(--ww);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:.82rem;color:var(--tl)"><?php echo esc_html(sjioc_address()); ?></span>
+          <a href="<?php echo esc_url(sjioc_maps()); ?>" target="_blank" rel="noopener"
+             style="font-size:.78rem;font-weight:700;color:var(--cr);white-space:nowrap;margin-left:12px">Open in Maps →</a>
         </div>
       </div>
-      <!-- Replace above with actual Google Maps iframe: -->
-      <!-- <iframe src="https://www.google.com/maps/embed?..." width="100%" height="220" style="border:0;" loading="lazy"></iframe> -->
     </div>
 
     <!-- Contact Form -->

@@ -13,11 +13,11 @@ function sjioc_register_events() {
             'menu_name'     => __('Events',        'sjioc'),
         ],
         'public'        => true,
-        'has_archive'   => true,
+        'has_archive'   => false,
         'menu_icon'     => 'dashicons-calendar-alt',
         'menu_position' => 5,
         'supports'      => ['title','editor','thumbnail','excerpt','custom-fields'],
-        'rewrite'       => ['slug' => 'events'],
+        'rewrite'       => ['slug' => 'event', 'with_front' => false],
         'show_in_rest'  => true,
     ]);
 }

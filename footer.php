@@ -1,3 +1,11 @@
+<?php
+// Load celebrations cache once — used for both the badge and the panel below
+$_sjioc_celeb       = get_option('sjioc_celebrations_cache', []);
+$_sjioc_bdays       = $_sjioc_celeb['birthdays']    ?? [];
+$_sjioc_annivs      = $_sjioc_celeb['anniversaries'] ?? [];
+$_sjioc_week_label  = $_sjioc_celeb['week_label']   ?? '';
+$_sjioc_celeb_total = count($_sjioc_bdays) + count($_sjioc_annivs);
+?>
 </main><!-- /#main-content -->
 
 <!-- ═══════════════════════════════════════════════
@@ -17,7 +25,7 @@
   <div class="wbar-tab" id="tab-celeb" role="button" tabindex="0" aria-controls="panel-celeb" aria-expanded="false" onclick="sjiocTogglePanel('celeb')" onkeydown="if(event.key==='Enter'||event.key===' ')sjiocTogglePanel('celeb')">
     <span class="wbar-icon" aria-hidden="true">🎂</span>
     <span class="wbar-label"><?php esc_html_e('Celebrations','sjioc'); ?></span>
-    <span class="wbar-badge" id="badge-celeb">3</span>
+    <span class="wbar-badge" id="badge-celeb"><?php echo $_sjioc_celeb_total ?: ''; ?></span>
   </div>
 
   <!-- Tab ③ Chat -->
@@ -137,84 +145,47 @@
       <button class="cel-tab" role="tab" onclick="sjiocFilterCeleb('anniv',this)">💍 <?php esc_html_e('Anniversaries','sjioc'); ?></button>
     </div>
 
-    <div id="celeb-list">
-      <?php
-      // Try WP posts first
-      $celebs = get_posts(['post_type'=>'sjioc_celeb','posts_per_page'=>20,'orderby'=>'meta_value','meta_key'=>'celeb_day','order'=>'ASC']);
-      if ($celebs) :
-        foreach ($celebs as $cel) :
-          $type = get_post_meta($cel->ID,'celeb_type',true);
-          $day  = get_post_meta($cel->ID,'celeb_day', true);
-          $mon  = get_post_meta($cel->ID,'celeb_mon', true);
-          $note = get_post_meta($cel->ID,'celeb_note',true);
-          $cls  = ($type==='anniv') ? 'anniv' : 'bday';
-          $icon = ($type==='anniv') ? '💍' : '🎂';
-      ?>
-      <div class="cel-row" data-t="<?php echo esc_attr($cls); ?>">
-        <div class="cel-badge <?php echo esc_attr($cls); ?>"><span class="cmon"><?php echo esc_html(strtoupper($mon)); ?></span><span class="cday"><?php echo esc_html($day); ?></span></div>
-        <div class="cel-info">
-          <span class="cel-type"><?php echo ($type==='anniv') ? 'Anniversary '.$icon : 'Birthday '.$icon; ?></span>
-          <h4><?php echo esc_html($cel->post_title); ?></h4>
-          <?php if($note): ?><p><?php echo esc_html($note); ?></p><?php endif; ?>
-        </div>
-        <button class="cel-wish" onclick="sjiocWishCeleb('<?php echo esc_attr($cel->post_title); ?>','<?php echo esc_attr($type); ?>')"><?php esc_html_e('Wish ✉','sjioc'); ?></button>
-      </div>
-      <?php endforeach; else:
-      // Static fallback celebrations
-      $celebs_static = [
-        ['MAY','7', 'bday', 'Latha Philip',            'Sunday School Ministry',   'bday'],
-        ['MAY','12','anniv','Thomas & Mary Philip',     '25th Wedding Anniversary', 'anniv'],
-        ['MAY','20','bday', 'George Varghese',          'Parish Member',            'bday'],
-        ['JUN','3', 'anniv','Mathew & Susan George',    '10th Wedding Anniversary', 'anniv'],
-        ['JUN','18','bday', 'Sosamma Thomas',           "Women's Fellowship",       'bday'],
-        ['JUL','4', 'bday', 'Philip Abraham',           'Parish Member',            'bday'],
-        ['JUL','22','anniv','Jacob & Annamma Cherian',  '15th Wedding Anniversary', 'anniv'],
-      ];
-      $cur_mon = '';
-      foreach ($celebs_static as $cel):
-        $mon = $cel[0]; $day = $cel[1]; $type = $cel[2];
-        $name = $cel[3]; $note = $cel[4]; $cls = $cel[5];
-        if ($mon !== $cur_mon) {
-          $cur_mon = $mon;
-          echo '<div class="cel-section-head">' . esc_html($mon) . ' 2026</div>';
-        }
-      ?>
-      <div class="cel-row" data-t="<?php echo esc_attr($cls); ?>">
-        <div class="cel-badge <?php echo esc_attr($cls); ?>">
-          <span class="cmon"><?php echo esc_html($mon); ?></span>
-          <span class="cday"><?php echo esc_html($day); ?></span>
-        </div>
-        <div class="cel-info">
-          <span class="cel-type"><?php echo ($cls==='anniv') ? 'Anniversary 💍' : 'Birthday 🎂'; ?></span>
-          <h4><?php echo esc_html($name); ?></h4>
-          <p><?php echo esc_html($note); ?></p>
-        </div>
-        <button class="cel-wish" onclick="sjiocWishCeleb('<?php echo esc_attr($name); ?>','<?php echo esc_attr($type); ?>')"><?php esc_html_e('Wish ✉','sjioc'); ?></button>
-      </div>
-      <?php endforeach; endif; ?>
-    </div>
+    <?php if ($_sjioc_week_label): ?>
+    <p style="padding:8px 16px 0;font-size:11px;color:var(--tl);text-align:center">
+      <?php echo esc_html($_sjioc_week_label); ?>
+    </p>
+    <?php endif; ?>
 
-    <!-- Add new entry -->
-    <button class="cel-add-btn" id="addToggle" onclick="sjiocToggleAddForm()">+ <?php esc_html_e('Add Birthday / Anniversary','sjioc'); ?></button>
-    <div class="cel-form" id="addForm">
-      <label><?php esc_html_e('Full Name','sjioc'); ?></label>
-      <input type="text" id="af-name" placeholder="<?php esc_attr_e('e.g. John Thomas','sjioc'); ?>">
-      <label><?php esc_html_e('Type','sjioc'); ?></label>
-      <select id="af-type">
-        <option value="bday">🎂 <?php esc_html_e('Birthday','sjioc'); ?></option>
-        <option value="anniv">💍 <?php esc_html_e('Wedding Anniversary','sjioc'); ?></option>
-      </select>
-      <label><?php esc_html_e('Date','sjioc'); ?></label>
-      <div class="cel-form-row">
-        <input type="number" id="af-day" placeholder="<?php esc_attr_e('Day (1–31)','sjioc'); ?>" min="1" max="31">
-        <select id="af-mon">
-          <?php
-          $months = ['JAN'=>'January','FEB'=>'February','MAR'=>'March','APR'=>'April','MAY'=>'May','JUN'=>'June','JUL'=>'July','AUG'=>'August','SEP'=>'September','OCT'=>'October','NOV'=>'November','DEC'=>'December'];
-          foreach ($months as $v => $l) echo "<option value=\"$v\">$l</option>";
-          ?>
-        </select>
-      </div>
-      <button class="cel-form-submit" onclick="sjiocAddCeleb()">💾 <?php esc_html_e('Save Entry','sjioc'); ?></button>
+    <div id="celeb-list">
+      <?php if ($_sjioc_bdays || $_sjioc_annivs): ?>
+
+        <?php foreach ($_sjioc_bdays as $cel): ?>
+        <div class="cel-row" data-t="bday">
+          <div class="cel-badge bday">
+            <span class="cmon"><?php echo esc_html($cel['month_name']); ?></span>
+            <span class="cday"><?php echo esc_html($cel['day']); ?></span>
+          </div>
+          <div class="cel-info">
+            <span class="cel-type">Birthday 🎂</span>
+            <h4><?php echo esc_html($cel['name']); ?></h4>
+          </div>
+        </div>
+        <?php endforeach; ?>
+
+        <?php foreach ($_sjioc_annivs as $cel): ?>
+        <div class="cel-row" data-t="anniv">
+          <div class="cel-badge anniv">
+            <span class="cmon"><?php echo esc_html($cel['month_name']); ?></span>
+            <span class="cday"><?php echo esc_html($cel['day']); ?></span>
+          </div>
+          <div class="cel-info">
+            <span class="cel-type">Anniversary 💍</span>
+            <h4><?php echo esc_html($cel['names']); ?></h4>
+          </div>
+        </div>
+        <?php endforeach; ?>
+
+      <?php else: ?>
+        <p style="padding:20px 16px;color:#888;text-align:center;font-size:13px">
+          No celebrations this week 🙏<br>
+          <span style="font-size:11px;color:var(--tl)">Cache refreshes every Sunday</span>
+        </p>
+      <?php endif; ?>
     </div>
   </div>
 </div>
