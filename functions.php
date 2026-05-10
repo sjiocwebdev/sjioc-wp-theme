@@ -16,3 +16,4 @@ require_once SJIOC_DIR . '/inc/post-types.php';
 require_once SJIOC_DIR . '/inc/contact-form.php';
 require_once SJIOC_DIR . '/inc/chat.php';
 require_once SJIOC_DIR . '/inc/admin.php';
+require_once SJIOC_DIR . '/inc/members.php';
