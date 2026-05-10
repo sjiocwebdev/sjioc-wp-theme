@@ -18,19 +18,25 @@
   <div class="nav-inner">
 
     <!-- Logo -->
-    <a href="<?php echo esc_url(home_url('/')); ?>" class="site-logo" rel="home" aria-label="<?php echo esc_attr(sjioc_name()); ?>">
-      <svg viewBox="0 0 46 46" xmlns="/wp-content/uploads/2026/04/logo.jpeg/2000/svg" aria-hidden="true" focusable="false">
-        <circle cx="23" cy="23" r="21" fill="none" stroke="#C9A84C" stroke-width="1.5"/>
-        <line x1="23" y1="4"  x2="23" y2="42" stroke="#C9A84C" stroke-width="2.6"/>
-        <line x1="8"  y1="15" x2="38" y2="15" stroke="#C9A84C" stroke-width="2.6"/>
-        <line x1="12" y1="25" x2="34" y2="25" stroke="#C9A84C" stroke-width="1.5"/>
-        <circle cx="23" cy="23" r="2.6" fill="#C9A84C" opacity=".5"/>
-      </svg>
-      <div>
+    <?php if (has_custom_logo()): ?>
+      <a href="<?php echo esc_url(home_url('/')); ?>" class="site-logo" rel="home" aria-label="<?php echo esc_attr(sjioc_name()); ?>">
+        <?php the_custom_logo(); ?>
         <span class="logo-name"><?php echo esc_html(sjioc_abbr()); ?></span>
-         <!-- <span class="logo-sub">Delaware Valley</span>-->
-      </div>
-    </a>
+      </a>
+    <?php else: ?>
+      <a href="<?php echo esc_url(home_url('/')); ?>" class="site-logo" rel="home" aria-label="<?php echo esc_attr(sjioc_name()); ?>">
+        <svg viewBox="0 0 46 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+          <circle cx="23" cy="23" r="21" fill="none" stroke="#C9A84C" stroke-width="1.5"/>
+          <line x1="23" y1="4"  x2="23" y2="42" stroke="#C9A84C" stroke-width="2.6"/>
+          <line x1="8"  y1="15" x2="38" y2="15" stroke="#C9A84C" stroke-width="2.6"/>
+          <line x1="12" y1="25" x2="34" y2="25" stroke="#C9A84C" stroke-width="1.5"/>
+          <circle cx="23" cy="23" r="2.6" fill="#C9A84C" opacity=".5"/>
+        </svg>
+        <div>
+          <span class="logo-name"><?php echo esc_html(sjioc_abbr()); ?></span>
+        </div>
+      </a>
+    <?php endif; ?>
 
     <!-- Hamburger (mobile) -->
     <button class="menu-toggle-btn" id="menuToggle" aria-controls="primary-menu" aria-expanded="false" aria-label="<?php esc_attr_e('Toggle navigation','sjioc'); ?>">
