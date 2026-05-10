@@ -1,4 +1,4 @@
-<?php
+ <?php
 /**
  * Template Name: Contact Us Page
  */
@@ -23,7 +23,7 @@ get_header();
       </div>
       <div class="cdet">
         <div class="cicon">📞</div>
-        <div><h4>Phone</h4><a href="tel:<?php echo preg_replace('/\D','',sjioc_phone()); ?>"><?php echo esc_html(sjioc_phone()); ?></a></div>
+        <div><h4>Phone</h4><a href="tel:<?php echo preg_replace('/\D/','',sjioc_phone()); ?>"><?php echo esc_html(sjioc_phone()); ?></a></div>
       </div>
       <div class="cdet">
         <div class="cicon">✉</div>
@@ -65,16 +65,29 @@ get_header();
         <label for="cf-subject">Subject</label>
         <select id="cf-subject">
           <option value="">Select a subject…</option>
-          <option>General Inquiry</option>
-          <option>Prayer Request</option>
-          <option>Baptism / Marriage</option>
-          <option>Ministry Information</option>
-          <option>Pastoral Counseling</option>
-          <option>Other</option>
+          <option value="Contact the Vicar">Contact the Vicar</option>
+          <option value="Contact the Trustee">Contact the Trustee</option>
+          <option value="Contact the Secretary">Contact the Secretary</option>
+          <option value="General Inquiry">General Inquiry</option>
+          <option value="Prayer Request">Prayer Request</option>
+          <option value="Baptism / Marriage">Baptism / Marriage</option>
+          <option value="Ministry Information">Ministry Information</option>
+          <option value="Pastoral Counseling">Pastoral Counseling</option>
+          <option value="Other">Other</option>
         </select>
       </div>
       <div class="form-group"><label for="cf-message">Message <span style="color:var(--cr)">*</span></label><textarea id="cf-message" placeholder="How can we help you?" required></textarea></div>
       <button class="form-submit" id="cf-submit" type="button" onclick="sjiocSubmitForm()">Send Message ✉</button>
+      <script>
+        (function () {
+          var map = { vicar: 'Contact the Vicar', trustee: 'Contact the Trustee', secretary: 'Contact the Secretary' };
+          var to  = new URLSearchParams(window.location.search).get('to');
+          if (to && map[to]) {
+            var sel = document.getElementById('cf-subject');
+            if (sel) sel.value = map[to];
+          }
+        })();
+      </script>
     </div>
 
   </div>

@@ -1,4 +1,4 @@
-    <?php
+<?php
 /**
  * SJIOC Delaware Valley — WordPress Theme Functions
  * St. John's Indian Orthodox Church of Delaware Valley
@@ -121,18 +121,104 @@ function sjioc_register_contacts() {
         'labels'        => [
             'name'          => __('Parish Directory', 'sjioc'),
             'singular_name' => __('Contact',          'sjioc'),
-            'add_new_item'  => __('Add Contact',       'sjioc'),
-            'menu_name'     => __('Directory',         'sjioc'),
+            'add_new_item'  => __('Add Contact',      'sjioc'),
+            'edit_item'     => __('Edit Contact',     'sjioc'),
+            'menu_name'     => __('Directory',        'sjioc'),
         ],
         'public'        => false,
         'show_ui'       => true,
         'menu_icon'     => 'dashicons-groups',
         'menu_position' => 7,
-        'supports'      => ['title','thumbnail','custom-fields'],
-        'show_in_rest'  => true,
+        'supports'      => ['title', 'thumbnail'],
+        'show_in_rest'  => false,
     ]);
 }
 add_action('init', 'sjioc_register_contacts');
+
+/* ─────────────────────────────────────
+   META BOX: Contact Details
+───────────────────────────────────── */
+add_action('add_meta_boxes', function () {
+    add_meta_box(
+        'sjioc_contact_details',
+        'Contact Details',
+        'sjioc_contact_meta_box_html',
+        'sjioc_contact',
+        'normal',
+        'high'
+    );
+});
+
+function sjioc_contact_meta_box_html($post) {
+    wp_nonce_field('sjioc_contact_save', 'sjioc_contact_nonce');
+    $role   = get_post_meta($post->ID, 'contact_role',   true);
+    $order  = get_post_meta($post->ID, 'contact_order',  true);
+    $pinned = get_post_meta($post->ID, 'contact_pinned', true);
+    $type   = get_post_meta($post->ID, 'contact_type',   true);
+    $types  = ['' => 'None (no contact button)', 'vicar' => 'Vicar / Father', 'trustee' => 'Trustee', 'secretary' => 'Secretary'];
+    ?>
+    <style>
+        #sjioc-cmb td { padding:6px 0; }
+        #sjioc-cmb input[type=text] { width:100%;max-width:400px; }
+        .sjioc-note { color:#666;font-style:italic;margin-left:6px; }
+    </style>
+    <table class="form-table" id="sjioc-cmb">
+        <tr>
+            <th><label for="contact_role">Role / Position</label></th>
+            <td><input type="text" id="contact_role" name="contact_role"
+                value="<?php echo esc_attr($role); ?>"
+                placeholder="e.g. Vicar, Secretary, Trustee, Youth Leader"></td>
+        </tr>
+        <tr>
+            <th><label for="contact_type">Contact Button</label></th>
+            <td>
+                <select id="contact_type" name="contact_type">
+                    <?php foreach ($types as $val => $label): ?>
+                    <option value="<?php echo esc_attr($val); ?>" <?php selected($type, $val); ?>>
+                        <?php echo esc_html($label); ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <span class="sjioc-note">Shows a contact button linking to the Contact Us page</span>
+            </td>
+        </tr>
+        <tr>
+            <th><label for="contact_order">Display Order</label></th>
+            <td>
+                <input type="number" id="contact_order" name="contact_order"
+                    value="<?php echo esc_attr($order ?: 10); ?>"
+                    min="1" max="99" style="width:70px">
+                <span class="sjioc-note">Lower = appears first &nbsp;(1 = Vicar at top)</span>
+            </td>
+        </tr>
+        <tr>
+            <th><label for="contact_pinned">Pin to Top</label></th>
+            <td>
+                <input type="checkbox" id="contact_pinned" name="contact_pinned"
+                    value="1" <?php checked($pinned, '1'); ?>>
+                <label for="contact_pinned">Always show first with gold highlight — use for Parish Vicar</label>
+            </td>
+        </tr>
+    </table>
+    <p style="margin-top:12px;color:#555">
+        <strong>Photo:</strong> Use <em>Featured Image</em> (right sidebar) to set the person's thumbnail.
+    </p>
+    <?php
+}
+
+add_action('save_post_sjioc_contact', function ($post_id) {
+    if (!isset($_POST['sjioc_contact_nonce']) ||
+        !wp_verify_nonce($_POST['sjioc_contact_nonce'], 'sjioc_contact_save')) return;
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    if (!current_user_can('edit_post', $post_id)) return;
+
+    update_post_meta($post_id, 'contact_role',   sanitize_text_field($_POST['contact_role']  ?? ''));
+    update_post_meta($post_id, 'contact_order',  absint($_POST['contact_order']  ?? 10));
+    update_post_meta($post_id, 'contact_pinned', isset($_POST['contact_pinned']) ? '1' : '0');
+    $allowed_types = ['', 'vicar', 'trustee', 'secretary'];
+    $type = in_array($_POST['contact_type'] ?? '', $allowed_types, true) ? $_POST['contact_type'] : '';
+    update_post_meta($post_id, 'contact_type', $type);
+});
 
 /* ─────────────────────────────────────
    CUSTOM POST TYPE: Celebrations
@@ -184,6 +270,10 @@ function sjioc_customizer($wp_customize) {
         'sjioc_facebook'     => ['label' => 'Facebook URL',         'default' => '#',                                                    'section' => 'sjioc_info'],
         'sjioc_youtube'      => ['label' => 'YouTube URL',          'default' => '#',                                                    'section' => 'sjioc_info'],
         'sjioc_maps_url'     => ['label' => 'Google Maps URL',      'default' => 'https://share.google/zTkW7YSgj41LVTwW9',              'section' => 'sjioc_info'],
+        // Contact Routing Emails
+        'sjioc_email_vicar'     => ['label' => 'Vicar Email',          'default' => 'info@sjioc.org',  'section' => 'sjioc_info'],
+        'sjioc_email_trustee'   => ['label' => 'Trustee Email',        'default' => 'info@sjioc.org',  'section' => 'sjioc_info'],
+        'sjioc_email_secretary' => ['label' => 'Secretary Email',      'default' => 'info@sjioc.org',  'section' => 'sjioc_info'],
         // Hero
         'sjioc_hero_title'   => ['label' => 'Hero Headline',        'default' => "St. John's Indian Orthodox Church",                   'section' => 'sjioc_hero'],
         'sjioc_hero_sub'     => ['label' => 'Hero Subtitle',        'default' => 'A Faith Community Rooted in Tradition · Delaware Valley', 'section' => 'sjioc_hero'],
@@ -221,6 +311,22 @@ function sjioc_widgets_init() {
 add_action('widgets_init', 'sjioc_widgets_init');
 
 /* ─────────────────────────────────────
+   SMTP — Outlook / Microsoft 365
+───────────────────────────────────── */
+add_action('phpmailer_init', function ($phpmailer) {
+    if (!defined('SJIOC_SMTP_HOST') || !defined('SJIOC_SMTP_USER') || !defined('SJIOC_SMTP_PASS')) return;
+    $phpmailer->isSMTP();
+    $phpmailer->Host       = SJIOC_SMTP_HOST;
+    $phpmailer->SMTPAuth   = true;
+    $phpmailer->Username   = SJIOC_SMTP_USER;
+    $phpmailer->Password   = SJIOC_SMTP_PASS;
+    $phpmailer->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+    $phpmailer->Port       = defined('SJIOC_SMTP_PORT') ? SJIOC_SMTP_PORT : 587;
+    $phpmailer->From       = SJIOC_SMTP_USER;
+    $phpmailer->FromName   = sjioc_name();
+});
+
+/* ─────────────────────────────────────
    AJAX: Contact Form
 ───────────────────────────────────── */
 function sjioc_handle_contact() {
@@ -241,7 +347,12 @@ function sjioc_handle_contact() {
         wp_send_json_error(['msg' => __('Please enter a valid email address.', 'sjioc')]);
     }
 
-    $to      = sjioc_get('sjioc_email', 'info@sjioc.org');
+    $routing = [
+        'Contact the Vicar'     => sjioc_get('sjioc_email_vicar',     'info@sjioc.org'),
+        'Contact the Trustee'   => sjioc_get('sjioc_email_trustee',   'info@sjioc.org'),
+        'Contact the Secretary' => sjioc_get('sjioc_email_secretary', 'info@sjioc.org'),
+    ];
+    $to      = $routing[$subject] ?? sjioc_get('sjioc_email', 'info@sjioc.org');
     $headers = ['Content-Type: text/html; charset=UTF-8', "Reply-To: {$email}"];
     $body    = "<p><strong>From:</strong> {$fname} {$lname}</p>
                 <p><strong>Email:</strong> {$email}</p>

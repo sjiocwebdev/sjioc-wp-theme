@@ -171,3 +171,73 @@ define( 'SJIOC_AZURE_OAI_DEPLOY',   'gpt-4o' );
 - [ ] **Settings → Permalinks** → Save Changes (flush rewrite rules)
 - [ ] All 7 pages created with correct slugs and templates
 - [ ] Primary nav menu assigned
+- [ ] WP Mail SMTP configured (see Section 8)
+
+---
+
+## 8. Email / Contact Form — Microsoft 365 (Outlook) SMTP
+
+> The contact form routes emails to different people based on the subject selected:
+> - **Contact the Vicar** → Vicar's email
+> - **Contact the Trustee** → Trustee's email
+> - **Contact the Secretary** → Secretary's email
+> - **Everything else** → General church email
+>
+> Each email address is configured in **wp-admin → Appearance → Customize → Church Information**.
+
+### 8a. Set individual routing emails in Customizer
+
+1. Go to **wp-admin → Appearance → Customize → Church Information**
+2. Fill in:
+   - **Vicar Email** — Father's personal/church email
+   - **Trustee Email** — Trustee's email
+   - **Secretary Email** — Secretary's email
+3. Click **Publish**
+
+### 8b. Enable SMTP AUTH on the sending mailbox (Microsoft 365 Admin)
+
+1. Go to **admin.microsoft.com → Users → Active Users**
+2. Click the church sending account (e.g. `info@sjioc.org`)
+3. Click **Mail tab → Manage email apps**
+4. Tick **Authenticated SMTP** ✓ → Save
+
+> **If MFA is enabled** — App Password is the only option for SMTP:
+> 1. Go to **myaccount.microsoft.com → Security → Advanced security options → App passwords**
+> 2. Create one labelled `WordPress SMTP` → copy the 16-character password
+> 3. Use that as `SJIOC_SMTP_PASS` below
+>
+> **If App passwords option is not visible** — tenant admin has disabled it. Two options:
+>
+> **Option A — Ask admin to enable App Passwords:**
+> 1. Admin goes to **admin.microsoft.com → Users → Active Users**
+> 2. Click **Multi-factor authentication** (top menu) → select the user → **Service settings**
+> 3. Under App passwords → tick **Allow users to create app passwords to sign in to non-browser apps** ✓ → Save
+>
+> **Option B — Use a dedicated shared mailbox (recommended):**
+> A shared mailbox has no MFA requirement and no licence cost.
+> 1. **admin.microsoft.com → Teams & groups → Shared mailboxes → Add a shared mailbox**
+> 2. Name: `WordPress Notifications`, Email: `noreply@sjioc.org`
+> 3. Once created → go to **Active Users** → find `noreply@sjioc.org` → **Mail tab → Manage email apps** → tick **Authenticated SMTP** ✓
+> 4. Set a password for the account → use that in `SJIOC_SMTP_PASS`
+> 5. No MFA, no App Password needed — cleanest long-term solution
+
+### 8c. Add SMTP credentials to wp-config.php
+
+Add these four lines **before** `/* That's all, stop editing! */`:
+
+```php
+define( 'SJIOC_SMTP_HOST', 'smtp.office365.com' );
+define( 'SJIOC_SMTP_USER', 'info@sjioc.org' );
+define( 'SJIOC_SMTP_PASS', 'your-password-or-app-password' );
+define( 'SJIOC_SMTP_PORT', 587 );
+```
+
+> No plugin needed — SMTP is configured directly in the theme via `phpmailer_init`.
+
+### 8d. Test the contact form
+
+1. Visit `https://your-site.com/contact-us/`
+2. Fill in the form → select **Contact the Vicar** as subject → Submit
+3. Check the Vicar's inbox — confirm the email arrived
+
+> If it fails: re-check SMTP AUTH is enabled (step 8b) and the password/app password is correct.

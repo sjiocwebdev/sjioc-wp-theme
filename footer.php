@@ -11,7 +11,8 @@
   <div class="wbar-tab" id="tab-contacts" role="button" tabindex="0" aria-controls="panel-contacts" aria-expanded="false" onclick="sjiocTogglePanel('contacts')" onkeydown="if(event.key==='Enter'||event.key===' ')sjiocTogglePanel('contacts')">
     <span class="wbar-icon" aria-hidden="true">👥</span>
     <span class="wbar-label"><?php esc_html_e('Contacts','sjioc'); ?></span>
-    <span class="wbar-badge" id="badge-contacts" aria-label="8 contacts">8</span>
+    <?php $contact_count = wp_count_posts('sjioc_contact')->publish; ?>
+    <span class="wbar-badge" id="badge-contacts" aria-label="<?php echo esc_attr($contact_count); ?> contacts"><?php echo esc_html($contact_count ?: ''); ?></span>
   </div>
 
   <!-- Tab ② Celebrations -->
@@ -60,56 +61,62 @@
     <input class="c-search" type="search" id="c-search" placeholder="🔍  <?php esc_attr_e('Search contacts…','sjioc'); ?>" oninput="sjiocFilterContacts(this.value)" aria-label="Search parish contacts">
     <div id="contacts-list">
       <?php
-      // Try WP query first; if no custom contacts exist, show static fallback
-      $contacts = get_posts(['post_type'=>'sjioc_contact','posts_per_page'=>20,'orderby'=>'title','order'=>'ASC']);
+      $contacts = get_posts([
+          'post_type'      => 'sjioc_contact',
+          'posts_per_page' => 30,
+          'meta_key'       => 'contact_order',
+          'orderby'        => 'meta_value_num',
+          'order'          => 'ASC',
+      ]);
+      // Pinned contacts first, then rest
+      usort($contacts, function($a, $b) {
+          $pa = get_post_meta($a->ID, 'contact_pinned', true);
+          $pb = get_post_meta($b->ID, 'contact_pinned', true);
+          if ($pa === $pb) return 0;
+          return $pa ? -1 : 1;
+      });
       if ($contacts) :
-        foreach ($contacts as $c) :
-          $phone = get_post_meta($c->ID,'contact_phone',true);
-          $email = get_post_meta($c->ID,'contact_email',true);
-          $role  = get_post_meta($c->ID,'contact_role', true);
-          $img   = get_the_post_thumbnail_url($c->ID,'sjioc-square');
-          $init  = strtoupper(substr($c->post_title,0,1));
+          foreach ($contacts as $c) :
+              $role   = get_post_meta($c->ID, 'contact_role',   true);
+              $type   = get_post_meta($c->ID, 'contact_type',   true);
+              $pinned = get_post_meta($c->ID, 'contact_pinned', true);
+              $img    = get_the_post_thumbnail_url($c->ID, 'sjioc-square');
+              $init   = strtoupper(substr($c->post_title, 0, 1));
+              $contact_url = $type ? esc_url(home_url('/contact-us/?to=' . $type)) : '';
       ?>
-      <div class="c-item" data-name="<?php echo esc_attr(strtolower($c->post_title.' '.$role)); ?>">
-        <div class="c-avatar"><?php if($img):?><img src="<?php echo esc_url($img);?>" alt="<?php echo esc_attr($c->post_title);?>"><?php else: echo esc_html($init); endif;?></div>
-        <div class="c-info"><h4><?php echo esc_html($c->post_title); ?></h4><p><?php echo esc_html($role); ?></p></div>
+      <div class="c-item" data-name="<?php echo esc_attr(strtolower($c->post_title . ' ' . $role)); ?>">
+        <div class="c-avatar<?php echo $pinned ? ' gold' : ''; ?>">
+          <?php if ($img): ?>
+            <img src="<?php echo esc_url($img); ?>" alt="<?php echo esc_attr($c->post_title); ?>">
+          <?php else: echo esc_html($init); endif; ?>
+        </div>
+        <div class="c-info">
+          <h4><?php echo esc_html($c->post_title); ?></h4>
+          <p><?php echo esc_html($role); ?></p>
+        </div>
         <div class="c-actions">
-          <?php if($phone):?><button class="c-btn" title="Call" onclick="window.location='tel:<?php echo esc_attr(preg_replace('/\D/','',$phone)); ?>'">📞</button><?php endif;?>
-          <?php if($email):?><button class="c-btn" title="Email" onclick="window.location='mailto:<?php echo esc_attr($email); ?>'">✉</button><?php endif;?>
+          <?php if ($contact_url): ?>
+            <button class="c-btn" title="<?php esc_attr_e('Contact','sjioc'); ?>"
+              onclick="window.location='<?php echo $contact_url; ?>'">✉</button>
+          <?php endif; ?>
         </div>
       </div>
-      <?php endforeach; else:
-      // Static fallback contacts ?>
-      <?php
-      $static = [
-        ['img'=>'https://sjioc.org/images/TojoBaby-1710825551.png','init'=>'TB','name'=>'Rev. Fr. Tojo Baby',     'role'=>'Vicar — SJIOC Delaware Valley','phone'=>'6108220033','email'=>'info@sjioc.org','gold'=>false],
-        ['img'=>'https://sjioc.org/images/image_f2df599c.png',     'init'=>'TJ','name'=>'Mr. Tijo Joseph',        'role'=>'Trustee',                         'phone'=>'',           'email'=>'',              'gold'=>true],
-        ['img'=>'https://sjioc.org/images/image_edb7e3d.png',      'init'=>'TC','name'=>'Mr. Tom Chacko',         'role'=>'Secretary',                       'phone'=>'',           'email'=>'',              'gold'=>false],
-        ['img'=>'',                                                  'init'=>'SS','name'=>'Sunday School Ministry', 'role'=>'Education Ministry',              'phone'=>'',           'email'=>'',              'gold'=>true],
-        ['img'=>'',                                                  'init'=>'WF','name'=>'Women\'s Fellowship',   'role'=>'Fellowship Ministry',             'phone'=>'',           'email'=>'',              'gold'=>false],
-        ['img'=>'',                                                  'init'=>'FC','name'=>'FOCUS Ministry',         'role'=>'Liturgical Choir',                'phone'=>'',           'email'=>'',              'gold'=>true],
-        ['img'=>'',                                                  'init'=>'MG','name'=>'MGOCSM Outreach',        'role'=>'Community Outreach',              'phone'=>'',           'email'=>'',              'gold'=>false],
-        ['img'=>'',                                                  'init'=>'🏛','name'=>'Parish Office',           'role'=>sjioc_phone().' · '.sjioc_email(), 'phone'=>'6108220033','email'=>'info@sjioc.org','gold'=>false],
-      ];
-      foreach ($static as $c):?>
-      <div class="c-item" data-name="<?php echo esc_attr(strtolower($c['name'].' '.$c['role'])); ?>">
-        <div class="c-avatar<?php echo $c['gold']?' gold':''; ?>">
-          <?php if($c['img']): ?>
-          <img src="<?php echo esc_url($c['img']); ?>" alt="<?php echo esc_attr($c['name']); ?>" onerror="this.parentNode.innerHTML='<?php echo esc_attr($c['init']); ?>'">
-          <?php else: echo esc_html($c['init']); endif; ?>
-        </div>
-        <div class="c-info"><h4><?php echo esc_html($c['name']); ?></h4><p><?php echo esc_html($c['role']); ?></p></div>
-        <div class="c-actions">
-          <?php if($c['phone']):?><button class="c-btn" title="<?php esc_attr_e('Call','sjioc'); ?>" onclick="window.location='tel:<?php echo esc_attr($c['phone']); ?>'">📞</button><?php endif; ?>
-          <?php if($c['email']):?><button class="c-btn" title="<?php esc_attr_e('Email','sjioc'); ?>" onclick="window.location='mailto:<?php echo esc_attr($c['email']); ?>'">✉</button><?php endif; ?>
-        </div>
-      </div>
-      <?php endforeach; endif; ?>
+      <?php endforeach;
+      else: ?>
+      <p style="padding:16px;color:#888;text-align:center;font-size:13px">
+        No contacts added yet.<br>
+        <?php if (current_user_can('manage_options')): ?>
+          <a href="<?php echo esc_url(admin_url('post-new.php?post_type=sjioc_contact')); ?>" style="color:var(--go)">+ Add first contact</a>
+        <?php endif; ?>
+      </p>
+      <?php endif; ?>
     </div>
   </div>
   <div class="panel-footer">
-    <a href="<?php echo esc_url(home_url('/contact-us/')); ?>" class="panel-footer-btn" style="text-align:center"><?php esc_html_e('Contact Page','sjioc'); ?></a>
-    <a href="tel:<?php echo preg_replace('/\D/','',sjioc_phone()); ?>" class="panel-footer-btn gold" style="text-align:center">📞 <?php esc_html_e('Call Now','sjioc'); ?></a>
+    <a href="<?php echo esc_url(home_url('/contact-us/')); ?>" class="panel-footer-btn" style="text-align:center"><?php esc_html_e('Contact Us','sjioc'); ?></a>
+    <?php if (current_user_can('manage_options')): ?>
+    <a href="<?php echo esc_url(admin_url('edit.php?post_type=sjioc_contact')); ?>" class="panel-footer-btn gold" style="text-align:center">⚙ <?php esc_html_e('Manage','sjioc'); ?></a>
+    <?php endif; ?>
   </div>
 </div>
 
