@@ -174,12 +174,13 @@ function sjioc_od_refresh_urls(string $token): int {
         if (!$url) continue;
 
         // Parse the actual expiry from the URL's se= (Signed Expiry) parameter.
-        // Fall back to 55 minutes if parsing fails.
+        // Microsoft controls the real lifetime — we just track it accurately.
+        // Fall back to 23 h if se= is absent (conservative but won't over-refresh).
         parse_str(parse_url($url, PHP_URL_QUERY) ?: '', $qs);
         $se      = $qs['se'] ?? '';
         $expires = $se
-            ? gmdate('Y-m-d H:i:s', strtotime($se) - 120)   // 2-min safety margin
-            : gmdate('Y-m-d H:i:s', time() + 55 * MINUTE_IN_SECONDS);
+            ? gmdate('Y-m-d H:i:s', strtotime($se) - 30)   // 30-sec safety margin only
+            : gmdate('Y-m-d H:i:s', time() + 23 * HOUR_IN_SECONDS);
 
         $wpdb->update(
             $table,
