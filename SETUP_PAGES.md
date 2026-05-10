@@ -220,6 +220,13 @@ define( 'SJIOC_SMTP_HOST', 'smtp.office365.com' );
 define( 'SJIOC_SMTP_USER', 'info@sjioc.org' );
 define( 'SJIOC_SMTP_PASS', 'your-password-or-app-password' );
 define( 'SJIOC_SMTP_PORT', 587 );
+
+define( 'SJIOC_AZURE_TENANT_ID',     '20d9fcc6-7f55-4bdc-9c36-444d81b0e453' );
+define( 'SJIOC_AZURE_CLIENT_ID',     'ba67b761-31d5-4aae-bee4-22b28dad3d5e' );
+define( 'SJIOC_AZURE_CLIENT_SECRET', 'your-client-secret-value' );
+define( 'SJIOC_SHAREPOINT_SITE_ID',  'ad254eaf-69cc-45b9-a429-7312749b8f00' );
+define( 'SJIOC_ONEDRIVE_DRIVE_ID',   'b!r04lrcxpuUWkKXMSdJuPAGCmKZ3hjtdDikK5Tq5W4vTW6Wlu2T83T5y3ZjNsmNXB' );
+define( 'SJIOC_ONEDRIVE_FOLDER_ID',  '01EO7JTQ2D6I7OJGDJKNHYXQCTOQ4ZTHES' );
 ```
 
 ### 10c. Post-upload checklist
@@ -236,6 +243,9 @@ define( 'SJIOC_SMTP_PORT', 587 );
 - [ ] Knowledge base text saved via SJIOC → Chat Settings (Section 9d)
 - [ ] SMTP credentials added to `wp-config.php` (Section 10b)
 - [ ] Contact form tested — email arrives in correct inbox (Section 11d)
+- [ ] OneDrive constants added to `wp-config.php` (Section 12d)
+- [ ] `wp_sjioc_photos` table created — re-activate theme or trigger via WP-CLI (Section 12f)
+- [ ] First OneDrive sync run via SJIOC → Photos → Sync Now (Section 12f)
 
 ---
 
@@ -286,3 +296,97 @@ define( 'SJIOC_SMTP_PORT', 587 );
 1. Visit `https://your-site.com/contact-us/`
 2. Fill in the form → select **Contact the Vicar** → Submit
 3. Check the Vicar's inbox — confirm the email arrived
+
+---
+
+## 12. OneDrive Photo Sync
+
+Photos are served directly from OneDrive via pre-authenticated download URLs stored in the database. No image files are copied to WordPress — only metadata and temporary URLs.
+
+### 12a. Create an Azure AD App Registration
+
+1. Go to **portal.azure.com → Azure Active Directory → App registrations → New registration**
+2. Name: `SJIOC WordPress` → Supported account types: **Single tenant** → Click **Register**
+3. Copy the **Application (client) ID** — this is `SJIOC_OD_CLIENT_ID`
+4. Copy the **Directory (tenant) ID** — this is `SJIOC_OD_TENANT_ID`
+5. Go to **Certificates & secrets → New client secret** → Description: `WP Sync` → Expires: 24 months → Add
+6. Copy the **Value** immediately (shown only once) — this is `SJIOC_OD_CLIENT_SECRET`
+
+### 12b. Grant API permission
+
+1. In the app registration, click **API permissions → Add a permission → Microsoft Graph → Application permissions**
+2. Search for `Files.Read.All` → tick it → click **Add permissions**
+3. Click **Grant admin consent for [your org]** → confirm
+
+### 12c. Find your Drive ID and Folder ID
+
+Use **[Graph Explorer](https://developer.microsoft.com/en-us/graph/graph-explorer)** (sign in with your Microsoft 365 account):
+
+**Get your Drive ID:**
+```
+GET https://graph.microsoft.com/v1.0/me/drive
+```
+Copy the `id` field from the response — this is `SJIOC_OD_DRIVE_ID`.
+
+> For a SharePoint document library drive, use:
+> `GET https://graph.microsoft.com/v1.0/sites/{site-id}/drives`
+> and pick the drive whose `name` matches your library.
+
+**Get your Folder ID:**
+```
+GET https://graph.microsoft.com/v1.0/me/drive/root:/SJIOC Photos
+```
+Copy the `id` field from the response — this is `SJIOC_OD_FOLDER_ID`.
+
+> Adjust `SJIOC Photos` to match the exact folder name in your OneDrive.
+
+### 12d. Add constants to wp-config.php
+
+Add these six lines **before** `/* That's all, stop editing! */`:
+
+```php
+define( 'SJIOC_AZURE_TENANT_ID',     '20d9fcc6-7f55-4bdc-9c36-444d81b0e453' );
+define( 'SJIOC_AZURE_CLIENT_ID',     'ba67b761-31d5-4aae-bee4-22b28dad3d5e' );
+define( 'SJIOC_AZURE_CLIENT_SECRET', 'your-client-secret-value' );  // from Azure Portal — Value column, not ID
+define( 'SJIOC_SHAREPOINT_SITE_ID',  'ad254eaf-69cc-45b9-a429-7312749b8f00' );
+define( 'SJIOC_ONEDRIVE_DRIVE_ID',   'b!r04lrcxpuUWkKXMSdJuPAGCmKZ3hjtdDikK5Tq5W4vTW6Wlu2T83T5y3ZjNsmNXB' );
+define( 'SJIOC_ONEDRIVE_FOLDER_ID',  '01EO7JTQ2D6I7OJGDJKNHYXQCTOQ4ZTHES' );
+```
+
+> ⚠️ **Client secret:** Azure Portal → App registrations → app → Certificates & secrets → copy the **Value** column (long random string ~40 chars), not the **ID** column (UUID). The value is only shown once at creation time.
+
+### 12e. Set up the OneDrive folder structure
+
+Create this layout inside the folder that `SJIOC_OD_FOLDER_ID` points to:
+
+```
+SJIOC Photos/
+├── Worship/
+│   └── Holy Qurbana 2025/
+├── Events/
+│   └── Parish Picnic 2025/
+├── Ministries/
+│   └── Sunday School/
+└── Community/
+    └── Fellowship 2025/
+```
+
+- **Top-level folders** map to gallery filter categories (worship · events · ministries · community)
+- **Sub-folders** become the album name shown in the gallery overlay
+- Supported image formats: `.jpg` `.jpeg` `.png` `.webp`
+
+### 12f. Run the first sync
+
+1. Re-activate the theme (Appearance → Themes → Activate) so WordPress creates the `wp_sjioc_photos` table and schedules the weekly cron
+2. Go to **wp-admin → SJIOC → Photos**
+3. Confirm the credentials notice shows ✅
+4. Click **Sync Now from OneDrive** — the first run does a full enumeration and may take 30–60 seconds depending on photo count
+5. Visit `https://your-site.com/photos/` — gallery should show your OneDrive photos
+
+### 12g. Automatic sync schedule
+
+The sync runs automatically every **Sunday at 12:01 AM** (site timezone). Each run:
+1. Refreshes all stored download URLs (they expire in ~1 hour — the weekly cron renews them all)
+2. Fetches only new/changed/deleted items via delta query — no full re-scan after the first run
+
+To check the schedule: install **WP Crontrol** and confirm `sjioc_od_sync_cron` is listed.

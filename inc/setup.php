@@ -204,7 +204,7 @@ function sjioc_footer_links() {
         home_url('/worship-services/') => 'Worship & Services',
         home_url('/ministries/')       => 'Ministries',
         home_url('/events/')           => 'Events',
-        home_url('/photos/')           => 'Photos',
+        home_url('/photos/')           => 'Parish Life',
         home_url('/contact-us/')       => 'Contact',
     ];
     echo '<ul>';
@@ -228,7 +228,7 @@ function sjioc_primary_nav_fallback() {
         home_url('/worship-services/') => 'Worship',
         home_url('/ministries/')       => 'Ministries',
         home_url('/events/')           => 'Events',
-        home_url('/photos/')           => 'Photos',
+        home_url('/photos/')           => 'Parish Life',
         home_url('/contact-us/')       => 'Contact',
     ];
     echo '<ul id="primary-menu">';

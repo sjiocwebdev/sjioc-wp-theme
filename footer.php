@@ -226,6 +226,13 @@ $_sjioc_celeb_total = count($_sjioc_bdays) + count($_sjioc_annivs);
 <!-- Toast notification -->
 <div class="site-toast" id="siteToast" role="alert" aria-live="assertive"></div>
 
+<!-- Back to top -->
+<button id="back-to-top" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <polyline points="18 15 12 9 6 15"></polyline>
+  </svg>
+</button>
+
 <?php wp_footer(); ?>
 </body>
 </html>

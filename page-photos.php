@@ -1,54 +1,96 @@
 <?php
 /**
- * Template Name: Photos / Gallery Page
+ * Template Name: Parish Life Page
  */
 get_header();
+
+global $wpdb;
+$table = $wpdb->prefix . 'sjioc_photos';
+
+$all_photos = $wpdb->get_results(
+    "SELECT * FROM {$table}
+     WHERE download_url IS NOT NULL AND download_url != ''
+     ORDER BY category, album, title"
+);
+
+// Build album map: cat → album → [thumb, count]
+$album_map  = [];
+$cats_found = [];
+foreach ($all_photos as $p) {
+    $cat   = $p->category ?: 'other';
+    $album = $p->album    ?: '';
+    if (!in_array($cat, $cats_found, true)) $cats_found[] = $cat;
+    if (!isset($album_map[$cat][$album])) {
+        $album_map[$cat][$album] = ['thumb' => $p->download_url, 'count' => 0];
+    }
+    $album_map[$cat][$album]['count']++;
+}
+
+$cat_labels  = ['worship' => 'Worship', 'events' => 'Events', 'ministries' => 'Ministries', 'community' => 'Community'];
+$sorted_cats = array_merge(
+    array_filter(array_keys($cat_labels), fn($k) => isset($album_map[$k])),
+    array_filter($cats_found, fn($c) => !isset($cat_labels[$c]))
+);
 ?>
-<div class="page-hero"><div class="container"><h1>Photos</h1><p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › Photos</p></div></div>
+<div class="page-hero"><div class="container"><h1>Parish Life</h1><p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › Parish Life</p></div></div>
 <div class="bg-cream"><div class="sec container">
   <div class="tc" style="margin-bottom:42px">
     <span class="stag">Our Parish Life</span>
-    <h2 class="stitle">Photo Gallery</h2>
+    <h2 class="stitle">SJIOC Gallery</h2>
     <div class="divider"></div>
-    <p class="slead">Glimpses of worship, fellowship, and community life at <?php echo esc_html(sjioc_abbr()); ?> Delaware Valley.</p>
+    <p class="slead">Glimpses of worship, fellowship, and community life at <?php echo esc_html(sjioc_abbr()); ?> — capturing the spirit of our parish family.</p>
   </div>
-  <div class="filter-bar" role="group" aria-label="Filter gallery">
-    <button class="filter-btn is-active" data-cat="all">All Photos</button>
-    <button class="filter-btn" data-cat="worship">Worship</button>
-    <button class="filter-btn" data-cat="events">Events</button>
-    <button class="filter-btn" data-cat="ministries">Ministries</button>
-    <button class="filter-btn" data-cat="community">Community</button>
+
+  <?php if ($album_map) : ?>
+
+  <!-- Level 1: Category tabs -->
+  <div class="filter-bar" role="group" aria-label="Filter by category" id="gal-cat-bar">
+    <button class="filter-btn is-active" onclick="galCat(this,'all')">All</button>
+    <?php foreach ($sorted_cats as $cat) : ?>
+    <button class="filter-btn" onclick="galCat(this,'<?php echo esc_attr($cat); ?>')">
+      <?php echo esc_html($cat_labels[$cat] ?? ucfirst($cat)); ?>
+    </button>
+    <?php endforeach; ?>
   </div>
-  <div class="gallery-grid" id="gallery-grid">
-    <?php
-    $gal_q = new WP_Query(['post_type'=>'sjioc_gallery','posts_per_page'=>18]);
-    if ($gal_q->have_posts()) :
-      while ($gal_q->have_posts()) : $gal_q->the_post();
-        $cat  = get_post_meta(get_the_ID(),'photo_category',true);
-        $full = get_the_post_thumbnail_url(get_the_ID(),'large');
-        $wide = get_post_meta(get_the_ID(),'gallery_wide',true) ? ' g-wide' : '';
-        $tall = get_post_meta(get_the_ID(),'gallery_tall',true) ? ' g-tall' : '';
-    ?>
-    <div class="gallery-item<?php echo esc_attr($wide.$tall); ?>" data-cat="<?php echo esc_attr($cat); ?>"
-         onclick="sjiocOpenLightbox('<?php echo esc_url($full); ?>','<?php echo esc_attr(get_the_title()); ?>')"
-         role="button" tabindex="0" aria-label="<?php echo esc_attr('View '.get_the_title()); ?>"
-         onkeydown="if(event.key==='Enter')sjiocOpenLightbox('<?php echo esc_url($full); ?>','<?php echo esc_attr(get_the_title()); ?>')">
-      <?php echo get_the_post_thumbnail(get_the_ID(),'sjioc-card',['loading'=>'lazy']); ?>
-      <div class="gallery-overlay"><span><?php the_title(); ?></span></div>
+
+  <!-- Level 2: Album grid -->
+  <div class="gal-album-grid" id="gal-albums">
+    <?php foreach ($sorted_cats as $cat) : ?>
+      <?php foreach ($album_map[$cat] as $album => $info) : ?>
+      <?php
+        $label      = $album ?: ucfirst($cat) . ' Photos';
+        $safe_cat   = esc_attr($cat);
+        $safe_album = esc_attr($album);
+      ?>
+      <div class="gal-album-card" data-cat="<?php echo $safe_cat; ?>"
+           role="button" tabindex="0"
+           aria-label="<?php echo esc_attr($label . ' — ' . $info['count'] . ' photos'); ?>"
+           onclick="galOpen('<?php echo $safe_cat; ?>','<?php echo $safe_album; ?>')"
+           onkeydown="if(event.key==='Enter')galOpen('<?php echo $safe_cat; ?>','<?php echo $safe_album; ?>')">
+        <img src="<?php echo esc_url($info['thumb']); ?>" alt="<?php echo esc_attr($label); ?>" loading="lazy">
+        <div class="gal-album-info">
+          <h4><?php echo esc_html($label); ?></h4>
+          <span><?php echo (int) $info['count']; ?> photo<?php echo $info['count'] !== 1 ? 's' : ''; ?></span>
+        </div>
+      </div>
+      <?php endforeach; ?>
+    <?php endforeach; ?>
+  </div>
+
+  <!-- Level 3: Photo grid (hidden until album clicked) -->
+  <div id="gal-photos" style="display:none">
+    <div class="gal-back">
+      <button class="btn btn-ol" onclick="galBack()">← Back to Albums</button>
+      <h3 id="gal-album-title"></h3>
     </div>
-    <?php endwhile; wp_reset_postdata();
-    else:
-      $imgs=[['https://images.unsplash.com/photo-1548625149-720754956904?w=1200&q=85','https://images.unsplash.com/photo-1548625149-720754956904?w=800&q=70','worship','Holy Qurbana','g-wide'],['https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&q=85','https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=500&q=70','ministries','Youth Ministry',''],['https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&q=85','https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=500&q=70','ministries','Sunday School',''],['https://images.unsplash.com/photo-1544535830-9df3f56fff6a?w=800&q=85','https://images.unsplash.com/photo-1544535830-9df3f56fff6a?w=500&q=70','events','Parish Fellowship','g-tall'],['https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=800&q=85','https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=500&q=70','ministries',"Women's Fellowship",''],['https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=800&q=85','https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=500&q=70','worship','FOCUS Choir',''],['https://images.unsplash.com/photo-1579545670417-69fb3b9085b1?w=1200&q=85','https://images.unsplash.com/photo-1579545670417-69fb3b9085b1?w=700&q=70','events','Feast Day Celebration','g-wide'],['https://images.unsplash.com/photo-1593113598332-cd288d649433?w=800&q=85','https://images.unsplash.com/photo-1593113598332-cd288d649433?w=500&q=70','community','Community Outreach',''],['https://images.unsplash.com/photo-1515162305285-0293e4767cc2?w=800&q=85','https://images.unsplash.com/photo-1515162305285-0293e4767cc2?w=500&q=70','community','Parish Picnic','']];
-      foreach ($imgs as $img): ?>
-    <div class="gallery-item<?php echo $img[4]?' '.$img[4]:''; ?>" data-cat="<?php echo esc_attr($img[2]); ?>"
-         onclick="sjiocOpenLightbox('<?php echo esc_url($img[0]); ?>','<?php echo esc_attr($img[3]); ?>')"
-         role="button" tabindex="0" aria-label="<?php echo esc_attr('View '.$img[3]); ?>"
-         onkeydown="if(event.key==='Enter')sjiocOpenLightbox('<?php echo esc_url($img[0]); ?>','<?php echo esc_attr($img[3]); ?>')">
-      <img src="<?php echo esc_url($img[1]); ?>" alt="<?php echo esc_attr($img[3]); ?>" loading="lazy">
-      <div class="gallery-overlay"><span><?php echo esc_html($img[3]); ?></span></div>
-    </div>
-    <?php endforeach; endif; ?>
+    <div class="gallery-grid" id="gal-grid"></div>
   </div>
+
+  <?php else : ?>
+  <!-- Fallback: no photos synced yet -->
+  <p class="slead tc">No photos yet — go to <strong>SJIOC → Photos → Sync Now</strong> to pull photos from OneDrive.</p>
+  <?php endif; ?>
+
 </div></div>
 
 <!-- Lightbox -->
@@ -56,5 +98,62 @@ get_header();
   <button class="lb-close" id="lb-close" onclick="sjiocCloseLightbox()" aria-label="Close photo viewer">&times;</button>
   <img id="lb-img" src="" alt="">
 </div>
+
+<script>
+var SJIOC_PHOTOS = <?php echo wp_json_encode(array_map(function ($p) {
+    return [
+        'cat'   => $p->category,
+        'album' => $p->album,
+        'url'   => $p->download_url,
+        'title' => $p->title ?: pathinfo($p->file_name, PATHINFO_FILENAME),
+    ];
+}, $all_photos)); ?>;
+
+function galCat(btn, cat) {
+    document.querySelectorAll('#gal-cat-bar .filter-btn').forEach(function(b) { b.classList.remove('is-active'); });
+    btn.classList.add('is-active');
+    document.querySelectorAll('.gal-album-card').forEach(function(card) {
+        card.style.display = (cat === 'all' || card.dataset.cat === cat) ? '' : 'none';
+    });
+}
+
+function galOpen(cat, album) {
+    var photos = SJIOC_PHOTOS.filter(function(p) { return p.cat === cat && p.album === album; });
+    var label  = album || (cat.charAt(0).toUpperCase() + cat.slice(1) + ' Photos');
+    document.getElementById('gal-album-title').textContent = label;
+    var grid = document.getElementById('gal-grid');
+    grid.innerHTML = photos.map(function(p) {
+        var esc = function(s){ return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); };
+        return '<div class="gallery-item" role="button" tabindex="0"'
+             + ' data-url="' + esc(p.url) + '" data-title="' + esc(p.title) + '"'
+             + ' aria-label="View ' + esc(p.title) + '">'
+             + '<img src="' + esc(p.url) + '" alt="' + esc(p.title) + '" loading="lazy">'
+             + '<div class="gallery-overlay"><span>' + esc(p.title) + '</span></div>'
+             + '</div>';
+    }).join('');
+    document.getElementById('gal-albums').style.display  = 'none';
+    document.getElementById('gal-cat-bar').style.display = 'none';
+    document.getElementById('gal-photos').style.display  = '';
+}
+
+// Event delegation for dynamically rendered photo grid
+document.addEventListener('click', function(e) {
+    var item = e.target.closest('#gal-grid .gallery-item');
+    if (!item) return;
+    sjiocOpenLightbox(item.dataset.url, item.dataset.title);
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    var item = e.target.closest('#gal-grid .gallery-item');
+    if (!item) return;
+    sjiocOpenLightbox(item.dataset.url, item.dataset.title);
+});
+
+function galBack() {
+    document.getElementById('gal-photos').style.display  = 'none';
+    document.getElementById('gal-albums').style.display  = '';
+    document.getElementById('gal-cat-bar').style.display = '';
+}
+</script>
 
 <?php sjioc_footer(); get_footer(); ?>

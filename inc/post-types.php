@@ -171,3 +171,179 @@ function sjioc_register_celebrations() {
     ]);
 }
 add_action('init', 'sjioc_register_celebrations');
+
+/* ─────────────────────────────────────
+   CPT: Ministries
+───────────────────────────────────── */
+function sjioc_register_ministries() {
+    register_post_type('sjioc_ministry', [
+        'labels'       => [
+            'name'          => __('Ministries',       'sjioc'),
+            'singular_name' => __('Ministry',         'sjioc'),
+            'add_new_item'  => __('Add New Ministry', 'sjioc'),
+            'edit_item'     => __('Edit Ministry',    'sjioc'),
+            'menu_name'     => __('Ministries',       'sjioc'),
+        ],
+        'public'       => false,
+        'show_ui'      => true,
+        'show_in_menu' => 'sjioc',
+        'supports'     => ['title', 'editor', 'thumbnail'],
+        'show_in_rest' => false,
+    ]);
+}
+add_action('init', 'sjioc_register_ministries');
+
+/* ─────────────────────────────────────
+   META BOX: Ministry Details
+───────────────────────────────────── */
+add_action('add_meta_boxes', function () {
+    add_meta_box(
+        'sjioc_ministry_details',
+        'Ministry Details',
+        'sjioc_ministry_meta_box_html',
+        'sjioc_ministry',
+        'normal',
+        'high'
+    );
+});
+
+function sjioc_ministry_meta_box_html($post) {
+    wp_nonce_field('sjioc_ministry_save', 'sjioc_ministry_nonce');
+    $tag        = get_post_meta($post->ID, 'ministry_tag',        true);
+    $activities = get_post_meta($post->ID, 'ministry_activities', true);
+    $album_cat  = get_post_meta($post->ID, 'ministry_album_cat',  true);
+    $album_name = get_post_meta($post->ID, 'ministry_album_name', true);
+    $order      = get_post_meta($post->ID, 'ministry_order',      true);
+    $roles_raw  = get_post_meta($post->ID, 'ministry_roles',      true) ?: '[]';
+    $roles      = json_decode($roles_raw, true) ?: [];
+    ?>
+    <style>
+        #sjioc-mmb td { padding:6px 0; }
+        #sjioc-mmb input[type=text], #sjioc-mmb textarea, #sjioc-mmb select { width:100%; max-width:480px; }
+        .sjioc-mmb-sep { margin-top:6px; padding:8px 0 2px; border-top:1px solid #e0e0e0;
+            font-weight:600; color:#555; font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+        .min-role-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+        .min-role-row .role-title { flex:0 0 180px; }
+        .min-role-row .role-name  { flex:1; }
+        .min-role-row .remove-role { flex:0 0 auto; }
+    </style>
+    <table class="form-table" id="sjioc-mmb">
+        <tr>
+            <th><label for="ministry_tag">Category Tag</label></th>
+            <td>
+                <input type="text" id="ministry_tag" name="ministry_tag"
+                    value="<?php echo esc_attr($tag); ?>"
+                    placeholder="e.g. Active Ministry, Education, Liturgical, Fellowship">
+                <p class="description">Short label shown on the card.</p>
+            </td>
+        </tr>
+        <tr>
+            <th><label for="ministry_order">Display Order</label></th>
+            <td>
+                <input type="number" id="ministry_order" name="ministry_order"
+                    value="<?php echo esc_attr($order ?: 10); ?>"
+                    min="1" max="99" style="width:70px">
+                <span style="color:#666;margin-left:6px;font-style:italic">Lower = appears first</span>
+            </td>
+        </tr>
+        <tr><td colspan="2"><p class="sjioc-mmb-sep">Introduction</p></td></tr>
+        <tr><td colspan="2">
+            <p class="description">Use the <strong>main content editor above</strong> for the ministry introduction shown in the popup.</p>
+        </td></tr>
+        <tr><td colspan="2"><p class="sjioc-mmb-sep">Activities</p></td></tr>
+        <tr>
+            <th><label for="ministry_activities">Activities / Programs</label></th>
+            <td><textarea id="ministry_activities" name="ministry_activities" rows="4"
+                placeholder="List the key activities, programs, and events this ministry runs…"><?php echo esc_textarea($activities); ?></textarea></td>
+        </tr>
+        <tr><td colspan="2"><p class="sjioc-mmb-sep">Leadership Roles</p></td></tr>
+        <tr>
+            <th>Roles</th>
+            <td>
+                <div id="ministry-roles-wrap">
+                    <?php foreach ($roles as $r): ?>
+                    <div class="min-role-row">
+                        <input type="text" class="role-title" name="ministry_roles_title[]"
+                            value="<?php echo esc_attr($r['role'] ?? ''); ?>"
+                            placeholder="Role (e.g. Secretary)">
+                        <input type="text" class="role-name" name="ministry_roles_name[]"
+                            value="<?php echo esc_attr($r['name'] ?? ''); ?>"
+                            placeholder="Person's full name">
+                        <button type="button" class="button remove-role"
+                            onclick="this.closest('.min-role-row').remove()">✕</button>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <button type="button" class="button" id="ministry-add-role" style="margin-top:4px">+ Add Role</button>
+                <p class="description" style="margin-top:6px">Add any roles: Secretary, Jt. Secretary, Treasurer, Youth Leader, etc.</p>
+            </td>
+        </tr>
+        <tr><td colspan="2"><p class="sjioc-mmb-sep">Parish Life Gallery Link</p></td></tr>
+        <tr>
+            <th><label for="ministry_album_cat">Album Category</label></th>
+            <td>
+                <select id="ministry_album_cat" name="ministry_album_cat" style="max-width:220px">
+                    <option value="">— No gallery link —</option>
+                    <?php foreach (['worship'=>'Worship','events'=>'Events','ministries'=>'Ministries','community'=>'Community'] as $val => $lbl): ?>
+                    <option value="<?php echo esc_attr($val); ?>" <?php selected($album_cat, $val); ?>><?php echo esc_html($lbl); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <th><label for="ministry_album_name">Album Name</label></th>
+            <td>
+                <input type="text" id="ministry_album_name" name="ministry_album_name"
+                    value="<?php echo esc_attr($album_name); ?>"
+                    placeholder="Exact album name as it appears in OneDrive (optional)">
+                <p class="description">If set, a "View Photos" button appears in the popup.</p>
+            </td>
+        </tr>
+    </table>
+    <p style="margin-top:12px;color:#555">
+        <strong>Cover Photo:</strong> Use <em>Featured Image</em> (right sidebar) for the ministry card image.
+    </p>
+    <script>
+    document.getElementById('ministry-add-role').addEventListener('click', function () {
+        var wrap = document.getElementById('ministry-roles-wrap');
+        var row  = document.createElement('div');
+        row.className = 'min-role-row';
+        row.innerHTML =
+            '<input type="text" class="role-title" name="ministry_roles_title[]" placeholder="Role (e.g. Secretary)" style="flex:0 0 180px">'
+          + '<input type="text" class="role-name"  name="ministry_roles_name[]"  placeholder="Person\'s full name" style="flex:1;margin-left:8px">'
+          + '<button type="button" class="button remove-role" style="margin-left:8px" onclick="this.closest(\'.min-role-row\').remove()">✕</button>';
+        wrap.appendChild(row);
+        row.querySelector('input').focus();
+    });
+    </script>
+    <?php
+}
+
+add_action('save_post_sjioc_ministry', function ($post_id) {
+    if (!isset($_POST['sjioc_ministry_nonce']) ||
+        !wp_verify_nonce($_POST['sjioc_ministry_nonce'], 'sjioc_ministry_save')) return;
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    if (!current_user_can('edit_post', $post_id)) return;
+
+    // Build roles array from parallel name/title inputs
+    $titles = array_map('sanitize_text_field', (array) ($_POST['ministry_roles_title'] ?? []));
+    $names  = array_map('sanitize_text_field', (array) ($_POST['ministry_roles_name']  ?? []));
+    $roles  = [];
+    $max    = max(count($titles), count($names));
+    for ($i = 0; $i < $max; $i++) {
+        $t = $titles[$i] ?? '';
+        $n = $names[$i]  ?? '';
+        if ($t !== '' || $n !== '') {
+            $roles[] = ['role' => $t, 'name' => $n];
+        }
+    }
+    update_post_meta($post_id, 'ministry_roles', wp_json_encode($roles));
+
+    update_post_meta($post_id, 'ministry_tag',        sanitize_text_field($_POST['ministry_tag']        ?? ''));
+    update_post_meta($post_id, 'ministry_album_name', sanitize_text_field($_POST['ministry_album_name'] ?? ''));
+    update_post_meta($post_id, 'ministry_activities', sanitize_textarea_field($_POST['ministry_activities'] ?? ''));
+    update_post_meta($post_id, 'ministry_order',      absint($_POST['ministry_order'] ?? 10));
+    $allowed_cats = ['', 'worship', 'events', 'ministries', 'community'];
+    $cat = in_array($_POST['ministry_album_cat'] ?? '', $allowed_cats, true) ? $_POST['ministry_album_cat'] : '';
+    update_post_meta($post_id, 'ministry_album_cat', $cat);
+});

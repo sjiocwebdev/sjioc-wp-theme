@@ -77,6 +77,191 @@ get_header();
       <p>Coordinates the administrative life of our parish, keeping our community organized and connected.</p>
     </div>
   </div>
+
+  <!-- Jt. Office Bearers -->
+  <div class="jt-bearers">
+    <div class="jt-pill"><span class="jt-role">Jt. Trustee</span><span class="jt-name">Mr. Subin John</span></div>
+    <div class="jt-pill"><span class="jt-role">Jt. Secretary</span><span class="jt-name">Mr. Lijo P. Saji</span></div>
+  </div>
+
+</div></div>
+
+<!-- Parish Committees -->
+<div class="bg-ww"><div class="sec container">
+  <div class="tc" style="margin-bottom:36px">
+    <span class="stag">Parish Governance</span>
+    <h2 class="stitle">Committees &amp; Organizations</h2>
+    <div class="divider"></div>
+    <p class="slead">The dedicated members who serve our parish community through administration, ministry, and outreach.</p>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="cmte-tabs" role="tablist">
+    <button class="cmte-tab is-active" role="tab" data-panel="cmte-admin">Parish Administration</button>
+    <button class="cmte-tab" role="tab" data-panel="cmte-spiritual">Spiritual Organizations</button>
+  </div>
+
+  <!-- ── Panel 1: Parish Administration ── -->
+  <div class="cmte-panel" id="cmte-admin">
+
+    <!-- Managing Committee -->
+    <div class="acc-item is-open">
+      <button class="acc-header" aria-expanded="true">
+        <span>Managing Committee</span><span class="acc-chevron">&#8964;</span>
+      </button>
+      <div class="acc-body">
+        <ul class="acc-grid">
+          <li>Jinoy Reji</li>
+          <li>Glee Joseph Abraham</li>
+          <li>Kuriakose John</li>
+          <li>Kuruvilla Abraham</li>
+          <li>Mathew Kurian</li>
+          <li>Thomas Thommen</li>
+          <li>Varughese George (Pinto)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Auditors & Association -->
+    <div class="acc-item">
+      <button class="acc-header" aria-expanded="false">
+        <span>Auditors &amp; Association Members</span><span class="acc-chevron">&#8964;</span>
+      </button>
+      <div class="acc-body" style="display:none">
+        <p class="acc-sub-label">Auditors</p>
+        <ul class="acc-grid">
+          <li>Alex Manappallil Joy</li>
+          <li>Joseph George</li>
+        </ul>
+        <p class="acc-sub-label" style="margin-top:16px">Association Members</p>
+        <ul class="acc-role-list">
+          <li><span class="acc-role">Malankara Association</span><span class="acc-name">George Mathew</span></li>
+          <li><span class="acc-role">Diocese Association</span><span class="acc-name">Vargheese Baby</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Event Coordinators -->
+    <div class="acc-item">
+      <button class="acc-header" aria-expanded="false">
+        <span>Event Coordinators</span><span class="acc-chevron">&#8964;</span>
+      </button>
+      <div class="acc-body" style="display:none">
+        <ul class="acc-role-list">
+          <li><span class="acc-role">Prayer Meeting</span><span class="acc-name">Agi Bensen</span></li>
+          <li><span class="acc-role">Christmas</span><span class="acc-name">Ninan J. Poovathoor, Varughese George (Pinto)</span></li>
+          <li><span class="acc-role">Picnic</span><span class="acc-name">Kuruvilla Abraham, Jijoy Reji</span></li>
+          <li><span class="acc-role">Perunnal &amp; Reception</span><span class="acc-name">Letha Varghese, Shibu Thomas</span></li>
+          <li><span class="acc-role">Family Day</span><span class="acc-name">Kuriakose John, Letha Varghese</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Ecumenical -->
+    <div class="acc-item">
+      <button class="acc-header" aria-expanded="false">
+        <span>Ecumenical Members</span><span class="acc-chevron">&#8964;</span>
+      </button>
+      <div class="acc-body" style="display:none">
+        <ul class="acc-grid">
+          <li>George Mathew</li>
+          <li>Vargheese Baby</li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /cmte-admin -->
+
+  <!-- ── Panel 2: Spiritual Organizations ── -->
+  <div class="cmte-panel" id="cmte-spiritual" style="display:none">
+
+    <!-- Sunday School -->
+    <div class="acc-item is-open">
+      <button class="acc-header" aria-expanded="true">
+        <span>Sunday School</span><span class="acc-chevron">&#8964;</span>
+      </button>
+      <div class="acc-body">
+        <ul class="acc-role-list">
+          <li><span class="acc-role">Principal</span><span class="acc-name">Glee Joseph Abraham</span></li>
+          <li><span class="acc-role">Vice Principal</span><span class="acc-name">Ambily Abraham</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- MMVS -->
+    <div class="acc-item">
+      <button class="acc-header" aria-expanded="false">
+        <span>MMVS</span><span class="acc-chevron">&#8964;</span>
+      </button>
+      <div class="acc-body" style="display:none">
+        <ul class="acc-role-list">
+          <li><span class="acc-role">Treasurer</span><span class="acc-name">Suja Monzy</span></li>
+          <li><span class="acc-role">Secretary</span><span class="acc-name">Elizabeth Chacko</span></li>
+          <li><span class="acc-role">Joint Secretary</span><span class="acc-name">Tina Biju</span></li>
+          <li><span class="acc-role">Diocesan Delegate</span><span class="acc-name">Annamma Varghese</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- MGOCSM -->
+    <div class="acc-item">
+      <button class="acc-header" aria-expanded="false">
+        <span>MGOCSM</span><span class="acc-chevron">&#8964;</span>
+      </button>
+      <div class="acc-body" style="display:none">
+        <ul class="acc-role-list">
+          <li><span class="acc-role">Treasurer</span><span class="acc-name">Nikhil Joseph</span></li>
+          <li><span class="acc-role">Secretary</span><span class="acc-name">Ruben Varghese</span></li>
+          <li><span class="acc-role">Joint Secretary</span><span class="acc-name">Jonathan Jins</span></li>
+          <li><span class="acc-role">Area Representative</span><span class="acc-name">William Pothen</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- FOCUS -->
+    <div class="acc-item">
+      <button class="acc-header" aria-expanded="false">
+        <span>FOCUS</span><span class="acc-chevron">&#8964;</span>
+      </button>
+      <div class="acc-body" style="display:none">
+        <ul class="acc-role-list">
+          <li><span class="acc-role">Treasurer</span><span class="acc-name">Cherian Sabu Kulangara</span></li>
+          <li><span class="acc-role">Secretary</span><span class="acc-name">Saju Thomas</span></li>
+          <li><span class="acc-role">Joint Secretary</span><span class="acc-name">Roshan George</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- GROW -->
+    <div class="acc-item">
+      <button class="acc-header" aria-expanded="false">
+        <span>GROW</span><span class="acc-chevron">&#8964;</span>
+      </button>
+      <div class="acc-body" style="display:none">
+        <ul class="acc-role-list">
+          <li><span class="acc-role">Treasurer</span><span class="acc-name">Abiya Raju</span></li>
+          <li><span class="acc-role">Secretary</span><span class="acc-name">Divya Joseph</span></li>
+          <li><span class="acc-role">Joint Secretary</span><span class="acc-name">Terrina Daniel</span></li>
+          <li><span class="acc-role">Area Representative</span><span class="acc-name">Agi Bensen</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Men's Forum -->
+    <div class="acc-item">
+      <button class="acc-header" aria-expanded="false">
+        <span>Men's Forum</span><span class="acc-chevron">&#8964;</span>
+      </button>
+      <div class="acc-body" style="display:none">
+        <ul class="acc-role-list">
+          <li><span class="acc-role">Secretary</span><span class="acc-name">Daniel P. George</span></li>
+          <li><span class="acc-role">Jt. Secretary</span><span class="acc-name">Sujoy Abraham</span></li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /cmte-spiritual -->
+
 </div></div>
 
 <!-- Timeline -->
@@ -93,4 +278,195 @@ get_header();
   </div>
 </div></div>
 </article>
+<style>
+/* ── Jt. Office Bearers ── */
+.jt-bearers {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+.jt-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ww);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--go);
+  padding: 10px 20px;
+  border-radius: 2px;
+}
+.jt-role {
+  font-size: .67rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--go);
+}
+.jt-name {
+  font-size: .88rem;
+  font-weight: 600;
+  color: var(--cr);
+}
+
+/* ── Committee Tabs ── */
+.cmte-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 32px;
+  border-bottom: 2px solid #e5e7eb;
+}
+.cmte-tab {
+  padding: 11px 32px;
+  font-size: .84rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--tl);
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: color .2s, border-color .2s;
+}
+.cmte-tab:hover   { color: var(--go); }
+.cmte-tab.is-active { color: var(--go); border-bottom-color: var(--go); }
+
+/* ── Accordion ── */
+.acc-item {
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.acc-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: var(--ww);
+  border: none;
+  cursor: pointer;
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--cr);
+  text-align: left;
+  transition: background .18s;
+}
+.acc-header:hover { background: #fdf6e8; }
+.acc-item.is-open .acc-header { background: #fdf6e8; border-bottom: 1px solid var(--border); }
+.acc-chevron {
+  font-size: 1.2rem;
+  color: var(--go);
+  transition: transform .25s;
+  flex-shrink: 0;
+}
+.acc-item.is-open .acc-chevron { transform: rotate(180deg); }
+
+.acc-body {
+  padding: 20px;
+  background: #fff;
+  animation: accFade .2s ease;
+}
+@keyframes accFade { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* Member name grid */
+.acc-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 16px;
+  margin: 0; padding: 0;
+}
+.acc-grid li {
+  font-size: .87rem;
+  color: var(--tm);
+  padding: 6px 10px;
+  background: var(--ww);
+  border-left: 2px solid var(--go);
+}
+@media (max-width: 640px) { .acc-grid { grid-template-columns: 1fr 1fr; } }
+
+/* Role + name rows */
+.acc-role-list {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.acc-role-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0ece4;
+}
+.acc-role-list li:last-child { border-bottom: none; }
+.acc-role {
+  font-size: .67rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--go);
+  min-width: 140px;
+  flex-shrink: 0;
+}
+.acc-name {
+  font-size: .88rem;
+  color: var(--tm);
+}
+.acc-sub-label {
+  font-size: .67rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #999;
+  margin: 0 0 8px;
+}
+</style>
+
+<script>
+(function () {
+  // ── Tab switching ─────────────────────────────────
+  document.querySelectorAll('.cmte-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      document.querySelectorAll('.cmte-tab').forEach(function (t) { t.classList.remove('is-active'); });
+      document.querySelectorAll('.cmte-panel').forEach(function (p) { p.style.display = 'none'; });
+      this.classList.add('is-active');
+      var panel = document.getElementById(this.dataset.panel);
+      if (panel) panel.style.display = '';
+    });
+  });
+
+  // ── Accordion ────────────────────────────────────
+  document.querySelectorAll('.acc-header').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var item = this.closest('.acc-item');
+      var body = item.querySelector('.acc-body');
+      var open = item.classList.contains('is-open');
+
+      // Close all in same panel
+      var panel = item.closest('.cmte-panel');
+      panel.querySelectorAll('.acc-item').forEach(function (i) {
+        i.classList.remove('is-open');
+        i.querySelector('.acc-header').setAttribute('aria-expanded', 'false');
+        i.querySelector('.acc-body').style.display = 'none';
+      });
+
+      // Toggle clicked
+      if (!open) {
+        item.classList.add('is-open');
+        btn.setAttribute('aria-expanded', 'true');
+        body.style.display = '';
+      }
+    });
+  });
+})();
+</script>
+
 <?php sjioc_footer(); get_footer(); ?>

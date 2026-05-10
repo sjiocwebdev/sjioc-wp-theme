@@ -7,31 +7,31 @@ defined('ABSPATH') || exit;
 function sjioc_admin_menu() {
     add_menu_page(
         'SJIOC Settings', 'SJIOC', 'manage_options',
-        'sjioc-chat', 'sjioc_chat_settings_page',
+        'sjioc', 'sjioc_chat_settings_page',
         'dashicons-church', 58
     );
     add_submenu_page(
-        'sjioc-chat', 'Chat & Knowledge Base', 'Chat Settings',
-        'manage_options', 'sjioc-chat', 'sjioc_chat_settings_page'
+        'sjioc', 'Chat & Knowledge Base', 'Chat Settings',
+        'manage_options', 'sjioc', 'sjioc_chat_settings_page'
     );
     add_submenu_page(
-        'sjioc-chat', 'Celebrations Cache', 'Celebrations',
+        'sjioc', 'Celebrations Cache', 'Celebrations',
         'manage_options', 'sjioc-celebrations', 'sjioc_celebrations_admin_page'
     );
     add_submenu_page(
-        'sjioc-chat', 'Parish Members', 'Members',
+        'sjioc', 'Parish Members', 'Members',
         'manage_options', 'sjioc-members', 'sjioc_members_admin_page'
     );
     add_submenu_page(
-        'sjioc-chat', 'Import Members', 'Import Members',
+        'sjioc', 'Import Members', 'Import Members',
         'manage_options', 'sjioc-import', 'sjioc_import_page'
     );
     add_submenu_page(
-        'sjioc-chat', 'Events Calendar', 'Events',
+        'sjioc', 'Events Calendar', 'Events',
         'manage_options', 'sjioc-events', 'sjioc_events_admin_page'
     );
     add_submenu_page(
-        'sjioc-chat', 'Import Events', 'Import Events',
+        'sjioc', 'Import Events', 'Import Events',
         'manage_options', 'sjioc-import-events', 'sjioc_import_events_page'
     );
     // Hidden page — edit form not shown in sidebar nav
