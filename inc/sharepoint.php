@@ -53,20 +53,32 @@ add_action('after_switch_theme', 'sjioc_od_create_table');
 
 /* ── Cron ────────────────────────────────────────────── */
 add_action('after_switch_theme', function () {
+    // Weekly full delta sync (new photos, removals)
     if (!wp_next_scheduled('sjioc_od_sync_cron')) {
         $tz   = new DateTimeZone(wp_timezone_string() ?: 'UTC');
         $next = new DateTime('next sunday 00:01', $tz);
         $next->setTimezone(new DateTimeZone('UTC'));
         wp_schedule_event($next->getTimestamp(), 'sjioc_weekly', 'sjioc_od_sync_cron');
     }
+    // Hourly URL refresh — keeps download_urls alive (they expire ~1 h from Graph API)
+    if (!wp_next_scheduled('sjioc_od_refresh_cron')) {
+        wp_schedule_event(time() + 300, 'hourly', 'sjioc_od_refresh_cron');
+    }
 });
 
 add_action('switch_theme', function () {
-    $ts = wp_next_scheduled('sjioc_od_sync_cron');
-    if ($ts) wp_unschedule_event($ts, 'sjioc_od_sync_cron');
+    foreach (['sjioc_od_sync_cron', 'sjioc_od_refresh_cron'] as $hook) {
+        $ts = wp_next_scheduled($hook);
+        if ($ts) wp_unschedule_event($ts, $hook);
+    }
 });
 
 add_action('sjioc_od_sync_cron', 'sjioc_od_sync');
+
+add_action('sjioc_od_refresh_cron', function () {
+    $token = sjioc_od_get_token();
+    if ($token) sjioc_od_refresh_urls($token);
+});
 
 /* ── Admin menu (self-registered) ────────────────────── */
 add_action('admin_menu', function () {
@@ -137,10 +149,11 @@ function sjioc_od_refresh_urls(string $token): int {
     global $wpdb;
     $table = $wpdb->prefix . 'sjioc_photos';
 
+    // Refresh URLs that are missing or expiring within 20 minutes
     $rows = $wpdb->get_results(
         "SELECT id, od_drive_id, od_item_id FROM {$table}
          WHERE download_url IS NULL OR download_url = ''
-            OR url_expires IS NULL OR url_expires <= DATE_ADD(NOW(), INTERVAL 2 HOUR)"
+            OR url_expires IS NULL OR url_expires <= DATE_ADD(NOW(), INTERVAL 20 MINUTE)"
     );
 
     $refreshed = 0;
@@ -160,12 +173,17 @@ function sjioc_od_refresh_urls(string $token): int {
         $url  = $data['@microsoft.graph.downloadUrl'] ?? '';
         if (!$url) continue;
 
+        // Parse the actual expiry from the URL's se= (Signed Expiry) parameter.
+        // Fall back to 55 minutes if parsing fails.
+        parse_str(parse_url($url, PHP_URL_QUERY) ?: '', $qs);
+        $se      = $qs['se'] ?? '';
+        $expires = $se
+            ? gmdate('Y-m-d H:i:s', strtotime($se) - 120)   // 2-min safety margin
+            : gmdate('Y-m-d H:i:s', time() + 55 * MINUTE_IN_SECONDS);
+
         $wpdb->update(
             $table,
-            [
-                'download_url' => $url,
-                'url_expires'  => gmdate('Y-m-d H:i:s', time() + 55 * MINUTE_IN_SECONDS),
-            ],
+            ['download_url' => $url, 'url_expires' => $expires],
             ['id' => (int) $row->id]
         );
         $refreshed++;

@@ -10,6 +10,7 @@ $table = $wpdb->prefix . 'sjioc_photos';
 $all_photos = $wpdb->get_results(
     "SELECT * FROM {$table}
      WHERE download_url IS NOT NULL AND download_url != ''
+       AND url_expires IS NOT NULL AND url_expires > NOW()
      ORDER BY category, album, title"
 );
 
