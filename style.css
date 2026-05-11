@@ -207,7 +207,57 @@ input, textarea, select { font-family:'Lato', sans-serif; }
   #primary-menu > li > a { padding:13px 18px; border-bottom:1px solid rgba(201,168,76,.1); }
   .menu-toggle-btn { display:flex; }
   .nav-phone-chip { display:none; }
+
+  /* Mobile submenu */
+  #primary-menu .sub-menu {
+    display:none; flex-direction:column; gap:0;
+    background:rgba(0,0,0,.18); padding:0;
+  }
+  #primary-menu .menu-item-has-children.is-open > .sub-menu { display:flex; }
+  #primary-menu .sub-menu li a {
+    padding:11px 18px 11px 32px; font-size:.7rem;
+    border-bottom:1px solid rgba(201,168,76,.07);
+    color:rgba(255,255,255,.72);
+  }
+  #primary-menu .sub-menu li a:hover { color:var(--go); }
+  /* Arrow indicator for mobile */
+  #primary-menu .menu-item-has-children > a::after {
+    content:'›'; margin-left:6px; transition:transform .2s; display:inline-block;
+  }
+  #primary-menu .menu-item-has-children.is-open > a::after { transform:rotate(90deg); }
 }
+
+/* ─── Desktop dropdown ─── */
+#primary-menu .menu-item-has-children { position:relative; }
+#primary-menu .menu-item-has-children > a::after {
+  content:'▾'; font-size:.55rem; margin-left:4px; vertical-align:middle;
+  opacity:.6; transition:opacity .2s;
+}
+#primary-menu .menu-item-has-children:hover > a::after { opacity:1; }
+
+#primary-menu .sub-menu {
+  position:absolute; top:calc(100% + 6px); left:0;
+  background:var(--cr-dk); list-style:none; margin:0; padding:6px 0;
+  min-width:200px; border-top:2px solid var(--go);
+  box-shadow:0 8px 28px rgba(0,0,0,.35); border-radius:0 0 4px 4px;
+  opacity:0; visibility:hidden; transform:translateY(-6px);
+  transition:opacity .22s ease, transform .22s ease, visibility .22s;
+  z-index:900;
+}
+#primary-menu .menu-item-has-children:hover > .sub-menu,
+#primary-menu .menu-item-has-children:focus-within > .sub-menu {
+  opacity:1; visibility:visible; transform:translateY(0);
+}
+#primary-menu .sub-menu li a {
+  display:block; padding:9px 20px; color:rgba(255,255,255,.82);
+  font-size:.7rem; font-weight:600; letter-spacing:.07em;
+  text-transform:uppercase; white-space:nowrap;
+  border-bottom:1px solid rgba(201,168,76,.1);
+  transition:background .15s, color .15s;
+}
+#primary-menu .sub-menu li:last-child a { border-bottom:none; }
+#primary-menu .sub-menu li a:hover { background:rgba(201,168,76,.12); color:var(--go); }
+#primary-menu .sub-menu li.current-menu-item > a { color:var(--go); }
 
 /* ═══════════════════════════════════════════════════
    FLASH NEWS — Sticky Ribbon + Modal + Card Grid

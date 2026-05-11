@@ -44,6 +44,24 @@
     <button class="menu-toggle-btn" id="menuToggle" aria-controls="primary-menu" aria-expanded="false" aria-label="<?php esc_attr_e('Toggle navigation','sjioc'); ?>">
       <span></span><span></span><span></span>
     </button>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // Mobile: tap on a parent item toggles its submenu instead of navigating
+      var isMobile = function () { return window.innerWidth <= 860; };
+      document.querySelectorAll('#primary-menu .menu-item-has-children > a').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          if (!isMobile()) return;
+          var li = a.parentElement;
+          var already = li.classList.contains('is-open');
+          // close all siblings
+          li.parentElement.querySelectorAll('.menu-item-has-children.is-open').forEach(function (o) {
+            o.classList.remove('is-open');
+          });
+          if (!already) { li.classList.add('is-open'); e.preventDefault(); }
+        });
+      });
+    });
+    </script>
 
     <!-- Primary Nav -->
     <?php

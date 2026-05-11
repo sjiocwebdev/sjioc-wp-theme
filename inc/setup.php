@@ -222,19 +222,48 @@ function sjioc_default_nav() {
    FALLBACK PRIMARY NAV
 ───────────────────────────────────── */
 function sjioc_primary_nav_fallback() {
+    $current = get_permalink();
+    $about   = home_url('/about-us/');
+
     $pages = [
         home_url('/')                  => 'Home',
-        home_url('/about-us/')         => 'About',
+        $about                         => 'About',
         home_url('/worship-services/') => 'Worship',
         home_url('/ministries/')       => 'Ministries',
         home_url('/events/')           => 'Events',
         home_url('/photos/')           => 'Parish Life',
         home_url('/contact-us/')       => 'Contact',
     ];
+
+    $about_children = [
+        $about . '#our-story'   => 'Our Story',
+        $about . '#core-values' => 'Core Values',
+        $about . '#leadership'  => 'Leadership',
+        $about . '#committees'  => 'Committees',
+        $about . '#history'     => 'Our History',
+    ];
+
     echo '<ul id="primary-menu">';
     foreach ($pages as $url => $label) {
-        $cls = (get_permalink() === $url) ? ' class="current_page_item"' : '';
-        echo '<li' . $cls . '><a href="' . esc_url($url) . '">' . esc_html($label) . '</a></li>';
+        $is_about   = ($url === $about);
+        $is_current = ($current === $url);
+        $cls = [];
+        if ($is_current) $cls[] = 'current_page_item';
+        if ($is_about)   $cls[] = 'menu-item-has-children';
+        $attr = $cls ? ' class="' . implode(' ', $cls) . '"' : '';
+
+        echo '<li' . $attr . '>';
+        echo '<a href="' . esc_url($url) . '">' . esc_html($label) . '</a>';
+
+        if ($is_about) {
+            echo '<ul class="sub-menu">';
+            foreach ($about_children as $curl => $clabel) {
+                echo '<li><a href="' . esc_url($curl) . '">' . esc_html($clabel) . '</a></li>';
+            }
+            echo '</ul>';
+        }
+
+        echo '</li>';
     }
     echo '</ul>';
 }

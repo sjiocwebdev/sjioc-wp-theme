@@ -38,7 +38,7 @@ get_header();
 </div></div>
 
 <!-- Values Band -->
-<section class="times-band" aria-labelledby="values-heading">
+<section id="core-values" class="times-band" aria-labelledby="values-heading">
   <div class="container" style="position:relative">
     <h2 id="values-heading">Our Core Values</h2>
     <div class="divider"></div>
@@ -55,7 +55,7 @@ get_header();
 </section>
 
 <!-- Leadership -->
-<div class="bg-cream"><div class="sec container tc">
+<div id="leadership" class="bg-cream"><div class="sec container tc">
   <span class="stag">Meet the Team</span>
   <h2 class="stitle">Our Leadership</h2>
   <div class="divider"></div>
@@ -87,7 +87,7 @@ get_header();
 </div></div>
 
 <!-- Parish Committees -->
-<div class="bg-ww"><div class="sec container">
+<div id="committees" class="bg-ww"><div class="sec container">
   <div class="tc" style="margin-bottom:36px">
     <span class="stag">Parish Governance</span>
     <h2 class="stitle">Committees &amp; Organizations</h2>
@@ -265,7 +265,7 @@ get_header();
 </div></div>
 
 <!-- Timeline -->
-<div class="bg-ww"><div class="sec container tc">
+<div id="history" class="bg-ww"><div class="sec container tc">
   <span class="stag">Our History</span>
   <h2 class="stitle">Parish Milestones</h2>
   <div class="divider"></div>
