@@ -91,10 +91,11 @@ if ($announcements):
   <div class="container">
 
     <!-- Featured Card -->
-    <div class="ann-featured">
+    <div class="ann-featured<?php echo $has_img ? '' : ' ann-featured-noimg'; ?>">
       <?php if ($has_img): ?>
-      <div class="ann-featured-photo" style="background-image:url('<?php echo esc_url($gi['img']); ?>')"></div>
-      <div class="ann-featured-photo-overlay"></div>
+      <div class="ann-featured-img">
+        <img src="<?php echo esc_url($gi['img']); ?>" alt="<?php echo esc_attr($gi['text']); ?>">
+      </div>
       <?php endif; ?>
       <div class="ann-featured-content">
         <span class="ann-featured-badge">
@@ -102,7 +103,7 @@ if ($announcements):
         </span>
         <h2 class="ann-featured-title"><?php echo esc_html($gi['text']); ?></h2>
         <?php if ($gi['message']): ?>
-        <p class="ann-featured-msg"><?php echo esc_html($gi['message']); ?></p>
+        <div class="ann-featured-msg"><?php echo wp_kses_post($gi['message']); ?></div>
         <?php endif; ?>
         <?php if ($gi['link']): ?>
         <a href="<?php echo esc_url($gi['link']); ?>" class="btn btn-ol" style="margin-top:20px">Learn More →</a>
@@ -159,7 +160,7 @@ if ($announcements):
         var it = items[cur];
         document.getElementById('ann-modal-badge').textContent  = (icons[it.type]||'') + ' ' + (labels[it.type]||'');
         document.getElementById('ann-modal-title').textContent  = it.text;
-        document.getElementById('ann-modal-body').innerHTML     = it.message ? '<p>'+esc(it.message)+'</p>' : '';
+        document.getElementById('ann-modal-body').innerHTML     = it.message || '';
         var footer = document.getElementById('ann-modal-footer');
         footer.innerHTML = it.link
           ? '<a href="'+esc(it.link)+'" class="btn btn-cr">Learn More →</a>' : '';

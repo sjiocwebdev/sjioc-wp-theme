@@ -244,10 +244,20 @@ function sjioc_announcement_meta_box_html($post) {
             </td>
         </tr>
         <tr>
-            <th><label for="ann_message">Body Text</label></th>
+            <th><label>Body Text</label></th>
             <td>
-                <textarea name="ann_message" id="ann_message" rows="4"
-                    placeholder="Full message — shown in the modal (ribbon types) or on the featured card (card grid types). Leave blank if not needed."><?php echo esc_textarea($message); ?></textarea>
+                <?php wp_editor($message, 'ann_message', [
+                    'textarea_name' => 'ann_message',
+                    'textarea_rows' => 6,
+                    'media_buttons' => false,
+                    'teeny'         => false,
+                    'quicktags'     => false,
+                    'tinymce'       => [
+                        'toolbar1' => 'bold,italic,underline,bullist,numlist,indent,outdent,link,removeformat',
+                        'toolbar2' => '',
+                    ],
+                ]); ?>
+                <p class="description">Shown in the modal (ribbon types) or on the featured card (card grid types). Leave blank if not needed.</p>
             </td>
         </tr>
         <tr>
@@ -321,7 +331,7 @@ add_action('save_post_sjioc_announcement', function ($post_id) {
     $allowed = ['info', 'urgent', 'sad', 'rental', 'event'];
     $type    = in_array($_POST['ann_type'] ?? '', $allowed, true) ? $_POST['ann_type'] : 'info';
     update_post_meta($post_id, 'ann_type',    $type);
-    update_post_meta($post_id, 'ann_message', sanitize_textarea_field($_POST['ann_message'] ?? ''));
+    update_post_meta($post_id, 'ann_message', wp_kses_post(wp_unslash($_POST['ann_message'] ?? '')));
     update_post_meta($post_id, 'ann_start',   sanitize_text_field($_POST['ann_start']  ?? ''));
     update_post_meta($post_id, 'ann_expiry',  sanitize_text_field($_POST['ann_expiry'] ?? ''));
     update_post_meta($post_id, 'ann_link',    esc_url_raw($_POST['ann_link'] ?? ''));
