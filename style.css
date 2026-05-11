@@ -29,7 +29,7 @@ Tags:        church, orthodox, religious, responsive, custom-menu, featured-imag
   --tm:      #3D2B1A;
   --tl:      #6B5744;
   --border:  rgba(201,168,76,.26);
-  --navh:    70px;
+  --navh:    90px;
   --wgth:    56px;
   --shadow:  0 8px 40px rgba(0,0,0,.13);
   --ease:    all .28s ease;
@@ -138,12 +138,12 @@ input, textarea, select { font-family:'Lato', sans-serif; }
 
 /* Logo */
 .site-logo { display:flex; align-items:center; gap:11px; flex-shrink:0; }
-.site-logo svg { width:46px; height:46px; flex-shrink:0; }
+.site-logo svg { width:75px; height:75px; flex-shrink:0; }
 .custom-logo-link { display:flex; align-items:center; }
-.custom-logo { height:46px; width:auto; object-fit:contain; flex-shrink:0; display:block; }
+.custom-logo { height:75px; width:auto; object-fit:contain; flex-shrink:0; display:block; }
 @media (max-width:480px) {
-  .custom-logo { height:36px; }
-  .site-logo svg { width:36px; height:36px; }
+  .custom-logo { height:54px; }
+  .site-logo svg { width:54px; height:54px; }
   .site-logo { gap:8px; }
 }
 .logo-name {
