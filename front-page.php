@@ -37,97 +37,178 @@ $announcements = array_filter($all_ann, function($a) use ($today) {
 });
 
 if ($announcements):
-    $high   = []; // urgent / sad → card
-    $low    = []; // info / event / rental → ticker
+    $ribbon_items = []; // info / event / rental → sticky ribbon + modal
+    $grid_items   = []; // urgent / sad → featured card + support grid
     foreach ($announcements as $a) {
         $type = get_post_meta($a->ID, 'ann_type', true) ?: 'info';
-        $item = ['text'=>$a->post_title,'type'=>$type,'link'=>get_post_meta($a->ID,'ann_link',true),'id'=>$a->ID];
-        if (in_array($type, ['urgent','sad'], true)) $high[] = $item;
-        else $low[] = $item;
+        $item = [
+            'id'      => $a->ID,
+            'text'    => $a->post_title,
+            'type'    => $type,
+            'message' => get_post_meta($a->ID, 'ann_message', true),
+            'link'    => get_post_meta($a->ID, 'ann_link',    true),
+            'img'     => get_the_post_thumbnail_url($a->ID, 'large') ?: '',
+            'cards'   => json_decode(get_post_meta($a->ID, 'ann_support_cards', true) ?: '[]', true) ?: [],
+        ];
+        if (in_array($type, ['urgent','sad'], true)) $grid_items[]   = $item;
+        else                                          $ribbon_items[] = $item;
     }
-
-    // Dismissal key changes whenever the set of announcements changes
-    $all_ids    = array_column(array_merge($high,$low), 'id');
-    $dismiss_key = 'sjioc_flash_' . md5(implode(',', $all_ids));
-
-    $type_labels = ['info'=>'Info','urgent'=>'Urgent','sad'=>'Notice','rental'=>'Facility','event'=>'Event'];
+    $type_labels = ['info'=>'Info','urgent'=>'Urgent Notice','sad'=>'With Sympathy','rental'=>'Facility','event'=>'Event'];
     $type_icons  = ['info'=>'📢','urgent'=>'🔔','sad'=>'🕯️','rental'=>'🏛️','event'=>'📅'];
+    $ribbon_key  = 'sjioc_ribbon_' . md5(implode(',', array_column($ribbon_items, 'id')));
 ?>
 
-<?php if ($high): foreach ($high as $hitem): ?>
-<div class="ann-card ann-card-<?php echo esc_attr($hitem['type']); ?>" data-key="<?php echo esc_attr($dismiss_key.'-'.$hitem['id']); ?>">
-  <div class="container">
-    <div class="ann-card-inner">
-      <span class="ann-card-icon"><?php echo $type_icons[$hitem['type']] ?? '📢'; ?></span>
-      <div class="ann-card-body">
-        <span class="ann-card-label"><?php echo esc_html($type_labels[$hitem['type']] ?? 'Notice'); ?></span>
-        <p class="ann-card-text"><?php echo esc_html($hitem['text']); ?></p>
-        <?php if ($hitem['link']): ?>
-        <a href="<?php echo esc_url($hitem['link']); ?>" class="ann-card-link">Learn More →</a>
-        <?php endif; ?>
-      </div>
-      <button class="ann-card-dismiss" aria-label="Dismiss">✕</button>
-    </div>
+<?php /* ── Sticky Ribbon (info / event / rental) ── */ ?>
+<?php if ($ribbon_items): ?>
+<div class="ann-ribbon" id="ann-ribbon" data-key="<?php echo esc_attr($ribbon_key); ?>">
+  <div class="ann-ribbon-inner">
+    <span class="ann-ribbon-pulse"></span>
+    <span class="ann-ribbon-msg" id="ann-ribbon-msg"></span>
+    <button class="ann-ribbon-read" id="ann-ribbon-read" aria-haspopup="dialog">Read More</button>
+    <button class="ann-ribbon-close" id="ann-ribbon-close" aria-label="Dismiss">✕</button>
   </div>
 </div>
-<?php endforeach; endif; ?>
 
-<?php if ($low): ?>
-<div class="flash-ticker" id="flash-ticker" data-key="<?php echo esc_attr($dismiss_key.'-ticker'); ?>">
-  <div class="flash-ticker-inner">
-    <span class="flash-ticker-label" id="flash-ticker-label"></span>
-    <div class="flash-text-wrap"><p class="flash-text" id="flash-text"></p></div>
-    <button class="flash-dismiss" id="flash-dismiss" aria-label="Dismiss">✕</button>
+<!-- Ribbon Modal -->
+<div class="ann-modal" id="ann-modal" role="dialog" aria-modal="true" aria-labelledby="ann-modal-title">
+  <div class="ann-modal-box">
+    <button class="ann-modal-close" id="ann-modal-close" aria-label="Close">✕</button>
+    <span class="ann-modal-badge" id="ann-modal-badge"></span>
+    <h3 class="ann-modal-title" id="ann-modal-title"></h3>
+    <div class="ann-modal-body" id="ann-modal-body"></div>
+    <div class="ann-modal-footer" id="ann-modal-footer"></div>
   </div>
 </div>
 <?php endif; ?>
 
+<?php /* ── Card Grid (urgent / sad) ── */ ?>
+<?php foreach ($grid_items as $gi):
+    $grid_key = 'sjioc_grid_' . $gi['id'];
+    $has_img  = !empty($gi['img']);
+    $has_cards = !empty(array_filter($gi['cards'], fn($c) => !empty($c['title'])));
+?>
+<div class="ann-grid-block ann-grid-<?php echo esc_attr($gi['type']); ?>" data-key="<?php echo esc_attr($grid_key); ?>">
+  <div class="container">
+
+    <!-- Featured Card -->
+    <div class="ann-featured">
+      <?php if ($has_img): ?>
+      <div class="ann-featured-photo" style="background-image:url('<?php echo esc_url($gi['img']); ?>')"></div>
+      <div class="ann-featured-photo-overlay"></div>
+      <?php endif; ?>
+      <div class="ann-featured-content">
+        <span class="ann-featured-badge">
+          <?php echo $type_icons[$gi['type']] ?? ''; ?> <?php echo esc_html($type_labels[$gi['type']] ?? ''); ?>
+        </span>
+        <h2 class="ann-featured-title"><?php echo esc_html($gi['text']); ?></h2>
+        <?php if ($gi['message']): ?>
+        <p class="ann-featured-msg"><?php echo esc_html($gi['message']); ?></p>
+        <?php endif; ?>
+        <?php if ($gi['link']): ?>
+        <a href="<?php echo esc_url($gi['link']); ?>" class="btn btn-ol" style="margin-top:20px">Learn More →</a>
+        <?php endif; ?>
+      </div>
+      <button class="ann-grid-dismiss" data-key="<?php echo esc_attr($grid_key); ?>" aria-label="Dismiss">✕</button>
+    </div>
+
+    <!-- Support Cards Grid -->
+    <?php if ($has_cards):
+      $visible_cards = array_filter($gi['cards'], fn($c) => !empty($c['title']));
+    ?>
+    <div class="ann-support-grid ann-sup-<?php echo esc_attr($gi['type']); ?>">
+      <?php foreach ($visible_cards as $sc): ?>
+      <div class="ann-support-card">
+        <h4 class="ann-sup-title"><?php echo esc_html($sc['title']); ?></h4>
+        <?php if ($sc['desc']): ?><p class="ann-sup-desc"><?php echo esc_html($sc['desc']); ?></p><?php endif; ?>
+        <?php if ($sc['link']): ?><a href="<?php echo esc_url($sc['link']); ?>" class="ann-sup-link">Details →</a><?php endif; ?>
+      </div>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
+  </div>
+</div>
+<?php endforeach; ?>
+
 <script>
 (function(){
-  // Announcement cards — dismiss individually
-  document.querySelectorAll('.ann-card').forEach(function(card) {
-    var key = card.dataset.key;
-    if (localStorage.getItem(key)) { card.style.display='none'; return; }
-    card.querySelector('.ann-card-dismiss').addEventListener('click', function(){
-      localStorage.setItem(key, '1');
-      card.classList.add('ann-card-hiding');
-      setTimeout(function(){ card.style.display='none'; }, 350);
-    });
-  });
+  function esc(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
-  // Ticker — cycle through low-priority items
-  var ticker = document.getElementById('flash-ticker');
-  if (ticker) {
-    var key = ticker.dataset.key;
-    if (localStorage.getItem(key)) { ticker.style.display='none'; }
+  /* ── Sticky Ribbon ── */
+  var ribbon = document.getElementById('ann-ribbon');
+  if (ribbon) {
+    var rkey = ribbon.dataset.key;
+    if (localStorage.getItem(rkey)) { ribbon.style.display='none'; }
     else {
-      var items  = <?php echo wp_json_encode(array_values($low)); ?>;
-      var labels = <?php echo wp_json_encode($type_labels); ?>;
-      var label  = document.getElementById('flash-ticker-label');
-      var text   = document.getElementById('flash-text');
-      var idx    = 0;
-      function showItem(i) {
-        var it = items[i % items.length];
-        label.className  = 'flash-ticker-label flash-lbl-' + it.type;
-        label.textContent = labels[it.type] || 'News';
-        text.style.opacity = 0;
-        setTimeout(function(){
-          text.innerHTML = it.link
-            ? '<a href="'+_esc(it.link)+'">'+_esc(it.text)+'</a>'
-            : _esc(it.text);
-          text.style.opacity = 1;
-        }, 200);
+      var items   = <?php echo wp_json_encode(array_values($ribbon_items)); ?>;
+      var labels  = <?php echo wp_json_encode($type_labels); ?>;
+      var icons   = <?php echo wp_json_encode($type_icons); ?>;
+      var msgEl   = document.getElementById('ann-ribbon-msg');
+      var idx = 0, cur = 0;
+
+      function setRibbon(i) {
+        cur = i % items.length;
+        var it = items[cur];
+        msgEl.innerHTML = '<span class="ann-ribbon-icon">' + (icons[it.type]||'📢') + '</span> ' + esc(it.text);
       }
-      showItem(0);
-      if (items.length > 1) setInterval(function(){ idx++; showItem(idx); }, 5000);
-      document.getElementById('flash-dismiss').addEventListener('click', function(){
-        localStorage.setItem(key, '1');
-        ticker.classList.add('flash-hiding');
-        setTimeout(function(){ ticker.style.display='none'; }, 350);
+      setRibbon(0);
+      if (items.length > 1) setInterval(function(){ idx++; setRibbon(idx); }, 6000);
+
+      // Read More → open modal
+      document.getElementById('ann-ribbon-read').addEventListener('click', function() {
+        var it = items[cur];
+        document.getElementById('ann-modal-badge').textContent  = (icons[it.type]||'') + ' ' + (labels[it.type]||'');
+        document.getElementById('ann-modal-title').textContent  = it.text;
+        document.getElementById('ann-modal-body').innerHTML     = it.message ? '<p>'+esc(it.message)+'</p>' : '';
+        var footer = document.getElementById('ann-modal-footer');
+        footer.innerHTML = it.link
+          ? '<a href="'+esc(it.link)+'" class="btn btn-cr">Learn More →</a>' : '';
+        document.getElementById('ann-modal').classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+        document.getElementById('ann-modal-close').focus();
+      });
+
+      // Close modal
+      function closeModal() {
+        document.getElementById('ann-modal').classList.remove('is-open');
+        document.body.style.overflow = '';
+      }
+      document.getElementById('ann-modal-close').addEventListener('click', closeModal);
+      document.getElementById('ann-modal').addEventListener('click', function(e){
+        if (e.target === this) closeModal();
+      });
+
+      // Dismiss ribbon
+      document.getElementById('ann-ribbon-close').addEventListener('click', function(){
+        localStorage.setItem(rkey, '1');
+        ribbon.classList.add('ann-ribbon-hiding');
+        setTimeout(function(){ ribbon.style.display='none'; }, 350);
       });
     }
   }
-  function _esc(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+  /* ── Card Grid dismiss ── */
+  document.querySelectorAll('.ann-grid-dismiss').forEach(function(btn) {
+    var key = btn.dataset.key;
+    var block = btn.closest('.ann-grid-block');
+    if (localStorage.getItem(key)) { block.style.display='none'; return; }
+    btn.addEventListener('click', function(){
+      localStorage.setItem(key, '1');
+      block.classList.add('ann-grid-hiding');
+      setTimeout(function(){ block.style.display='none'; }, 400);
+    });
+  });
+
+  // ESC closes modal
+  document.addEventListener('keydown', function(e){
+    if (e.key==='Escape') {
+      var m = document.getElementById('ann-modal');
+      if (m && m.classList.contains('is-open')) {
+        m.classList.remove('is-open');
+        document.body.style.overflow='';
+      }
+    }
+  });
 })();
 </script>
 <?php endif; ?>

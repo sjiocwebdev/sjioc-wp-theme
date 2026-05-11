@@ -187,7 +187,7 @@ function sjioc_register_announcements() {
         'public'       => false,
         'show_ui'      => true,
         'show_in_menu' => 'sjioc',
-        'supports'     => ['title'],
+        'supports'     => ['title', 'thumbnail'],
         'show_in_rest' => false,
     ]);
 }
@@ -206,61 +206,109 @@ add_action('add_meta_boxes', function () {
 
 function sjioc_announcement_meta_box_html($post) {
     wp_nonce_field('sjioc_announcement_save', 'sjioc_announcement_nonce');
-    $type   = get_post_meta($post->ID, 'ann_type',   true) ?: 'info';
-    $start  = get_post_meta($post->ID, 'ann_start',  true);
-    $expiry = get_post_meta($post->ID, 'ann_expiry', true);
-    $link   = get_post_meta($post->ID, 'ann_link',   true);
-    $types  = [
-        'info'   => '🔵 General Info',
-        'urgent' => '🔴 Urgent Notice',
-        'sad'    => '🕯️ Sad News / Condolences',
-        'rental' => '🏛️ Hall / Facility',
-        'event'  => '📅 Event',
+    $type    = get_post_meta($post->ID, 'ann_type',    true) ?: 'info';
+    $start   = get_post_meta($post->ID, 'ann_start',   true);
+    $expiry  = get_post_meta($post->ID, 'ann_expiry',  true);
+    $link    = get_post_meta($post->ID, 'ann_link',    true);
+    $message = get_post_meta($post->ID, 'ann_message', true);
+    $cards   = json_decode(get_post_meta($post->ID, 'ann_support_cards', true) ?: '[]', true) ?: [];
+    $types   = [
+        'info'   => '🔵 General Info (Sticky Ribbon)',
+        'urgent' => '🔴 Urgent Notice (Card Grid)',
+        'sad'    => '🕯️ Sad News / Condolences (Card Grid)',
+        'rental' => '🏛️ Hall / Facility (Sticky Ribbon)',
+        'event'  => '📅 Event (Sticky Ribbon)',
     ];
     ?>
     <style>
         #sjioc-anb td { padding:6px 0; }
-        #sjioc-anb input, #sjioc-anb select { width:100%; max-width:400px; }
+        #sjioc-anb input[type=text],#sjioc-anb input[type=url],#sjioc-anb input[type=date],
+        #sjioc-anb select,#sjioc-anb textarea { width:100%; max-width:480px; }
+        .ann-sep { margin-top:6px; padding:8px 0 2px; border-top:1px solid #e0e0e0;
+            font-weight:600; color:#555; font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+        .ann-card-row { display:flex; gap:8px; align-items:flex-start; margin-bottom:10px; flex-wrap:wrap; }
+        .ann-card-row input { flex:1; min-width:120px; }
+        .ann-card-row textarea { flex:2; min-width:180px; height:54px; resize:vertical; }
+        #ann-sad-urgent-section { display:none; margin-top:4px; }
     </style>
     <table class="form-table" id="sjioc-anb">
         <tr>
             <th><label for="ann_type">Type</label></th>
             <td>
-                <select name="ann_type" id="ann_type">
+                <select name="ann_type" id="ann_type" onchange="annToggle(this.value)">
                     <?php foreach ($types as $v => $l): ?>
                     <option value="<?php echo esc_attr($v); ?>" <?php selected($type, $v); ?>><?php echo esc_html($l); ?></option>
                     <?php endforeach; ?>
                 </select>
-                <p class="description">Controls the colour badge shown in the ticker.</p>
+                <p class="description"><strong>Ribbon types</strong> show a sticky bar that opens a modal. <strong>Card Grid types</strong> show a full featured card + support grid on the page.</p>
+            </td>
+        </tr>
+        <tr>
+            <th><label for="ann_message">Body Text</label></th>
+            <td>
+                <textarea name="ann_message" id="ann_message" rows="4"
+                    placeholder="Full message — shown in the modal (ribbon types) or on the featured card (card grid types). Leave blank if not needed."><?php echo esc_textarea($message); ?></textarea>
+            </td>
+        </tr>
+        <tr>
+            <th><label for="ann_link">Button Link (optional)</label></th>
+            <td>
+                <input type="url" name="ann_link" id="ann_link"
+                    value="<?php echo esc_attr($link); ?>" placeholder="https://…">
+                <p class="description">Adds a "Learn More" button. Leave blank if not needed.</p>
             </td>
         </tr>
         <tr>
             <th><label for="ann_start">Show From</label></th>
-            <td>
-                <input type="date" name="ann_start" id="ann_start" value="<?php echo esc_attr($start); ?>">
-                <p class="description">Leave blank to show immediately once published.</p>
-            </td>
+            <td><input type="date" name="ann_start" id="ann_start" value="<?php echo esc_attr($start); ?>">
+                <p class="description">Leave blank to show immediately.</p></td>
         </tr>
         <tr>
             <th><label for="ann_expiry">Hide After</label></th>
-            <td>
-                <input type="date" name="ann_expiry" id="ann_expiry" value="<?php echo esc_attr($expiry); ?>">
-                <p class="description">Leave blank to show indefinitely.</p>
-            </td>
+            <td><input type="date" name="ann_expiry" id="ann_expiry" value="<?php echo esc_attr($expiry); ?>">
+                <p class="description">Leave blank to show indefinitely.</p></td>
         </tr>
-        <tr>
-            <th><label for="ann_link">Link (optional)</label></th>
-            <td>
-                <input type="url" name="ann_link" id="ann_link"
-                    value="<?php echo esc_attr($link); ?>"
-                    placeholder="https://…">
-                <p class="description">Clicking the announcement takes the visitor here.</p>
+        <tr id="ann-sad-urgent-section">
+            <td colspan="2">
+                <p class="ann-sep">Support Cards (Card Grid only — all fields optional)</p>
+                <p class="description" style="margin-bottom:10px">Add up to 4 supporting cards (e.g. Prayer Details, Funeral Info, Family Message). Leave blank to skip.</p>
+                <div id="ann-cards-wrap">
+                    <?php foreach ($cards as $c): ?>
+                    <div class="ann-card-row">
+                        <input type="text"     name="ann_card_title[]" value="<?php echo esc_attr($c['title'] ?? ''); ?>" placeholder="Card title (e.g. Prayer Details)">
+                        <textarea             name="ann_card_desc[]"  placeholder="Short description…"><?php echo esc_textarea($c['desc'] ?? ''); ?></textarea>
+                        <input type="url"      name="ann_card_link[]"  value="<?php echo esc_attr($c['link'] ?? ''); ?>" placeholder="Link (optional)">
+                        <button type="button" class="button" onclick="this.closest('.ann-card-row').remove()">✕</button>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <button type="button" class="button" id="ann-add-card" style="margin-top:4px">+ Add Support Card</button>
             </td>
         </tr>
     </table>
     <p style="margin-top:12px;color:#555">
-        <strong>Announcement text:</strong> use the <em>Title</em> field above — keep it to one concise sentence.
+        <strong>Headline:</strong> use the <em>Title</em> field above — one concise sentence.<br>
+        <strong>Photo (Card Grid only):</strong> set via <em>Featured Image</em> in the right sidebar. If none, a solid colour background is used.
     </p>
+    <script>
+    function annToggle(v) {
+        var su = document.getElementById('ann-sad-urgent-section');
+        su.style.display = (v === 'urgent' || v === 'sad') ? '' : 'none';
+    }
+    annToggle(document.getElementById('ann_type').value);
+    document.getElementById('ann-add-card').addEventListener('click', function() {
+        var wrap = document.getElementById('ann-cards-wrap');
+        if (wrap.querySelectorAll('.ann-card-row').length >= 4) return;
+        var row = document.createElement('div');
+        row.className = 'ann-card-row';
+        row.innerHTML = '<input type="text" name="ann_card_title[]" placeholder="Card title">'
+            + '<textarea name="ann_card_desc[]" placeholder="Short description…"></textarea>'
+            + '<input type="url" name="ann_card_link[]" placeholder="Link (optional)">'
+            + '<button type="button" class="button" onclick="this.closest(\'.ann-card-row\').remove()">✕</button>';
+        wrap.appendChild(row);
+        row.querySelector('input').focus();
+    });
+    </script>
     <?php
 }
 
@@ -272,10 +320,22 @@ add_action('save_post_sjioc_announcement', function ($post_id) {
 
     $allowed = ['info', 'urgent', 'sad', 'rental', 'event'];
     $type    = in_array($_POST['ann_type'] ?? '', $allowed, true) ? $_POST['ann_type'] : 'info';
-    update_post_meta($post_id, 'ann_type',   $type);
-    update_post_meta($post_id, 'ann_start',  sanitize_text_field($_POST['ann_start']  ?? ''));
-    update_post_meta($post_id, 'ann_expiry', sanitize_text_field($_POST['ann_expiry'] ?? ''));
-    update_post_meta($post_id, 'ann_link',   esc_url_raw($_POST['ann_link'] ?? ''));
+    update_post_meta($post_id, 'ann_type',    $type);
+    update_post_meta($post_id, 'ann_message', sanitize_textarea_field($_POST['ann_message'] ?? ''));
+    update_post_meta($post_id, 'ann_start',   sanitize_text_field($_POST['ann_start']  ?? ''));
+    update_post_meta($post_id, 'ann_expiry',  sanitize_text_field($_POST['ann_expiry'] ?? ''));
+    update_post_meta($post_id, 'ann_link',    esc_url_raw($_POST['ann_link'] ?? ''));
+
+    $titles = array_map('sanitize_text_field',    (array)($_POST['ann_card_title'] ?? []));
+    $descs  = array_map('sanitize_textarea_field', (array)($_POST['ann_card_desc']  ?? []));
+    $links  = array_map('esc_url_raw',             (array)($_POST['ann_card_link']  ?? []));
+    $cards  = [];
+    for ($i = 0; $i < min(4, count($titles)); $i++) {
+        if ($titles[$i] !== '' || $descs[$i] !== '') {
+            $cards[] = ['title' => $titles[$i], 'desc' => $descs[$i], 'link' => $links[$i] ?? ''];
+        }
+    }
+    update_post_meta($post_id, 'ann_support_cards', wp_json_encode($cards));
 });
 
 /* ─────────────────────────────────────
