@@ -24,6 +24,114 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
   </div>
 </section>
 
+<!-- ════ FLASH NEWS ════ -->
+<?php
+$today         = date('Y-m-d');
+$all_ann       = get_posts(['post_type'=>'sjioc_announcement','posts_per_page'=>10,'post_status'=>'publish']);
+$announcements = array_filter($all_ann, function($a) use ($today) {
+    $start  = get_post_meta($a->ID, 'ann_start',  true);
+    $expiry = get_post_meta($a->ID, 'ann_expiry', true);
+    if ($start  && $start  > $today) return false;
+    if ($expiry && $expiry < $today) return false;
+    return true;
+});
+
+if ($announcements):
+    $high   = []; // urgent / sad → card
+    $low    = []; // info / event / rental → ticker
+    foreach ($announcements as $a) {
+        $type = get_post_meta($a->ID, 'ann_type', true) ?: 'info';
+        $item = ['text'=>$a->post_title,'type'=>$type,'link'=>get_post_meta($a->ID,'ann_link',true),'id'=>$a->ID];
+        if (in_array($type, ['urgent','sad'], true)) $high[] = $item;
+        else $low[] = $item;
+    }
+
+    // Dismissal key changes whenever the set of announcements changes
+    $all_ids    = array_column(array_merge($high,$low), 'id');
+    $dismiss_key = 'sjioc_flash_' . md5(implode(',', $all_ids));
+
+    $type_labels = ['info'=>'Info','urgent'=>'Urgent','sad'=>'Notice','rental'=>'Facility','event'=>'Event'];
+    $type_icons  = ['info'=>'📢','urgent'=>'🔔','sad'=>'🕯️','rental'=>'🏛️','event'=>'📅'];
+?>
+
+<?php if ($high): foreach ($high as $hitem): ?>
+<div class="ann-card ann-card-<?php echo esc_attr($hitem['type']); ?>" data-key="<?php echo esc_attr($dismiss_key.'-'.$hitem['id']); ?>">
+  <div class="container">
+    <div class="ann-card-inner">
+      <span class="ann-card-icon"><?php echo $type_icons[$hitem['type']] ?? '📢'; ?></span>
+      <div class="ann-card-body">
+        <span class="ann-card-label"><?php echo esc_html($type_labels[$hitem['type']] ?? 'Notice'); ?></span>
+        <p class="ann-card-text"><?php echo esc_html($hitem['text']); ?></p>
+        <?php if ($hitem['link']): ?>
+        <a href="<?php echo esc_url($hitem['link']); ?>" class="ann-card-link">Learn More →</a>
+        <?php endif; ?>
+      </div>
+      <button class="ann-card-dismiss" aria-label="Dismiss">✕</button>
+    </div>
+  </div>
+</div>
+<?php endforeach; endif; ?>
+
+<?php if ($low): ?>
+<div class="flash-ticker" id="flash-ticker" data-key="<?php echo esc_attr($dismiss_key.'-ticker'); ?>">
+  <div class="flash-ticker-inner">
+    <span class="flash-ticker-label" id="flash-ticker-label"></span>
+    <div class="flash-text-wrap"><p class="flash-text" id="flash-text"></p></div>
+    <button class="flash-dismiss" id="flash-dismiss" aria-label="Dismiss">✕</button>
+  </div>
+</div>
+<?php endif; ?>
+
+<script>
+(function(){
+  // Announcement cards — dismiss individually
+  document.querySelectorAll('.ann-card').forEach(function(card) {
+    var key = card.dataset.key;
+    if (localStorage.getItem(key)) { card.style.display='none'; return; }
+    card.querySelector('.ann-card-dismiss').addEventListener('click', function(){
+      localStorage.setItem(key, '1');
+      card.classList.add('ann-card-hiding');
+      setTimeout(function(){ card.style.display='none'; }, 350);
+    });
+  });
+
+  // Ticker — cycle through low-priority items
+  var ticker = document.getElementById('flash-ticker');
+  if (ticker) {
+    var key = ticker.dataset.key;
+    if (localStorage.getItem(key)) { ticker.style.display='none'; }
+    else {
+      var items  = <?php echo wp_json_encode(array_values($low)); ?>;
+      var labels = <?php echo wp_json_encode($type_labels); ?>;
+      var label  = document.getElementById('flash-ticker-label');
+      var text   = document.getElementById('flash-text');
+      var idx    = 0;
+      function showItem(i) {
+        var it = items[i % items.length];
+        label.className  = 'flash-ticker-label flash-lbl-' + it.type;
+        label.textContent = labels[it.type] || 'News';
+        text.style.opacity = 0;
+        setTimeout(function(){
+          text.innerHTML = it.link
+            ? '<a href="'+_esc(it.link)+'">'+_esc(it.text)+'</a>'
+            : _esc(it.text);
+          text.style.opacity = 1;
+        }, 200);
+      }
+      showItem(0);
+      if (items.length > 1) setInterval(function(){ idx++; showItem(idx); }, 5000);
+      document.getElementById('flash-dismiss').addEventListener('click', function(){
+        localStorage.setItem(key, '1');
+        ticker.classList.add('flash-hiding');
+        setTimeout(function(){ ticker.style.display='none'; }, 350);
+      });
+    }
+  }
+  function _esc(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+})();
+</script>
+<?php endif; ?>
+
 <!-- ════ WELCOME ════ -->
 <div class="bg-cream">
   <div class="sec container">
@@ -160,7 +268,7 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
           track.scrollBy({ left:step(), behavior:'smooth' });
         }
       }
-      function startAuto() { timer = setInterval(advance, 4000); }
+      function startAuto() { timer = setInterval(advance, 2000); }
       function stopAuto()  { clearInterval(timer); }
       track.parentElement.addEventListener('mouseenter', stopAuto);
       track.parentElement.addEventListener('mouseleave', startAuto);

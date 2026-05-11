@@ -173,6 +173,112 @@ function sjioc_register_celebrations() {
 add_action('init', 'sjioc_register_celebrations');
 
 /* ─────────────────────────────────────
+   CPT: Flash News / Announcements
+───────────────────────────────────── */
+function sjioc_register_announcements() {
+    register_post_type('sjioc_announcement', [
+        'labels'       => [
+            'name'          => __('Flash News',       'sjioc'),
+            'singular_name' => __('Announcement',     'sjioc'),
+            'add_new_item'  => __('Add Announcement', 'sjioc'),
+            'edit_item'     => __('Edit Announcement','sjioc'),
+            'menu_name'     => __('Flash News',       'sjioc'),
+        ],
+        'public'       => false,
+        'show_ui'      => true,
+        'show_in_menu' => 'sjioc',
+        'supports'     => ['title'],
+        'show_in_rest' => false,
+    ]);
+}
+add_action('init', 'sjioc_register_announcements');
+
+add_action('add_meta_boxes', function () {
+    add_meta_box(
+        'sjioc_announcement_details',
+        'Announcement Details',
+        'sjioc_announcement_meta_box_html',
+        'sjioc_announcement',
+        'normal',
+        'high'
+    );
+});
+
+function sjioc_announcement_meta_box_html($post) {
+    wp_nonce_field('sjioc_announcement_save', 'sjioc_announcement_nonce');
+    $type   = get_post_meta($post->ID, 'ann_type',   true) ?: 'info';
+    $start  = get_post_meta($post->ID, 'ann_start',  true);
+    $expiry = get_post_meta($post->ID, 'ann_expiry', true);
+    $link   = get_post_meta($post->ID, 'ann_link',   true);
+    $types  = [
+        'info'   => '🔵 General Info',
+        'urgent' => '🔴 Urgent Notice',
+        'sad'    => '🕯️ Sad News / Condolences',
+        'rental' => '🏛️ Hall / Facility',
+        'event'  => '📅 Event',
+    ];
+    ?>
+    <style>
+        #sjioc-anb td { padding:6px 0; }
+        #sjioc-anb input, #sjioc-anb select { width:100%; max-width:400px; }
+    </style>
+    <table class="form-table" id="sjioc-anb">
+        <tr>
+            <th><label for="ann_type">Type</label></th>
+            <td>
+                <select name="ann_type" id="ann_type">
+                    <?php foreach ($types as $v => $l): ?>
+                    <option value="<?php echo esc_attr($v); ?>" <?php selected($type, $v); ?>><?php echo esc_html($l); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <p class="description">Controls the colour badge shown in the ticker.</p>
+            </td>
+        </tr>
+        <tr>
+            <th><label for="ann_start">Show From</label></th>
+            <td>
+                <input type="date" name="ann_start" id="ann_start" value="<?php echo esc_attr($start); ?>">
+                <p class="description">Leave blank to show immediately once published.</p>
+            </td>
+        </tr>
+        <tr>
+            <th><label for="ann_expiry">Hide After</label></th>
+            <td>
+                <input type="date" name="ann_expiry" id="ann_expiry" value="<?php echo esc_attr($expiry); ?>">
+                <p class="description">Leave blank to show indefinitely.</p>
+            </td>
+        </tr>
+        <tr>
+            <th><label for="ann_link">Link (optional)</label></th>
+            <td>
+                <input type="url" name="ann_link" id="ann_link"
+                    value="<?php echo esc_attr($link); ?>"
+                    placeholder="https://…">
+                <p class="description">Clicking the announcement takes the visitor here.</p>
+            </td>
+        </tr>
+    </table>
+    <p style="margin-top:12px;color:#555">
+        <strong>Announcement text:</strong> use the <em>Title</em> field above — keep it to one concise sentence.
+    </p>
+    <?php
+}
+
+add_action('save_post_sjioc_announcement', function ($post_id) {
+    if (!isset($_POST['sjioc_announcement_nonce']) ||
+        !wp_verify_nonce($_POST['sjioc_announcement_nonce'], 'sjioc_announcement_save')) return;
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    if (!current_user_can('edit_post', $post_id)) return;
+
+    $allowed = ['info', 'urgent', 'sad', 'rental', 'event'];
+    $type    = in_array($_POST['ann_type'] ?? '', $allowed, true) ? $_POST['ann_type'] : 'info';
+    update_post_meta($post_id, 'ann_type',   $type);
+    update_post_meta($post_id, 'ann_start',  sanitize_text_field($_POST['ann_start']  ?? ''));
+    update_post_meta($post_id, 'ann_expiry', sanitize_text_field($_POST['ann_expiry'] ?? ''));
+    update_post_meta($post_id, 'ann_link',   esc_url_raw($_POST['ann_link'] ?? ''));
+});
+
+/* ─────────────────────────────────────
    CPT: Ministries
 ───────────────────────────────────── */
 function sjioc_register_ministries() {
