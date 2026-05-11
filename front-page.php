@@ -80,22 +80,46 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
     <p class="slead">Connecting every member of our parish through faith, service, and fellowship in Christ.</p>
     <div class="mcards-3">
       <?php
-      $ministries = [
-        ['img'=>'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=70','tag'=>'Youth',      'title'=>'Youth Ministry',      'desc'=>'Nurturing faith in our young parishioners through worship, scripture study, retreats, and community service.'],
-        ['img'=>'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&q=70','tag'=>'Education',  'title'=>'Sunday School',       'desc'=>'Helping children and youth encounter God through interactive lessons every Sunday at '.esc_html(sjioc_school()).'.'],
-        ['img'=>'https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=600&q=70','tag'=>'Fellowship', 'title'=>"Women's Fellowship",   'desc'=>"A vibrant community of women gathering monthly for prayer, fellowship, and outreach in Christ's love."],
-      ];
-      foreach ($ministries as $m): ?>
+      $min_posts = get_posts([
+        'post_type'      => 'sjioc_ministry',
+        'posts_per_page' => 3,
+        'meta_key'       => 'ministry_order',
+        'orderby'        => 'meta_value_num',
+        'order'          => 'ASC',
+        'post_status'    => 'publish',
+      ]);
+      if ($min_posts):
+        foreach ($min_posts as $mp):
+          $mp_img  = get_the_post_thumbnail_url($mp->ID, 'large') ?: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=70';
+          $mp_tag  = get_post_meta($mp->ID, 'ministry_tag', true);
+          $mp_desc = wp_trim_words(wp_strip_all_tags($mp->post_content), 22, '…') ?: 'Learn more about this ministry.';
+      ?>
       <article class="mcard">
-        <img src="<?php echo esc_url($m['img']); ?>" alt="<?php echo esc_attr($m['title']); ?>" loading="lazy">
+        <img src="<?php echo esc_url($mp_img); ?>" alt="<?php echo esc_attr($mp->post_title); ?>" loading="lazy">
         <div class="mcard-body">
-          <span class="mcard-tag"><?php echo esc_html($m['tag']); ?></span>
-          <h3><?php echo esc_html($m['title']); ?></h3>
-          <p><?php echo esc_html($m['desc']); ?></p>
+          <?php if ($mp_tag): ?><span class="mcard-tag"><?php echo esc_html($mp_tag); ?></span><?php endif; ?>
+          <h3><?php echo esc_html($mp->post_title); ?></h3>
+          <p><?php echo esc_html($mp_desc); ?></p>
           <a class="mlink" href="<?php echo esc_url(home_url('/ministries/')); ?>">Learn More →</a>
         </div>
       </article>
-      <?php endforeach; ?>
+      <?php endforeach;
+      else:
+        $fallback = [
+          ['tag'=>'Youth',      'title'=>'Youth Ministry',    'desc'=>'Nurturing faith in our young parishioners through worship, scripture study, and community service.'],
+          ['tag'=>'Education',  'title'=>'Sunday School',     'desc'=>'Helping children and youth encounter God through interactive lessons every Sunday at '.esc_html(sjioc_school()).'.'],
+          ['tag'=>'Fellowship', 'title'=>"Women's Fellowship",'desc'=>"A vibrant community of women gathering monthly for prayer, fellowship, and outreach in Christ's love."],
+        ];
+        foreach ($fallback as $f): ?>
+      <article class="mcard">
+        <div class="mcard-body">
+          <span class="mcard-tag"><?php echo esc_html($f['tag']); ?></span>
+          <h3><?php echo esc_html($f['title']); ?></h3>
+          <p><?php echo esc_html($f['desc']); ?></p>
+          <a class="mlink" href="<?php echo esc_url(home_url('/ministries/')); ?>">Learn More →</a>
+        </div>
+      </article>
+      <?php endforeach; endif; ?>
     </div>
   </div>
 </div>
@@ -111,7 +135,19 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
         <h2 class="stitle">Upcoming Events</h2>
         <div class="divider divider-l"></div>
         <?php
-        $events = new WP_Query(['post_type'=>'sjioc_event','posts_per_page'=>3,'orderby'=>'meta_value','meta_key'=>'event_date','order'=>'ASC']);
+        $events = new WP_Query([
+          'post_type'      => 'sjioc_event',
+          'posts_per_page' => 3,
+          'orderby'        => 'meta_value',
+          'meta_key'       => 'event_date',
+          'order'          => 'ASC',
+          'meta_query'     => [[
+            'key'     => 'event_date',
+            'value'   => date('Y-m-d'),
+            'compare' => '>=',
+            'type'    => 'DATE',
+          ]],
+        ]);
         if ($events->have_posts()) :
           while ($events->have_posts()) : $events->the_post();
             $date  = get_post_meta(get_the_ID(),'event_date',true);
