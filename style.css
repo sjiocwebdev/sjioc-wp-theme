@@ -357,6 +357,38 @@ input, textarea, select { font-family:'Lato', sans-serif; }
 }
 .mlink:hover { color:var(--go); }
 
+/* Home page ministry scroll carousel */
+.min-scroll-wrap { position:relative; margin-top:46px; padding:0 44px; text-align:left; }
+.min-scroll-track {
+  display:flex; gap:24px;
+  overflow-x:auto; scroll-snap-type:x mandatory; scroll-behavior:smooth;
+  -webkit-overflow-scrolling:touch; scrollbar-width:none;
+  padding-bottom:10px;
+}
+.min-scroll-track::-webkit-scrollbar { display:none; }
+.min-scroll-track .mcard { flex:0 0 calc((100% - 48px) / 3); scroll-snap-align:start; }
+.min-scroll-arrow {
+  position:absolute; top:calc(50% - 20px);
+  width:40px; height:40px; border-radius:50%;
+  background:var(--cr); border:2px solid var(--go); color:var(--go);
+  font-size:1.5rem; font-weight:700; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:background .2s, opacity .25s, transform .2s;
+  z-index:2;
+}
+.min-scroll-arrow:hover { background:var(--cr-dk); transform:scale(1.1); }
+.min-scroll-arrow.is-hidden { opacity:0; pointer-events:none; }
+.min-sa-prev { left:0; }
+.min-sa-next { right:0; }
+@media (max-width:860px) {
+  .min-scroll-track .mcard { flex:0 0 calc((100% - 24px) / 2); }
+}
+@media (max-width:560px) {
+  .min-scroll-wrap { padding:0 0 0 0; }
+  .min-scroll-track .mcard { flex:0 0 85%; }
+  .min-scroll-arrow { display:none; }
+}
+
 /* Ministry detail (2-col image+text) */
 .mdgrid { display:grid; grid-template-columns:repeat(2,1fr); gap:26px; margin-top:36px; }
 .mdcard {

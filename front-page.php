@@ -78,31 +78,35 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
     <h2 class="stitle">Our Ministries</h2>
     <div class="divider"></div>
     <p class="slead">Connecting every member of our parish through faith, service, and fellowship in Christ.</p>
-    <div class="mcards-3">
-      <?php
-      $min_posts = get_posts([
-        'post_type'      => 'sjioc_ministry',
-        'posts_per_page' => 3,
-        'meta_key'       => 'ministry_order',
-        'orderby'        => 'meta_value_num',
-        'order'          => 'ASC',
-        'post_status'    => 'publish',
-      ]);
-      if ($min_posts):
+    <?php
+    $min_posts  = get_posts([
+      'post_type'      => 'sjioc_ministry',
+      'posts_per_page' => 6,
+      'meta_key'       => 'ministry_order',
+      'orderby'        => 'meta_value_num',
+      'order'          => 'ASC',
+      'post_status'    => 'publish',
+    ]);
+    $min_total  = wp_count_posts('sjioc_ministry')->publish;
+    ?>
+    <div class="min-scroll-wrap" id="min-scroll-wrap">
+      <button class="min-scroll-arrow min-sa-prev is-hidden" id="min-sa-prev" aria-label="Previous ministries">&#8249;</button>
+      <div class="min-scroll-track" id="min-scroll-track">
+      <?php if ($min_posts):
         foreach ($min_posts as $mp):
           $mp_img  = get_the_post_thumbnail_url($mp->ID, 'large') ?: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=70';
           $mp_tag  = get_post_meta($mp->ID, 'ministry_tag', true);
           $mp_desc = wp_trim_words(wp_strip_all_tags($mp->post_content), 22, '…') ?: 'Learn more about this ministry.';
       ?>
-      <article class="mcard">
-        <img src="<?php echo esc_url($mp_img); ?>" alt="<?php echo esc_attr($mp->post_title); ?>" loading="lazy">
-        <div class="mcard-body">
-          <?php if ($mp_tag): ?><span class="mcard-tag"><?php echo esc_html($mp_tag); ?></span><?php endif; ?>
-          <h3><?php echo esc_html($mp->post_title); ?></h3>
-          <p><?php echo esc_html($mp_desc); ?></p>
-          <a class="mlink" href="<?php echo esc_url(home_url('/ministries/')); ?>">Learn More →</a>
-        </div>
-      </article>
+        <article class="mcard">
+          <img src="<?php echo esc_url($mp_img); ?>" alt="<?php echo esc_attr($mp->post_title); ?>" loading="lazy">
+          <div class="mcard-body">
+            <?php if ($mp_tag): ?><span class="mcard-tag"><?php echo esc_html($mp_tag); ?></span><?php endif; ?>
+            <h3><?php echo esc_html($mp->post_title); ?></h3>
+            <p><?php echo esc_html($mp_desc); ?></p>
+            <a class="mlink" href="<?php echo esc_url(home_url('/ministries/')); ?>">Learn More →</a>
+          </div>
+        </article>
       <?php endforeach;
       else:
         $fallback = [
@@ -111,15 +115,43 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
           ['tag'=>'Fellowship', 'title'=>"Women's Fellowship",'desc'=>"A vibrant community of women gathering monthly for prayer, fellowship, and outreach in Christ's love."],
         ];
         foreach ($fallback as $f): ?>
-      <article class="mcard">
-        <div class="mcard-body">
-          <span class="mcard-tag"><?php echo esc_html($f['tag']); ?></span>
-          <h3><?php echo esc_html($f['title']); ?></h3>
-          <p><?php echo esc_html($f['desc']); ?></p>
-          <a class="mlink" href="<?php echo esc_url(home_url('/ministries/')); ?>">Learn More →</a>
-        </div>
-      </article>
+        <article class="mcard">
+          <div class="mcard-body">
+            <span class="mcard-tag"><?php echo esc_html($f['tag']); ?></span>
+            <h3><?php echo esc_html($f['title']); ?></h3>
+            <p><?php echo esc_html($f['desc']); ?></p>
+            <a class="mlink" href="<?php echo esc_url(home_url('/ministries/')); ?>">Learn More →</a>
+          </div>
+        </article>
       <?php endforeach; endif; ?>
+      </div>
+      <button class="min-scroll-arrow min-sa-next" id="min-sa-next" aria-label="Next ministries">&#8250;</button>
+    </div>
+    <div style="margin-top:36px">
+      <a href="<?php echo esc_url(home_url('/ministries/')); ?>" class="btn btn-cr">
+        See All<?php if ($min_total > 6): ?> <?php echo (int)$min_total; ?><?php endif; ?> Ministries →
+      </a>
+    </div>
+    <script>
+    (function(){
+      var track   = document.getElementById('min-scroll-track');
+      var prev    = document.getElementById('min-sa-prev');
+      var next    = document.getElementById('min-sa-next');
+      if (!track || !prev || !next) return;
+      function step() {
+        var c = track.querySelector('.mcard');
+        return c ? c.offsetWidth + 24 : 320;
+      }
+      function sync() {
+        prev.classList.toggle('is-hidden', track.scrollLeft < 8);
+        next.classList.toggle('is-hidden', track.scrollLeft >= track.scrollWidth - track.clientWidth - 8);
+      }
+      prev.addEventListener('click', function(){ track.scrollBy({ left:-step(), behavior:'smooth' }); });
+      next.addEventListener('click', function(){ track.scrollBy({ left: step(), behavior:'smooth' }); });
+      track.addEventListener('scroll', sync, { passive:true });
+      sync();
+    })();
+    </script>
     </div>
   </div>
 </div>
