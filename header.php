@@ -19,10 +19,10 @@
 
     <!-- Logo -->
     <?php if (has_custom_logo()): ?>
-      <a href="<?php echo esc_url(home_url('/')); ?>" class="site-logo" rel="home" aria-label="<?php echo esc_attr(sjioc_name()); ?>">
+      <span class="site-logo" aria-label="<?php echo esc_attr(sjioc_name()); ?>">
         <?php the_custom_logo(); ?>
         <span class="logo-name"><?php echo esc_html(sjioc_abbr()); ?></span>
-      </a>
+      </span>
     <?php else: ?>
       <a href="<?php echo esc_url(home_url('/')); ?>" class="site-logo" rel="home" aria-label="<?php echo esc_attr(sjioc_name()); ?>">
         <svg viewBox="0 0 46 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">

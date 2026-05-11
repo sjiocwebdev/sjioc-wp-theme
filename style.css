@@ -139,6 +139,13 @@ input, textarea, select { font-family:'Lato', sans-serif; }
 /* Logo */
 .site-logo { display:flex; align-items:center; gap:11px; flex-shrink:0; }
 .site-logo svg { width:46px; height:46px; flex-shrink:0; }
+.custom-logo-link { display:flex; align-items:center; }
+.custom-logo { height:46px; width:auto; object-fit:contain; flex-shrink:0; display:block; }
+@media (max-width:480px) {
+  .custom-logo { height:36px; }
+  .site-logo svg { width:36px; height:36px; }
+  .site-logo { gap:8px; }
+}
 .logo-name {
   font-family:'Playfair Display', serif;
   color:var(--go); font-size:1.35rem; font-weight:700;
