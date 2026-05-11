@@ -146,10 +146,26 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
         prev.classList.toggle('is-hidden', track.scrollLeft < 8);
         next.classList.toggle('is-hidden', track.scrollLeft >= track.scrollWidth - track.clientWidth - 8);
       }
-      prev.addEventListener('click', function(){ track.scrollBy({ left:-step(), behavior:'smooth' }); });
-      next.addEventListener('click', function(){ track.scrollBy({ left: step(), behavior:'smooth' }); });
+      prev.addEventListener('click', function(){ stopAuto(); track.scrollBy({ left:-step(), behavior:'smooth' }); });
+      next.addEventListener('click', function(){ stopAuto(); track.scrollBy({ left: step(), behavior:'smooth' }); });
       track.addEventListener('scroll', sync, { passive:true });
       sync();
+
+      // Auto-advance every 4 seconds; pause on hover or touch
+      var timer;
+      function advance() {
+        if (track.scrollLeft >= track.scrollWidth - track.clientWidth - 8) {
+          track.scrollTo({ left:0, behavior:'smooth' });
+        } else {
+          track.scrollBy({ left:step(), behavior:'smooth' });
+        }
+      }
+      function startAuto() { timer = setInterval(advance, 4000); }
+      function stopAuto()  { clearInterval(timer); }
+      track.parentElement.addEventListener('mouseenter', stopAuto);
+      track.parentElement.addEventListener('mouseleave', startAuto);
+      track.addEventListener('touchstart', stopAuto, { passive:true });
+      startAuto();
     })();
     </script>
     </div>
