@@ -31,7 +31,7 @@ function sjioc_handle_new_to_church(): void {
         'Name'               => trim($fname . ' ' . $lname),
         'Phone'              => $phone,
         'Address'            => $addr   ?: '—',
-        'Planning to Visit'  => $visit  ?: 'Not specified',
+        'Planning to Visit Church'  => $visit  ?: 'Not specified',
         'Family Members'     => $count  ?: '—',
         'Location in Kerala' => $kerala ?: '—',
         'Family Parish'      => $parish ?: '—',

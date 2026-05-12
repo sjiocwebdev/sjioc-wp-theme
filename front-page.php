@@ -453,7 +453,7 @@ if ($announcements):
     <div class="ntc-cross">&#10013;</div>
     <h2 id="ntc-heading">New to SJIOC?</h2>
     <p>Whether you've recently moved to Philadelphia or are simply seeking a spiritual home,<br>we'd love to welcome you and your family into our parish community.</p>
-    <button class="btn ntc-cta-btn" id="ntc-open-btn" type="button">&#128139;&nbsp; I'm New Here — Connect With Us</button>
+    <button class="btn ntc-cta-btn" id="ntc-open-btn" type="button"> I'm New Here — Connect With Us</button>
   </div>
 </section>
 
@@ -530,7 +530,7 @@ if ($announcements):
             </select>
           </div>
           <div class="ntc-group">
-            <label for="ntc-parish">Family Parish Name</label>
+            <label for="ntc-parish">Kerala Parish Name</label>
             <input type="text" id="ntc-parish" name="ntc_parish" placeholder="e.g. St. George's, Kottayam">
           </div>
         </div>
