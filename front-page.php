@@ -452,7 +452,7 @@ if ($announcements):
   <div class="ntc-inner container">
     <div class="ntc-cross">&#10013;</div>
     <h2 id="ntc-heading">New to SJIOC?</h2>
-    <p>Whether you've recently moved to Jacksonville or are simply seeking a spiritual home,<br>we'd love to welcome you and your family into our parish community.</p>
+    <p>Whether you've recently moved to Philadelphia or are simply seeking a spiritual home,<br>we'd love to welcome you and your family into our parish community.</p>
     <button class="btn ntc-cta-btn" id="ntc-open-btn" type="button">&#128139;&nbsp; I'm New Here — Connect With Us</button>
   </div>
 </section>
@@ -466,7 +466,7 @@ if ($announcements):
     <div class="ntc-panel ntc-info">
       <div class="ntc-info-cross">&#10013;</div>
       <h2 id="ntc-modal-title"><?php echo esc_html(sjioc_name()); ?></h2>
-      <p class="ntc-tagline">A Keralite Orthodox Christian community in Jacksonville, FL — a home away from home.</p>
+      <p class="ntc-tagline">A Keralite Orthodox Christian community in Drexell Hill, PA — a home away from home.</p>
       <p class="ntc-desc">We are a vibrant parish of the Malankara Orthodox Syrian Church, bringing together families from Kerala and the wider community in worship, fellowship, and service. Our doors are always open to newcomers seeking faith and community in Christ.</p>
       <ul class="ntc-info-list">
         <li><span>&#128336;</span> Holy Qurbana: <?php echo esc_html(sjioc_qurbana()); ?></li>
@@ -536,7 +536,7 @@ if ($announcements):
         </div>
 
         <div class="ntc-group">
-          <label for="ntc-visit">Planning to Visit? (Date)</label>
+          <label for="ntc-visit">Planning to Visit Church? (Date)</label>
           <input type="date" id="ntc-visit" name="ntc_visit" min="<?php echo esc_attr(date('Y-m-d', strtotime('+1 day'))); ?>">
         </div>
 
@@ -582,15 +582,17 @@ if ($announcements):
   var submit   = document.getElementById('ntc-submit');
 
   function openModal() { overlay.hidden = false; document.body.style.overflow = 'hidden'; }
-  function closeModal() { overlay.hidden = true; document.body.style.overflow = ''; }
+  function closeModal() { overlay.hidden = true; document.body.style.overflow = ''; history.replaceState(null, '', window.location.pathname); }
 
   if (openBtn)  openBtn.addEventListener('click', openModal);
   if (closeBtn) closeBtn.addEventListener('click', closeModal);
   overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
 
-  // Hash trigger (nav link)
-  if (window.location.hash === '#new-to-sjioc') openModal();
+  // Hash trigger (nav link — works on page load and same-page hash change)
+  function checkHash() { if (window.location.hash === '#new-to-sjioc') openModal(); }
+  checkHash();
+  window.addEventListener('hashchange', checkHash);
 
   // Call window chips
   chips.forEach(function (chip) {
