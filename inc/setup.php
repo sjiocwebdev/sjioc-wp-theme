@@ -103,6 +103,19 @@ function sjioc_customizer($wp_customize) {
             'type'    => 'text',
         ]);
     }
+
+    // Hero watermark — separate upload, independent of the nav logo
+    $wp_customize->add_setting('sjioc_hero_watermark', [
+        'default'           => '',
+        'sanitize_callback' => 'absint',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control(new WP_Customize_Media_Control($wp_customize, 'sjioc_hero_watermark', [
+        'label'     => __('Hero Watermark Image', 'sjioc'),
+        'section'   => 'sjioc_hero',
+        'mime_type' => 'image',
+        'description' => __('Upload a high-res image (PNG with transparency recommended). Falls back to the site logo, then the cross SVG.', 'sjioc'),
+    ]));
 }
 add_action('customize_register', 'sjioc_customizer');
 

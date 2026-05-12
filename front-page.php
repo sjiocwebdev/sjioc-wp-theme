@@ -14,8 +14,13 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
   <div class="hero-bg" role="presentation"></div>
   <div class="hero-overlay" role="presentation"></div>
   <?php
-  $wm_id  = get_theme_mod('custom_logo');
-  $wm_url = $wm_id ? wp_get_attachment_image_url($wm_id, 'large') : '';
+  // Dedicated watermark → site logo → SVG fallback
+  $wm_att = get_theme_mod('sjioc_hero_watermark');
+  $wm_url = $wm_att ? wp_get_attachment_image_url($wm_att, 'full') : '';
+  if (!$wm_url) {
+      $logo_id = get_theme_mod('custom_logo');
+      $wm_url  = $logo_id ? wp_get_attachment_image_url($logo_id, 'full') : '';
+  }
   ?>
   <div class="hero-watermark" role="presentation" aria-hidden="true">
     <?php if ($wm_url): ?>

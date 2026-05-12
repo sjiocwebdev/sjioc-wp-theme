@@ -502,9 +502,10 @@ input, textarea, select { font-family:'Lato', sans-serif; }
 }
 .hero-watermark img,
 .hero-watermark svg {
-  width:420px; height:420px;
+  width:min(680px, 70vmin);
+  height:min(680px, 70vmin);
   object-fit:contain;
-  opacity:.07;
+  opacity:.08;
   filter:brightness(0) invert(1);
 }
 .hero-content {
