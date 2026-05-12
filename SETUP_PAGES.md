@@ -595,3 +595,41 @@ Protects the **Contact Us** and **Hall Rental** forms from automated bot submiss
 ### 15c. What users see
 
 Nothing. The form looks and behaves identically. A small Google badge appears in the bottom-right corner of the Contact and Hall Rental pages only (required by Google's terms). It is hidden on all other pages automatically.
+
+---
+
+## 16. New to SJIOC — Visitor Welcome Form
+
+A welcoming section on the home page that opens a modal for first-time visitors to introduce themselves. Submissions are emailed to the Vicar and Secretary — no database table is used.
+
+### 16a. What it includes
+
+- **Home page band** — Full-width crimson/gold section above the footer with a "I'm New Here" button
+- **Modal** — Two-column card: left panel shows church info (service times, address); right panel has the form
+- **Form fields:** First & Last Name, Phone, Address, Planned Visit Date, Family Members, Kerala District, Family Parish, Best Time to Call (6 visual time-window chips)
+- **Nav link** — "New to SJIOC" appears under **Contact** in the primary navigation; clicking it opens the modal via URL hash (`#new-to-sjioc`)
+
+### 16b. Email routing
+
+Submissions are sent to the **Secretary** and **Vicar** email addresses already configured in the Customizer (same addresses used by the Contact form and Hall Rental notifications).
+
+> **No additional Customizer settings are required.** If SMTP is configured (Section 11), emails go through it automatically.
+
+### 16c. No setup required
+
+The feature is active as soon as the theme is deployed. No page needs to be created in WordPress — the modal lives entirely in the home page template (`front-page.php`).
+
+### 16d. Nav link behaviour
+
+The nav link points to `/#new-to-sjioc`. This works from any page:
+- **From another page** — browser navigates to the home page and the modal auto-opens on load
+- **Already on the home page** — hash change triggers the modal immediately without a page reload
+- **Closing the modal** — clears the hash so the nav link works again on the next click
+
+### 16e. Post-deploy checklist
+
+- [ ] Visit the home page — confirm the crimson "New to SJIOC" band is visible above the footer
+- [ ] Click "I'm New Here" — confirm the modal opens with church info and the form
+- [ ] Click **Contact → New to SJIOC** in the nav — confirm the modal opens
+- [ ] Submit a test entry — confirm email arrives at Secretary/Vicar addresses
+- [ ] On mobile — confirm the modal is single-column and call-window chips display in a 2-column grid
