@@ -447,4 +447,210 @@ if ($announcements):
   </div>
 </div>
 
+<!-- ════ NEW TO SJIOC ════ -->
+<section class="ntc-band" aria-labelledby="ntc-heading">
+  <div class="ntc-inner container">
+    <div class="ntc-cross">&#10013;</div>
+    <h2 id="ntc-heading">New to SJIOC?</h2>
+    <p>Whether you've recently moved to Jacksonville or are simply seeking a spiritual home,<br>we'd love to welcome you and your family into our parish community.</p>
+    <button class="btn ntc-cta-btn" id="ntc-open-btn" type="button">&#128139;&nbsp; I'm New Here — Connect With Us</button>
+  </div>
+</section>
+
+<!-- ════ NEW TO SJIOC MODAL ════ -->
+<div class="ntc-overlay" id="ntc-overlay" role="dialog" aria-modal="true" aria-labelledby="ntc-modal-title" hidden>
+  <div class="ntc-modal">
+    <button class="ntc-close" id="ntc-close" aria-label="Close">&times;</button>
+
+    <!-- Left: church info -->
+    <div class="ntc-panel ntc-info">
+      <div class="ntc-info-cross">&#10013;</div>
+      <h2 id="ntc-modal-title"><?php echo esc_html(sjioc_name()); ?></h2>
+      <p class="ntc-tagline">A Keralite Orthodox Christian community in Jacksonville, FL — a home away from home.</p>
+      <p class="ntc-desc">We are a vibrant parish of the Malankara Orthodox Syrian Church, bringing together families from Kerala and the wider community in worship, fellowship, and service. Our doors are always open to newcomers seeking faith and community in Christ.</p>
+      <ul class="ntc-info-list">
+        <li><span>&#128336;</span> Holy Qurbana: <?php echo esc_html(sjioc_qurbana()); ?></li>
+        <li><span>&#128218;</span> Sunday School: <?php echo esc_html(sjioc_school()); ?></li>
+        <li><span>&#128205;</span> <?php echo esc_html(sjioc_address()); ?></li>
+        <li><span>&#128222;</span> <?php echo esc_html(sjioc_phone()); ?></li>
+      </ul>
+    </div>
+
+    <!-- Right: form -->
+    <div class="ntc-panel ntc-form-panel">
+      <h3>Tell Us a Little About Yourself</h3>
+      <p class="ntc-form-sub">We'll have someone from our team reach out personally — no spam, just a warm welcome.</p>
+
+      <div id="ntc-success" class="ntc-success" hidden></div>
+      <div id="ntc-error"   class="ntc-err"     hidden></div>
+
+      <form id="ntc-form" novalidate>
+        <?php wp_nonce_field('sjioc_ntc', 'sjioc_ntc_nonce'); ?>
+
+        <div class="ntc-row-2">
+          <div class="ntc-group">
+            <label for="ntc-fname">First Name <span class="req">*</span></label>
+            <input type="text" id="ntc-fname" name="ntc_fname" autocomplete="given-name" required>
+          </div>
+          <div class="ntc-group">
+            <label for="ntc-lname">Last Name <span class="req">*</span></label>
+            <input type="text" id="ntc-lname" name="ntc_lname" autocomplete="family-name" required>
+          </div>
+        </div>
+
+        <div class="ntc-row-2">
+          <div class="ntc-group">
+            <label for="ntc-phone">Phone Number <span class="req">*</span></label>
+            <input type="tel" id="ntc-phone" name="ntc_phone" autocomplete="tel" placeholder="(904) 555-0100">
+          </div>
+          <div class="ntc-group">
+            <label for="ntc-family">Total Family Members</label>
+            <input type="number" id="ntc-family" name="ntc_family" min="1" max="20" placeholder="e.g. 4">
+          </div>
+        </div>
+
+        <div class="ntc-group">
+          <label for="ntc-address">Home Address</label>
+          <input type="text" id="ntc-address" name="ntc_address" autocomplete="street-address" placeholder="Street, City, ZIP">
+        </div>
+
+        <div class="ntc-row-2">
+          <div class="ntc-group">
+            <label for="ntc-kerala">Where in Kerala?</label>
+            <select id="ntc-kerala" name="ntc_kerala">
+              <option value="">— select district —</option>
+              <option>Thiruvananthapuram</option><option>Kollam</option>
+              <option>Pathanamthitta</option><option>Alappuzha</option>
+              <option>Kottayam</option><option>Idukki</option>
+              <option>Ernakulam</option><option>Thrissur</option>
+              <option>Palakkad</option><option>Malappuram</option>
+              <option>Kozhikode</option><option>Wayanad</option>
+              <option>Kannur</option><option>Kasaragod</option>
+              <option>Outside Kerala</option>
+            </select>
+          </div>
+          <div class="ntc-group">
+            <label for="ntc-parish">Family Parish Name</label>
+            <input type="text" id="ntc-parish" name="ntc_parish" placeholder="e.g. St. George's, Kottayam">
+          </div>
+        </div>
+
+        <div class="ntc-group">
+          <label for="ntc-visit">Planning to Visit? (Date)</label>
+          <input type="date" id="ntc-visit" name="ntc_visit" min="<?php echo esc_attr(date('Y-m-d', strtotime('+1 day'))); ?>">
+        </div>
+
+        <div class="ntc-group">
+          <label>Best Time for Us to Call You</label>
+          <div class="ntc-call-chips" id="ntc-call-chips">
+            <?php
+            $windows = [
+              'early'     => ['&#127747;', 'Early Morning', '7:00 – 9:00 AM'],
+              'morning'   => ['&#9728;',   'Morning',       '9:00 – 11:00 AM'],
+              'midday'    => ['&#127748;', 'Midday',        '11:00 AM – 1:00 PM'],
+              'afternoon' => ['&#127749;', 'Afternoon',     '1:00 – 4:00 PM'],
+              'evening'   => ['&#127750;', 'Evening',       '4:00 – 7:00 PM'],
+              'after'     => ['&#127769;', 'After Dinner',  '7:00 – 9:00 PM'],
+            ];
+            foreach ($windows as $val => [$icon, $label, $time]): ?>
+            <button type="button" class="ntc-chip" data-val="<?php echo esc_attr($label . ' (' . $time . ')'); ?>">
+              <span class="ntc-chip-icon"><?php echo $icon; ?></span>
+              <span class="ntc-chip-label"><?php echo esc_html($label); ?></span>
+              <span class="ntc-chip-time"><?php echo esc_html($time); ?></span>
+            </button>
+            <?php endforeach; ?>
+          </div>
+          <input type="hidden" id="ntc-call" name="ntc_call">
+        </div>
+
+        <button type="submit" class="btn btn-cr ntc-submit" id="ntc-submit">Send — We'd Love to Meet You &#10139;</button>
+      </form>
+    </div><!-- /ntc-form-panel -->
+  </div><!-- /ntc-modal -->
+</div><!-- /ntc-overlay -->
+
+<script>
+(function () {
+  var overlay  = document.getElementById('ntc-overlay');
+  var openBtn  = document.getElementById('ntc-open-btn');
+  var closeBtn = document.getElementById('ntc-close');
+  var form     = document.getElementById('ntc-form');
+  var chips    = document.querySelectorAll('.ntc-chip');
+  var callHid  = document.getElementById('ntc-call');
+  var success  = document.getElementById('ntc-success');
+  var errBox   = document.getElementById('ntc-error');
+  var submit   = document.getElementById('ntc-submit');
+
+  function openModal() { overlay.hidden = false; document.body.style.overflow = 'hidden'; }
+  function closeModal() { overlay.hidden = true; document.body.style.overflow = ''; }
+
+  if (openBtn)  openBtn.addEventListener('click', openModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+
+  // Hash trigger (nav link)
+  if (window.location.hash === '#new-to-sjioc') openModal();
+
+  // Call window chips
+  chips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      chips.forEach(function (c) { c.classList.remove('selected'); });
+      chip.classList.add('selected');
+      callHid.value = chip.dataset.val;
+    });
+  });
+
+  // Submit
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      errBox.hidden = true;
+      var fname = document.getElementById('ntc-fname').value.trim();
+      var lname = document.getElementById('ntc-lname').value.trim();
+      var phone = document.getElementById('ntc-phone').value.trim();
+      if (!fname || !lname || !phone) {
+        errBox.textContent = 'Please enter your name and phone number.';
+        errBox.hidden = false; return;
+      }
+      submit.disabled = true; submit.textContent = '⏳ Sending…';
+      var nonce = document.querySelector('input[name="sjioc_ntc_nonce"]');
+      var body  = new URLSearchParams({
+        action:       'sjioc_new_to_church',
+        nonce:        nonce ? nonce.value : '',
+        ntc_fname:    fname,
+        ntc_lname:    lname,
+        ntc_phone:    phone,
+        ntc_address:  document.getElementById('ntc-address').value,
+        ntc_visit:    document.getElementById('ntc-visit').value,
+        ntc_family:   document.getElementById('ntc-family').value,
+        ntc_kerala:   document.getElementById('ntc-kerala').value,
+        ntc_parish:   document.getElementById('ntc-parish').value,
+        ntc_call:     callHid.value,
+      });
+      fetch(typeof sjioData !== 'undefined' ? sjioData.ajaxUrl : '/wp-admin/admin-ajax.php', {
+        method: 'POST', body: body
+      }).then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.success) {
+            form.hidden    = true;
+            success.textContent = d.data.msg;
+            success.hidden = false;
+          } else {
+            errBox.textContent = (d.data && d.data.msg) ? d.data.msg : 'Something went wrong. Please try again.';
+            errBox.hidden = false;
+            submit.disabled = false;
+            submit.textContent = 'Send — We\'d Love to Meet You ➤';
+          }
+        }).catch(function () {
+          errBox.textContent = 'Network error. Please try again.';
+          errBox.hidden = false;
+          submit.disabled = false;
+          submit.textContent = 'Send — We\'d Love to Meet You ➤';
+        });
+    });
+  }
+})();
+</script>
+
 <?php sjioc_footer(); get_footer(); ?>

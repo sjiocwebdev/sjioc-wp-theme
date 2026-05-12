@@ -369,6 +369,7 @@ function sjioc_primary_nav_fallback() {
     $contact_children = [
         $contact                      => 'Contact Us',
         home_url('/hall-rental/')     => 'MBM Hall Rental',
+        home_url('/#new-to-sjioc')   => 'New to SJIOC',
     ];
 
     echo '<ul id="primary-menu">';
