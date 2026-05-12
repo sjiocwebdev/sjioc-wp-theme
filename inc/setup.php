@@ -162,9 +162,22 @@ function sjioc_footer() { ?>
   <div class="container">
     <div class="footer-grid">
       <div>
+        <?php
+        $fl_id  = get_theme_mod('custom_logo');
+        $fl_url = $fl_id ? wp_get_attachment_image_url($fl_id, 'medium') : '';
+        ?>
+        <?php if ($fl_url): ?>
+          <img src="<?php echo esc_url($fl_url); ?>" alt="<?php echo esc_attr(sjioc_name()); ?>" class="footer-logo">
+        <?php else: ?>
+          <svg class="footer-logo-svg" viewBox="0 0 46 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+            <circle cx="23" cy="23" r="21" fill="none" stroke="#C9A84C" stroke-width="1.5"/>
+            <line x1="23" y1="4"  x2="23" y2="42" stroke="#C9A84C" stroke-width="2.6"/>
+            <line x1="8"  y1="15" x2="38" y2="15" stroke="#C9A84C" stroke-width="2.6"/>
+            <line x1="12" y1="25" x2="34" y2="25" stroke="#C9A84C" stroke-width="1.5"/>
+            <circle cx="23" cy="23" r="2.6" fill="#C9A84C" opacity=".5"/>
+          </svg>
+        <?php endif; ?>
         <span class="footer-brand-name"><?php echo esc_html(sjioc_name()); ?></span>
-        <p><?php echo esc_html(sjioc_address()); ?></p>
-        <p>A faith community rooted in the apostolic Orthodox tradition, serving Delaware Valley since 2006.</p>
       </div>
       <div class="footer-col">
         <span class="footer-col-title">Service Times</span>

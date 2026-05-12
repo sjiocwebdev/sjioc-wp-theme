@@ -13,6 +13,23 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
 <section class="home-hero" aria-label="Welcome banner">
   <div class="hero-bg" role="presentation"></div>
   <div class="hero-overlay" role="presentation"></div>
+  <?php
+  $wm_id  = get_theme_mod('custom_logo');
+  $wm_url = $wm_id ? wp_get_attachment_image_url($wm_id, 'large') : '';
+  ?>
+  <div class="hero-watermark" role="presentation" aria-hidden="true">
+    <?php if ($wm_url): ?>
+      <img src="<?php echo esc_url($wm_url); ?>" alt="">
+    <?php else: ?>
+      <svg viewBox="0 0 46 46" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="23" cy="23" r="21" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="23" y1="4"  x2="23" y2="42" stroke="currentColor" stroke-width="2.6"/>
+        <line x1="8"  y1="15" x2="38" y2="15" stroke="currentColor" stroke-width="2.6"/>
+        <line x1="12" y1="25" x2="34" y2="25" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="23" cy="23" r="2.6" fill="currentColor" opacity=".5"/>
+      </svg>
+    <?php endif; ?>
+  </div>
   <div class="hero-content">
     <span class="hero-eyebrow"><?php echo esc_html($hero_eyebrow); ?></span>
     <h1><?php echo esc_html($hero_title); ?></h1>
