@@ -58,8 +58,7 @@ function sjioc_register_contacts() {
         ],
         'public'        => false,
         'show_ui'       => true,
-        'menu_icon'     => 'dashicons-groups',
-        'menu_position' => 7,
+        'show_in_menu'  => 'sjioc',
         'supports'      => ['title', 'thumbnail'],
         'show_in_rest'  => false,
     ]);

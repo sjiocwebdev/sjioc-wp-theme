@@ -1,6 +1,31 @@
 <?php
 defined('ABSPATH') || exit;
 
+/* ─────────────────────────────────────
+   CREDENTIAL HELPERS
+   wp-config.php constants always take precedence (preferred for production/Azure).
+   Falls back to wp_options values set via the admin settings form.
+───────────────────────────────────── */
+function sjioc_od_tenant_id(): string {
+    return defined('SJIOC_AZURE_TENANT_ID')   ? SJIOC_AZURE_TENANT_ID   : (string) get_option('sjioc_od_tenant_id',        '');
+}
+function sjioc_od_client_id(): string {
+    return defined('SJIOC_AZURE_CLIENT_ID')   ? SJIOC_AZURE_CLIENT_ID   : (string) get_option('sjioc_od_client_id',        '');
+}
+function sjioc_od_client_secret(): string {
+    return defined('SJIOC_AZURE_CLIENT_SECRET') ? SJIOC_AZURE_CLIENT_SECRET : (string) get_option('sjioc_od_client_secret', '');
+}
+function sjioc_od_drive_id(): string {
+    return defined('SJIOC_ONEDRIVE_DRIVE_ID') ? SJIOC_ONEDRIVE_DRIVE_ID : (string) get_option('sjioc_od_drive_id',         '');
+}
+function sjioc_od_photos_folder_id(): string {
+    return defined('SJIOC_ONEDRIVE_FOLDER_ID') ? SJIOC_ONEDRIVE_FOLDER_ID : (string) get_option('sjioc_od_photos_folder_id', '');
+}
+function sjioc_od_is_configured(): bool {
+    return (bool) (sjioc_od_tenant_id() && sjioc_od_client_id() && sjioc_od_client_secret()
+                && sjioc_od_drive_id()  && sjioc_od_photos_folder_id());
+}
+
 /*
  * OneDrive Photo Sync — Microsoft Graph API (app-only, no SDK needed)
  *
@@ -116,13 +141,13 @@ function sjioc_od_get_token(): string|false {
     if ($cached) return $cached;
 
     $resp = wp_remote_post(
-        'https://login.microsoftonline.com/' . SJIOC_AZURE_TENANT_ID . '/oauth2/v2.0/token',
+        'https://login.microsoftonline.com/' . sjioc_od_tenant_id() . '/oauth2/v2.0/token',
         [
             'timeout' => 20,
             'body'    => [
                 'grant_type'    => 'client_credentials',
-                'client_id'     => SJIOC_AZURE_CLIENT_ID,
-                'client_secret' => SJIOC_AZURE_CLIENT_SECRET,
+                'client_id'     => sjioc_od_client_id(),
+                'client_secret' => sjioc_od_client_secret(),
                 'scope'         => 'https://graph.microsoft.com/.default',
             ],
         ]
@@ -205,8 +230,8 @@ function sjioc_od_delta_sync(string $token, bool $fresh = false): array {
     $table = $wpdb->prefix . 'sjioc_photos';
 
     $saved = $fresh ? '' : (string) get_option('sjioc_od_delta_link', '');
-    $url   = $saved ?: 'https://graph.microsoft.com/v1.0/drives/' . SJIOC_ONEDRIVE_DRIVE_ID
-           . '/items/' . SJIOC_ONEDRIVE_FOLDER_ID . '/delta';
+    $url   = $saved ?: 'https://graph.microsoft.com/v1.0/drives/' . sjioc_od_drive_id()
+           . '/items/' . sjioc_od_photos_folder_id() . '/delta';
 
     // Collect all pages before processing — folder items from page 1 may be
     // needed to resolve parent paths for file items on later pages.
@@ -274,12 +299,13 @@ function sjioc_od_delta_sync(string $token, bool $fresh = false): array {
         $parent    = $folders[$parent_id] ?? null;
         if (!$parent) continue;
 
-        if ($parent['parent_id'] === SJIOC_ONEDRIVE_FOLDER_ID) {
+        $photos_root = sjioc_od_photos_folder_id();
+        if ($parent['parent_id'] === $photos_root) {
             $category = strtolower($parent['name']);
             $album    = '';
         } else {
             $grandparent = $folders[$parent['parent_id']] ?? null;
-            if (!$grandparent || $grandparent['parent_id'] !== SJIOC_ONEDRIVE_FOLDER_ID) continue;
+            if (!$grandparent || $grandparent['parent_id'] !== $photos_root) continue;
             $category = strtolower($grandparent['name']);
             $album    = $parent['name'];
         }
@@ -310,7 +336,7 @@ function sjioc_od_delta_sync(string $token, bool $fresh = false): array {
         } else {
             $wpdb->insert($table, [
                 'od_item_id'   => $item['id'],
-                'od_drive_id'  => SJIOC_ONEDRIVE_DRIVE_ID,
+                'od_drive_id'  => sjioc_od_drive_id(),
                 'file_name'    => $item['name'],
                 'category'     => $category,
                 'album'        => $album,
@@ -330,10 +356,8 @@ function sjioc_od_delta_sync(string $token, bool $fresh = false): array {
 ───────────────────────────────────── */
 
 function sjioc_od_sync(): array {
-    if (!defined('SJIOC_AZURE_TENANT_ID')     || !defined('SJIOC_AZURE_CLIENT_ID') ||
-        !defined('SJIOC_AZURE_CLIENT_SECRET') || !defined('SJIOC_ONEDRIVE_DRIVE_ID')  ||
-        !defined('SJIOC_ONEDRIVE_FOLDER_ID')) {
-        return ['error' => 'OneDrive credentials not configured in wp-config.php.'];
+    if (!sjioc_od_is_configured()) {
+        return ['error' => 'SharePoint credentials not configured. Add them via SJIOC → Photos → Settings, or in wp-config.php.'];
     }
 
     $token = sjioc_od_get_token();
@@ -362,9 +386,32 @@ function sjioc_od_sync(): array {
 function sjioc_od_photos_page(): void {
     if (!current_user_can('manage_options')) return;
 
-    $configured = defined('SJIOC_AZURE_TENANT_ID')     && defined('SJIOC_AZURE_CLIENT_ID') &&
-                  defined('SJIOC_AZURE_CLIENT_SECRET')  && defined('SJIOC_ONEDRIVE_DRIVE_ID') &&
-                  defined('SJIOC_ONEDRIVE_FOLDER_ID');
+    /* ── Handle settings save ── */
+    if (isset($_POST['sjioc_od_save_settings'])) {
+        check_admin_referer('sjioc_od_save_settings');
+
+        $db_fields = [
+            'sjioc_od_tenant_id'        => 'SJIOC_AZURE_TENANT_ID',
+            'sjioc_od_client_id'        => 'SJIOC_AZURE_CLIENT_ID',
+            'sjioc_od_client_secret'    => 'SJIOC_AZURE_CLIENT_SECRET',
+            'sjioc_od_drive_id'         => 'SJIOC_ONEDRIVE_DRIVE_ID',
+            'sjioc_od_photos_folder_id' => 'SJIOC_ONEDRIVE_FOLDER_ID',
+        ];
+        $saved = 0;
+        foreach ($db_fields as $option => $constant) {
+            if (defined($constant)) continue; // wp-config.php wins — don't overwrite
+            $val = sanitize_text_field($_POST[$option] ?? '');
+            if ($val !== '') {
+                update_option($option, $val, false);
+                $saved++;
+            }
+        }
+        delete_transient('sjioc_od_token');
+        echo '<div class="notice notice-success is-dismissible"><p>&#10003; Settings saved ('
+           . $saved . ' field' . ($saved !== 1 ? 's' : '') . ' updated). Token cache cleared.</p></div>';
+    }
+
+    $configured = sjioc_od_is_configured();
 
     global $wpdb;
     $table       = $wpdb->prefix . 'sjioc_photos';
@@ -372,37 +419,74 @@ function sjioc_od_photos_page(): void {
     $last_sync   = get_option('sjioc_od_last_sync', null);
     $last_result = get_option('sjioc_od_sync_result', []);
     $next_cron   = wp_next_scheduled('sjioc_od_sync_cron');
+
+    /* ── Helper: render one settings row ── */
+    $row = function (string $label, string $option, string $constant, bool $is_secret = false) {
+        $from_const = defined($constant);
+        $db_val     = (string) get_option($option, '');
+        $display    = $from_const
+            ? ($is_secret ? str_repeat('•', 12) . ' (wp-config.php)' : constant($constant) . ' (wp-config.php)')
+            : ($is_secret && $db_val ? str_repeat('•', 12) . ' (Database)' : ($db_val ?: ''));
+        $locked     = $from_const;
+        $source_tag = $from_const
+            ? '<span style="background:#d1fae5;color:#065f46;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:6px">wp-config.php</span>'
+            : '<span style="background:#fef3c7;color:#92400e;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:6px">Database</span>';
+        ?>
+        <tr>
+            <th style="width:200px;vertical-align:middle">
+                <?php echo esc_html($label); ?>
+                <?php echo ($db_val || $from_const) ? $source_tag : '<span style="background:#fee2e2;color:#991b1b;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:6px">Not set</span>'; ?>
+            </th>
+            <td>
+                <?php if ($locked): ?>
+                    <input type="text" class="regular-text" value="<?php echo esc_attr($display); ?>" disabled style="background:#f0f0f0;color:#666;font-family:monospace;font-size:12px">
+                    <p class="description">Set in <code>wp-config.php</code> — edit that file to change it.</p>
+                <?php else: ?>
+                    <input type="<?php echo $is_secret ? 'password' : 'text'; ?>"
+                           name="<?php echo esc_attr($option); ?>"
+                           class="regular-text"
+                           value="<?php echo esc_attr($db_val); ?>"
+                           placeholder="<?php echo $db_val ? '' : 'Enter value…'; ?>"
+                           style="font-family:monospace;font-size:12px"
+                           autocomplete="<?php echo $is_secret ? 'new-password' : 'off'; ?>">
+                    <?php if ($is_secret && $db_val): ?>
+                    <p class="description">Secret is saved. Enter a new value only if you want to replace it.</p>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </td>
+        </tr>
+        <?php
+    };
     ?>
     <div class="wrap">
-        <h1>📸 OneDrive Photos</h1>
+        <h1>&#128248; SharePoint / OneDrive Photos</h1>
 
         <?php if (!$configured): ?>
-        <div class="notice notice-error">
-            <p><strong>OneDrive not configured.</strong>
-               Add the five constants to <code>wp-config.php</code> — see the setup section below.</p>
+        <div class="notice notice-warning">
+            <p><strong>Not fully configured.</strong> Fill in the SharePoint credentials below to enable photo sync.</p>
         </div>
         <?php else: ?>
-        <div class="notice notice-success is-dismissible"><p>✅ OneDrive credentials found.</p></div>
+        <div class="notice notice-success is-dismissible"><p>&#10003; All credentials configured — photo sync is active.</p></div>
         <?php endif; ?>
 
-        <div style="max-width:640px;margin-top:20px">
+        <!-- ── Sync Status ── -->
+        <div style="max-width:680px;margin-top:20px">
+            <h2 style="font-size:1rem;border-bottom:1px solid #ddd;padding-bottom:8px">Sync Status</h2>
             <table class="widefat striped" style="margin-bottom:20px">
-                <tr><th>Photos in library</th>
-                    <td><?php echo $photo_count; ?></td></tr>
-                <tr><th>Last sync</th>
-                    <td><?php echo $last_sync ? esc_html($last_sync) : '<em>Never</em>'; ?></td></tr>
+                <tr><th>Photos in library</th><td><?php echo esc_html($photo_count); ?></td></tr>
+                <tr><th>Last sync</th><td><?php echo $last_sync ? esc_html($last_sync) : '<em>Never</em>'; ?></td></tr>
                 <?php if ($last_result): ?>
-                <tr><th>Last sync result</th><td>
-                    <?php echo (int)($last_result['inserted']      ?? 0); ?> new &nbsp;·&nbsp;
-                    <?php echo (int)($last_result['updated']       ?? 0); ?> updated &nbsp;·&nbsp;
-                    <?php echo (int)($last_result['deleted']       ?? 0); ?> removed &nbsp;·&nbsp;
+                <tr><th>Last result</th><td>
+                    <?php echo (int)($last_result['inserted'] ?? 0); ?> new &nbsp;&middot;&nbsp;
+                    <?php echo (int)($last_result['updated']  ?? 0); ?> updated &nbsp;&middot;&nbsp;
+                    <?php echo (int)($last_result['deleted']  ?? 0); ?> removed &nbsp;&middot;&nbsp;
                     <?php echo (int)($last_result['url_refreshed'] ?? 0); ?> URLs refreshed
                 </td></tr>
                 <?php endif; ?>
                 <tr><th>Next auto-sync</th><td>
                     <?php echo $next_cron
                         ? esc_html(date_i18n('D, M j Y g:i A', $next_cron))
-                        : '<em>Not scheduled — re-activate theme to reschedule</em>';
+                        : '<em>Not scheduled — re-activate theme</em>';
                     ?>
                 </td></tr>
             </table>
@@ -411,22 +495,54 @@ function sjioc_od_photos_page(): void {
 
             <?php if ($configured): ?>
             <button class="button button-primary button-large" id="btn-od-sync" onclick="odSync(false)">
-                🔄 Sync Now from OneDrive
+                &#128260; Sync Now from SharePoint
             </button>
             &nbsp;
             <button class="button button-large" id="btn-od-reset" onclick="odSync(true)">
-                ↺ Reset &amp; Full Sync
+                &#8634; Reset &amp; Full Sync
             </button>
             <p class="description" style="margin-top:8px">
-                <strong>Sync Now</strong> — refreshes URLs and fetches changes since last run via delta query.<br>
-                <strong>Reset &amp; Full Sync</strong> — clears the saved delta link and re-scans all files from scratch. Use this if photos are missing or URLs are broken.
+                <strong>Sync Now</strong> — fetches only changes since last run (fast).<br>
+                <strong>Reset &amp; Full Sync</strong> — clears delta link and rescans everything from scratch.
             </p>
             <?php endif; ?>
         </div>
 
         <hr style="margin:32px 0">
-        <h3>Required OneDrive Folder Structure</h3>
-        <pre style="background:#f6f6f6;padding:18px;max-width:460px;line-height:1.9;font-size:.82rem;border-left:3px solid #C9A84C">SJIOC Photos/              ← SJIOC_ONEDRIVE_FOLDER_ID points here
+
+        <!-- ── Credentials Settings ── -->
+        <div style="max-width:780px">
+            <h2 style="font-size:1rem;border-bottom:1px solid #ddd;padding-bottom:8px">SharePoint / Azure Credentials</h2>
+            <p>Values set in <code>wp-config.php</code> are shown read-only and always take precedence. Use the fields below to configure any values not already in <code>wp-config.php</code>.</p>
+
+            <form method="post" style="margin-top:16px">
+                <?php wp_nonce_field('sjioc_od_save_settings'); ?>
+                <table class="widefat" style="margin-bottom:16px">
+                    <thead><tr>
+                        <th style="width:200px">Setting</th>
+                        <th>Value</th>
+                    </tr></thead>
+                    <tbody>
+                        <?php
+                        $row('Azure Tenant ID',        'sjioc_od_tenant_id',        'SJIOC_AZURE_TENANT_ID');
+                        $row('Azure Client ID',        'sjioc_od_client_id',        'SJIOC_AZURE_CLIENT_ID');
+                        $row('Azure Client Secret',    'sjioc_od_client_secret',    'SJIOC_AZURE_CLIENT_SECRET', true);
+                        $row('SharePoint Drive ID',    'sjioc_od_drive_id',         'SJIOC_ONEDRIVE_DRIVE_ID');
+                        $row('Photos Folder Item ID',  'sjioc_od_photos_folder_id', 'SJIOC_ONEDRIVE_FOLDER_ID');
+                        ?>
+                    </tbody>
+                </table>
+                <input type="submit" name="sjioc_od_save_settings" class="button button-primary" value="Save Settings">
+                <p class="description" style="margin-top:8px">
+                    Saving clears the cached OAuth token so the new credentials take effect immediately.<br>
+                    For production on Azure, prefer setting these as App Service environment variables and defining them as constants in <code>wp-config.php</code>.
+                </p>
+            </form>
+        </div>
+
+        <hr style="margin:32px 0">
+        <h2 style="font-size:1rem;border-bottom:1px solid #ddd;padding-bottom:8px">Required SharePoint Folder Structure</h2>
+        <pre style="background:#f6f6f6;padding:18px;max-width:460px;line-height:1.9;font-size:.82rem;border-left:3px solid #C9A84C">SJIOC Photos/              ← Photos Folder Item ID points here
 ├── Worship/
 │   ├── Holy Qurbana 2025/
 │   └── Christmas Service 2025/
@@ -445,17 +561,15 @@ function sjioc_od_photos_page(): void {
         </p>
 
         <hr style="margin:32px 0">
-        <h3>wp-config.php Setup</h3>
-        <p>Add these five constants above <code>/* That's all, stop editing! */</code>:</p>
-        <pre style="background:#f6f6f6;padding:18px;font-size:.82rem;border-left:3px solid #C9A84C">define('SJIOC_AZURE_TENANT_ID',     'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx');
-define('SJIOC_AZURE_CLIENT_ID',     'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx');
-define('SJIOC_AZURE_CLIENT_SECRET', 'your-client-secret');
-define('SJIOC_ONEDRIVE_DRIVE_ID',      'b!AbCdEf123...');   // drive ID from Graph Explorer
-define('SJIOC_ONEDRIVE_FOLDER_ID',     '01ABCDEF...');       // item ID of "SJIOC Photos" folder</pre>
-        <p class="description">
-            In Azure AD → App registrations → your app → API permissions, add:<br>
-            <strong>Microsoft Graph → Files.Read.All</strong> (application permission) → Grant admin consent
-        </p>
+        <h2 style="font-size:1rem;border-bottom:1px solid #ddd;padding-bottom:8px">Azure AD App Permissions Required</h2>
+        <table class="widefat" style="max-width:560px">
+            <thead><tr><th>Permission</th><th>Type</th><th>Purpose</th></tr></thead>
+            <tbody>
+                <tr><td><code>Files.Read.All</code></td><td>Application</td><td>Read photos for gallery sync</td></tr>
+                <tr><td><code>Files.ReadWrite.All</code></td><td>Application</td><td>Upload hall rental summaries</td></tr>
+            </tbody>
+        </table>
+        <p class="description" style="margin-top:8px">Grant admin consent after adding permissions in Azure AD → App registrations → API permissions.</p>
     </div>
 
     <script>
@@ -478,11 +592,10 @@ define('SJIOC_ONEDRIVE_FOLDER_ID',     '01ABCDEF...');       // item ID of "SJIO
         .then(d => {
             document.getElementById('btn-od-sync').disabled = false;
             document.getElementById('btn-od-reset').disabled = false;
-            btn.textContent = reset ? '↺ Reset & Full Sync' : '🔄 Sync Now from OneDrive';
+            btn.textContent = reset ? '↺ Reset & Full Sync' : '🔄 Sync Now from SharePoint';
             res.style.display = '';
             if (d.error) {
-                res.innerHTML = '<div class="notice notice-error inline"><p><strong>Error:</strong> '
-                              + d.error + '</p></div>';
+                res.innerHTML = '<div class="notice notice-error inline"><p><strong>Error:</strong> ' + d.error + '</p></div>';
             } else {
                 res.innerHTML = '<div class="notice notice-success inline"><p>'
                               + '<strong>Sync complete.</strong> '
@@ -494,7 +607,7 @@ define('SJIOC_ONEDRIVE_FOLDER_ID',     '01ABCDEF...');       // item ID of "SJIO
         .catch(() => {
             document.getElementById('btn-od-sync').disabled = false;
             document.getElementById('btn-od-reset').disabled = false;
-            btn.textContent = reset ? '↺ Reset & Full Sync' : '🔄 Sync Now from OneDrive';
+            btn.textContent = reset ? '↺ Reset & Full Sync' : '🔄 Sync Now from SharePoint';
             res.style.display = '';
             res.innerHTML = '<div class="notice notice-error inline"><p>Network error — try again.</p></div>';
         });

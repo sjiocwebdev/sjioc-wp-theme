@@ -41,14 +41,28 @@ function sjioc_assets() {
     wp_enqueue_style('sjioc-style', get_stylesheet_uri(), ['sjioc-fonts'], SJIOC_VER);
     wp_enqueue_script('sjioc-main', SJIOC_URI . '/assets/js/main.js', [], SJIOC_VER, true);
     wp_localize_script('sjioc-main', 'sjioData', [
-        'phone'   => sjioc_get('sjioc_phone', '(610) 822-0033'),
-        'email'   => sjioc_get('sjioc_email', 'info@sjioc.org'),
-        'address' => sjioc_get('sjioc_address', '4400 State Road, Drexel Hill, PA 19026'),
-        'qurbana' => sjioc_get('sjioc_qurbana', '8:30 AM'),
-        'school'  => sjioc_get('sjioc_school',  '12:00 PM'),
-        'ajaxUrl' => admin_url('admin-ajax.php'),
-        'nonce'   => wp_create_nonce('sjioc_ajax'),
+        'phone'         => sjioc_get('sjioc_phone', '(610) 822-0033'),
+        'email'         => sjioc_get('sjioc_email', 'info@sjioc.org'),
+        'address'       => sjioc_get('sjioc_address', '4400 State Road, Drexel Hill, PA 19026'),
+        'qurbana'       => sjioc_get('sjioc_qurbana', '8:30 AM'),
+        'school'        => sjioc_get('sjioc_school',  '12:00 PM'),
+        'ajaxUrl'       => admin_url('admin-ajax.php'),
+        'nonce'         => wp_create_nonce('sjioc_ajax'),
+        'recaptchaKey'  => sjioc_get('sjioc_recaptcha_site_key', ''),
     ]);
+    // Load reCAPTCHA v3 only on pages that have forms
+    if (is_page_template(['page-contact-us.php', 'page-hall-rental.php'])) {
+        $rc_key = sjioc_get('sjioc_recaptcha_site_key', '');
+        if ($rc_key) {
+            wp_enqueue_script(
+                'google-recaptcha',
+                'https://www.google.com/recaptcha/api.js?render=' . rawurlencode($rc_key),
+                [],
+                null,
+                true
+            );
+        }
+    }
     if (is_singular() && comments_open() && get_option('thread_comments')) {
         wp_enqueue_script('comment-reply');
     }
@@ -71,6 +85,18 @@ function sjioc_customizer($wp_customize) {
         'priority' => 31,
     ]);
 
+    $wp_customize->add_section('sjioc_rental', [
+        'title'       => __('Hall Rental Settings', 'sjioc'),
+        'description' => __('Configure the Hall Rental page and notifications.', 'sjioc'),
+        'priority'    => 32,
+    ]);
+
+    $wp_customize->add_section('sjioc_recaptcha', [
+        'title'       => __('CAPTCHA — Bot Protection', 'sjioc'),
+        'description' => __('Google reCAPTCHA v3 (invisible). Get free keys at g.co/recaptcha — choose reCAPTCHA v3, register your domain. Protects the Contact and Hall Rental forms.', 'sjioc'),
+        'priority'    => 33,
+    ]);
+
     $settings = [
         'sjioc_church_name'     => ['label' => 'Full Church Name',      'default' => "St. John's Indian Orthodox Church Of Delaware Valley", 'section' => 'sjioc_info'],
         'sjioc_abbr'            => ['label' => 'Abbreviation',          'default' => 'SJIOC',                                                 'section' => 'sjioc_info'],
@@ -89,6 +115,16 @@ function sjioc_customizer($wp_customize) {
         'sjioc_hero_title'      => ['label' => 'Hero Headline',         'default' => "St. John's Indian Orthodox Church",                   'section' => 'sjioc_hero'],
         'sjioc_hero_sub'        => ['label' => 'Hero Subtitle',         'default' => 'A Faith Community Rooted in Tradition · Delaware Valley', 'section' => 'sjioc_hero'],
         'sjioc_hero_eyebrow'    => ['label' => 'Eyebrow Text',          'default' => '✦ Est. 2006 · Drexel Hill, PA ✦',                    'section' => 'sjioc_hero'],
+        // Hall Rental
+        'sjioc_hall_name'            => ['label' => 'Hall Name',                 'default' => 'Parish Hall',       'section' => 'sjioc_rental'],
+        'sjioc_hall_capacity'        => ['label' => 'Hall Capacity (persons)',   'default' => '200',               'section' => 'sjioc_rental'],
+        'sjioc_rentals_sp_link'      => ['label' => 'SharePoint Rentals Folder URL (shown in notification emails)', 'default' => '', 'section' => 'sjioc_rental'],
+        'sjioc_rentals_od_folder_id' => ['label' => 'OneDrive Rentals Folder ID (for auto-upload; requires Files.ReadWrite.All permission)', 'default' => '', 'section' => 'sjioc_rental'],
+        'sjioc_hall_booking_amount'  => ['label' => 'Hall Booking Fee ($)',  'default' => '650', 'section' => 'sjioc_rental'],
+        'sjioc_hall_deposit_amount'  => ['label' => 'Security Deposit ($)',  'default' => '100', 'section' => 'sjioc_rental'],
+        // reCAPTCHA
+        'sjioc_recaptcha_site_key'   => ['label' => 'reCAPTCHA v3 Site Key (public — paste from Google)',   'default' => '', 'section' => 'sjioc_recaptcha'],
+        'sjioc_recaptcha_secret_key' => ['label' => 'reCAPTCHA v3 Secret Key (private — never share this)', 'default' => '', 'section' => 'sjioc_recaptcha'],
     ];
 
     foreach ($settings as $id => $args) {
@@ -115,6 +151,19 @@ function sjioc_customizer($wp_customize) {
         'section'     => 'sjioc_info',
         'mime_type'   => 'image',
         'description' => __('Upload a logo for the footer. Falls back to the site logo, then the cross SVG.', 'sjioc'),
+    ]));
+
+    // Zelle QR code image for the Support Us / Give page
+    $wp_customize->add_setting('sjioc_zelle_qr', [
+        'default'           => '',
+        'sanitize_callback' => 'absint',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control(new WP_Customize_Media_Control($wp_customize, 'sjioc_zelle_qr', [
+        'label'       => __('Zelle QR Code Image', 'sjioc'),
+        'section'     => 'sjioc_info',
+        'mime_type'   => 'image',
+        'description' => __('Upload the Zelle QR code displayed on the Support Us / Give page.', 'sjioc'),
     ]));
 
     // Hero watermark — separate upload, independent of the nav logo
@@ -148,18 +197,42 @@ function sjioc_widgets_init() {
 add_action('widgets_init', 'sjioc_widgets_init');
 
 /* ─────────────────────────────────────
+   SMTP HELPERS — wp-config.php → DB fallback
+───────────────────────────────────── */
+function sjioc_smtp_host(): string {
+    return defined('SJIOC_SMTP_HOST') ? SJIOC_SMTP_HOST : (string) get_option('sjioc_smtp_host', '');
+}
+function sjioc_smtp_user(): string {
+    return defined('SJIOC_SMTP_USER') ? SJIOC_SMTP_USER : (string) get_option('sjioc_smtp_user', '');
+}
+function sjioc_smtp_pass(): string {
+    return defined('SJIOC_SMTP_PASS') ? SJIOC_SMTP_PASS : (string) get_option('sjioc_smtp_pass', '');
+}
+function sjioc_smtp_port(): int {
+    return defined('SJIOC_SMTP_PORT') ? (int) SJIOC_SMTP_PORT : (int) get_option('sjioc_smtp_port', 587);
+}
+function sjioc_smtp_from(): string {
+    if (defined('SJIOC_SMTP_FROM')) return SJIOC_SMTP_FROM;
+    $v = (string) get_option('sjioc_smtp_from', '');
+    return $v ?: sjioc_smtp_user();
+}
+function sjioc_smtp_is_configured(): bool {
+    return sjioc_smtp_host() !== '' && sjioc_smtp_user() !== '' && sjioc_smtp_pass() !== '';
+}
+
+/* ─────────────────────────────────────
    SMTP — Outlook / Microsoft 365
 ───────────────────────────────────── */
 add_action('phpmailer_init', function ($phpmailer) {
-    if (!defined('SJIOC_SMTP_HOST') || !defined('SJIOC_SMTP_USER') || !defined('SJIOC_SMTP_PASS')) return;
+    if (!sjioc_smtp_is_configured()) return;
     $phpmailer->isSMTP();
-    $phpmailer->Host       = SJIOC_SMTP_HOST;
+    $phpmailer->Host       = sjioc_smtp_host();
     $phpmailer->SMTPAuth   = true;
-    $phpmailer->Username   = SJIOC_SMTP_USER;
-    $phpmailer->Password   = SJIOC_SMTP_PASS;
+    $phpmailer->Username   = sjioc_smtp_user();
+    $phpmailer->Password   = sjioc_smtp_pass();
     $phpmailer->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-    $phpmailer->Port       = defined('SJIOC_SMTP_PORT') ? SJIOC_SMTP_PORT : 587;
-    $phpmailer->From       = SJIOC_SMTP_USER;
+    $phpmailer->Port       = sjioc_smtp_port();
+    $phpmailer->From       = sjioc_smtp_from();
     $phpmailer->FromName   = sjioc_name();
 });
 
@@ -208,7 +281,11 @@ function sjioc_footer() { ?>
             <circle cx="23" cy="23" r="2.6" fill="#C9A84C" opacity=".5"/>
           </svg>
         <?php endif; ?>
-        <span class="footer-brand-name"><?php echo esc_html(sjioc_name()); ?></span>
+        <div class="footer-lockup">
+          <span class="footer-lockup-name"><?php echo esc_html(sjioc_abbr() ?: 'SJIOC'); ?></span>
+          <span class="footer-lockup-rule"></span>
+          <span class="footer-lockup-tag">Faith &bull; Community &bull; Service</span>
+        </div>
       </div>
       <div class="footer-col">
         <span class="footer-col-title">Service Times</span>
@@ -250,6 +327,7 @@ function sjioc_footer_links() {
         home_url('/events/')           => 'Events',
         home_url('/photos/')           => 'Parish Life',
         home_url('/contact-us/')       => 'Contact',
+        home_url('/give/')             => 'Support Us',
     ];
     echo '<ul>';
     foreach ($pages as $url => $label) {
@@ -268,6 +346,7 @@ function sjioc_default_nav() {
 function sjioc_primary_nav_fallback() {
     $current = get_permalink();
     $about   = home_url('/about-us/');
+    $contact = home_url('/contact-us/');
 
     $pages = [
         home_url('/')                  => 'Home',
@@ -276,7 +355,7 @@ function sjioc_primary_nav_fallback() {
         home_url('/ministries/')       => 'Ministries',
         home_url('/events/')           => 'Events',
         home_url('/photos/')           => 'Parish Life',
-        home_url('/contact-us/')       => 'Contact',
+        $contact                       => 'Contact',
     ];
 
     $about_children = [
@@ -287,13 +366,19 @@ function sjioc_primary_nav_fallback() {
         $about . '#history'     => 'Our History',
     ];
 
+    $contact_children = [
+        $contact                      => 'Contact Us',
+        home_url('/hall-rental/')     => 'MBM Hall Rental',
+    ];
+
     echo '<ul id="primary-menu">';
     foreach ($pages as $url => $label) {
         $is_about   = ($url === $about);
+        $is_contact = ($url === $contact);
         $is_current = ($current === $url);
         $cls = [];
-        if ($is_current) $cls[] = 'current_page_item';
-        if ($is_about)   $cls[] = 'menu-item-has-children';
+        if ($is_current)              $cls[] = 'current_page_item';
+        if ($is_about || $is_contact) $cls[] = 'menu-item-has-children';
         $attr = $cls ? ' class="' . implode(' ', $cls) . '"' : '';
 
         echo '<li' . $attr . '>';
@@ -302,6 +387,14 @@ function sjioc_primary_nav_fallback() {
         if ($is_about) {
             echo '<ul class="sub-menu">';
             foreach ($about_children as $curl => $clabel) {
+                echo '<li><a href="' . esc_url($curl) . '">' . esc_html($clabel) . '</a></li>';
+            }
+            echo '</ul>';
+        }
+
+        if ($is_contact) {
+            echo '<ul class="sub-menu">';
+            foreach ($contact_children as $curl => $clabel) {
                 echo '<li><a href="' . esc_url($curl) . '">' . esc_html($clabel) . '</a></li>';
             }
             echo '</ul>';

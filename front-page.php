@@ -41,7 +41,8 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
     <span class="hero-sub"><?php echo esc_html($hero_sub); ?></span>
     <div class="hero-btns">
       <a href="<?php echo esc_url(home_url('/worship-services/')); ?>" class="btn btn-cr">Worship &amp; Services</a>
-	  <a href="<?php echo esc_url(home_url('/contact-us/')); ?>" class="btn btn-ol">Contact Us</a>
+      <a href="<?php echo esc_url(home_url('/contact-us/')); ?>" class="btn btn-ol">Contact Us</a>
+      <a href="<?php echo esc_url(home_url('/give/')); ?>" class="btn btn-go">Support Us</a>
     </div>
   </div>
 </section>

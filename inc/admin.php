@@ -34,6 +34,26 @@ function sjioc_admin_menu() {
         'sjioc', 'Import Events', 'Import Events',
         'manage_options', 'sjioc-import-events', 'sjioc_import_events_page'
     );
+    add_submenu_page(
+        'sjioc', 'Vehicle Registry', 'Vehicles',
+        'manage_options', 'sjioc-vehicles', 'sjioc_vehicles_admin_page'
+    );
+    add_submenu_page(
+        'sjioc', 'Import Vehicles', 'Import Vehicles',
+        'manage_options', 'sjioc-import-vehicles', 'sjioc_import_vehicles_page'
+    );
+    add_submenu_page(
+        'sjioc', 'Parish Directory', 'Parish Directory',
+        'manage_options', 'edit.php?post_type=sjioc_contact', ''
+    );
+    add_submenu_page(
+        'sjioc', 'Hall Rental Requests', 'Hall Rentals',
+        'manage_options', 'sjioc-rentals', 'sjioc_rentals_admin_page'
+    );
+    add_submenu_page(
+        'sjioc', 'SMTP Email Settings', 'Email (SMTP)',
+        'manage_options', 'sjioc-smtp', 'sjioc_smtp_settings_page'
+    );
     // Hidden page — edit form not shown in sidebar nav
     add_submenu_page(
         null, 'Edit Member', '', 'manage_options', 'sjioc-member-edit', 'sjioc_member_edit_page'
@@ -435,6 +455,199 @@ function sjioc_celebrations_admin_page() {
     </div>
     <?php
 }
+
+/* ─────────────────────────────────────
+   SMTP SETTINGS PAGE
+───────────────────────────────────── */
+function sjioc_smtp_settings_page(): void {
+    if (!current_user_can('manage_options')) return;
+
+    if (isset($_POST['sjioc_smtp_save']) && check_admin_referer('sjioc_smtp_settings')) {
+        $saveable = [
+            'sjioc_smtp_host' => 'SJIOC_SMTP_HOST',
+            'sjioc_smtp_user' => 'SJIOC_SMTP_USER',
+            'sjioc_smtp_port' => 'SJIOC_SMTP_PORT',
+            'sjioc_smtp_from' => 'SJIOC_SMTP_FROM',
+        ];
+        foreach ($saveable as $opt => $const) {
+            if (!defined($const)) {
+                update_option($opt, sanitize_text_field($_POST[$opt] ?? ''));
+            }
+        }
+        // Only update password if a new value was entered
+        if (!defined('SJIOC_SMTP_PASS')) {
+            $pass = wp_unslash($_POST['sjioc_smtp_pass'] ?? '');
+            if ($pass !== '') {
+                update_option('sjioc_smtp_pass', sanitize_text_field($pass));
+            }
+        }
+        echo '<div class="notice notice-success is-dismissible"><p>SMTP settings saved.</p></div>';
+    }
+
+    // Returns source info for a setting
+    $src = function (string $const, string $opt, mixed $default = '') use (&$src): array {
+        if (defined($const)) {
+            return ['locked' => true, 'val' => constant($const), 'label' => 'wp-config.php', 'color' => '#16a34a'];
+        }
+        $v = get_option($opt, $default);
+        return $v !== '' && $v !== $default
+            ? ['locked' => false, 'val' => $v,       'label' => 'Database',  'color' => '#b45309']
+            : ['locked' => false, 'val' => $default, 'label' => 'Not set',   'color' => '#dc2626'];
+    };
+
+    $host  = $src('SJIOC_SMTP_HOST', 'sjioc_smtp_host', '');
+    $user  = $src('SJIOC_SMTP_USER', 'sjioc_smtp_user', '');
+    $pass  = $src('SJIOC_SMTP_PASS', 'sjioc_smtp_pass', '');
+    $port  = $src('SJIOC_SMTP_PORT', 'sjioc_smtp_port', 587);
+    $from  = $src('SJIOC_SMTP_FROM', 'sjioc_smtp_from', '');
+    $nonce = wp_create_nonce('sjioc_smtp_admin');
+
+    $badge = function (array $s): string {
+        return '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;'
+             . 'background:' . $s['color'] . ';color:#fff;margin-left:8px">' . esc_html($s['label']) . '</span>';
+    };
+
+    $field = function (string $id, string $label, array $s, string $type = 'text', string $ph = '') use ($badge): void {
+        $dis = $s['locked'] ? ' disabled style="background:#f0f0f1;color:#555"' : '';
+        echo '<tr><th scope="row"><label for="' . esc_attr($id) . '">' . esc_html($label) . $badge($s) . '</label></th><td>';
+        if ($type === 'password') {
+            $ph2 = $s['locked'] ? '(set in wp-config.php)' : ($s['val'] !== '' ? '••••••• (saved — leave blank to keep)' : 'Enter password');
+            echo '<input type="password" id="' . esc_attr($id) . '" name="' . esc_attr($id) . '" value="" placeholder="' . esc_attr($ph2) . '" class="regular-text"' . $dis . '>';
+        } else {
+            $v = $s['locked'] ? '' : esc_attr((string) $s['val']);
+            $ph2 = $s['locked'] ? '(set in wp-config.php)' : esc_attr($ph);
+            echo '<input type="' . esc_attr($type) . '" id="' . esc_attr($id) . '" name="' . esc_attr($id) . '" value="' . $v . '" placeholder="' . $ph2 . '" class="regular-text"' . $dis . '>';
+        }
+        echo '</td></tr>';
+    };
+    ?>
+    <div class="wrap" style="max-width:780px">
+    <h1>✉️ SMTP Email Settings</h1>
+    <p>Outgoing email for the contact form, hall rental notifications, and all theme emails. Uses Microsoft 365 / Outlook SMTP by default.</p>
+
+    <div style="background:#fff3cd;border:1px solid #ffc107;border-left:4px solid #ffc107;border-radius:4px;padding:12px 16px;margin-bottom:20px;font-size:13px">
+        <strong>Microsoft 365 requirement:</strong> SMTP AUTH must be enabled on the sending mailbox.
+        Go to <strong>admin.microsoft.com → Users → [account] → Mail → Manage email apps → tick Authenticated SMTP</strong>.
+        If MFA is on, use an App Password (myaccount.microsoft.com → Security → App passwords).
+    </div>
+
+    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:14px 20px;margin-bottom:24px">
+        <strong>Status:</strong>
+        <?php if (sjioc_smtp_is_configured()): ?>
+            <span style="background:#16a34a;color:#fff;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700">✓ Configured</span>
+        <?php else: ?>
+            <span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700">✗ Not Configured</span>
+        <?php endif; ?>
+        &nbsp;
+        <span style="font-size:12px;color:#666">Settings in <code>wp-config.php</code> are locked and take priority over anything saved here.</span>
+    </div>
+
+    <form method="post">
+        <?php wp_nonce_field('sjioc_smtp_settings'); ?>
+        <table class="form-table" role="presentation" style="max-width:700px">
+            <?php
+            $field('sjioc_smtp_host', 'SMTP Host',          $host, 'text',     'smtp.office365.com');
+            $field('sjioc_smtp_port', 'SMTP Port',          $port, 'number',   '587');
+            $field('sjioc_smtp_user', 'SMTP Username',      $user, 'email',    'info@sjioc.org');
+            $field('sjioc_smtp_pass', 'SMTP Password',      $pass, 'password', '');
+            $field('sjioc_smtp_from', 'From Email Address', $from, 'email',    'Leave blank to use SMTP Username above');
+            ?>
+        </table>
+        <p class="description" style="margin-bottom:20px">
+            <strong>Encryption:</strong> STARTTLS on port 587 (standard for Microsoft 365 / Outlook).<br>
+            <strong>From Email:</strong> For Microsoft 365, the From address must match the authenticated account,
+            or use a shared mailbox with "Send As" permission configured in Exchange.
+        </p>
+        <?php submit_button('Save SMTP Settings', 'primary', 'sjioc_smtp_save'); ?>
+    </form>
+
+    <hr style="margin:28px 0">
+    <h2>Send a Test Email</h2>
+    <p>Verify your configuration by sending a live test. The email is sent through your configured SMTP server right now.</p>
+
+    <?php if (!sjioc_smtp_is_configured()): ?>
+        <p style="color:#dc2626;font-weight:600">⚠ SMTP is not configured. Fill in the settings above first.</p>
+    <?php else: ?>
+    <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+        <div>
+            <label for="sj-test-email" style="display:block;margin-bottom:4px;font-weight:600;font-size:13px">Recipient email</label>
+            <input type="email" id="sj-test-email" value="<?php echo esc_attr(wp_get_current_user()->user_email); ?>"
+                   class="regular-text" placeholder="recipient@example.com">
+        </div>
+        <div style="padding-top:22px">
+            <button class="button button-primary" onclick="sjiocTestSmtp(this)">Send Test Email →</button>
+        </div>
+    </div>
+    <div id="sj-smtp-result" style="margin-top:14px;display:none"></div>
+    <?php endif; ?>
+
+    </div>
+
+    <script>
+    function sjiocTestSmtp(btn) {
+        var email  = document.getElementById('sj-test-email');
+        var result = document.getElementById('sj-smtp-result');
+        if (!email || !email.value.trim()) { alert('Please enter a recipient email address.'); return; }
+        btn.disabled = true; btn.textContent = '⏳ Sending…';
+        result.style.display = 'none';
+        fetch(ajaxurl, {
+            method: 'POST',
+            body: new URLSearchParams({
+                action: 'sjioc_test_email',
+                nonce:  '<?php echo esc_js($nonce); ?>',
+                to:     email.value.trim()
+            })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            btn.disabled = false;
+            btn.textContent = 'Send Test Email →';
+            result.style.display = 'block';
+            result.className = d.success ? 'notice notice-success is-dismissible' : 'notice notice-error is-dismissible';
+            result.innerHTML = '<p>' + (d.data?.msg || (d.success ? 'Sent!' : 'Failed.')) + '</p>';
+        })
+        .catch(function () {
+            btn.disabled = false;
+            btn.textContent = 'Send Test Email →';
+            result.style.display = 'block';
+            result.className = 'notice notice-error is-dismissible';
+            result.innerHTML = '<p>Network error. Please try again.</p>';
+        });
+    }
+    </script>
+    <?php
+}
+
+add_action('wp_ajax_sjioc_test_email', function () {
+    check_ajax_referer('sjioc_smtp_admin', 'nonce');
+    if (!current_user_can('manage_options')) wp_die('Unauthorized');
+
+    $to = sanitize_email($_POST['to'] ?? '');
+    if (!is_email($to)) {
+        wp_send_json_error(['msg' => 'Invalid email address.']);
+    }
+
+    $error_msg = '';
+    add_action('wp_mail_failed', function (\WP_Error $e) use (&$error_msg) {
+        $error_msg = $e->get_error_message();
+    });
+
+    $sent = wp_mail(
+        $to,
+        'SJIOC WordPress — SMTP Test Email',
+        '<p>This is a test email from your WordPress site (<strong>' . esc_html(home_url()) . '</strong>).</p>'
+        . '<p>If you received this, your SMTP configuration is working correctly.</p>'
+        . '<p style="color:#888;font-size:12px">Sent at ' . esc_html(date('D, F j Y g:i A T')) . '</p>',
+        ['Content-Type: text/html; charset=UTF-8']
+    );
+
+    if ($sent) {
+        wp_send_json_success(['msg' => 'Test email sent to <strong>' . esc_html($to) . '</strong>. Check the inbox (and spam folder).']);
+    } else {
+        $detail = $error_msg ?: 'wp_mail returned false — check SMTP credentials and that SMTP AUTH is enabled on the mailbox.';
+        wp_send_json_error(['msg' => 'Send failed: ' . esc_html($detail)]);
+    }
+});
 
 /* ─────────────────────────────────────
    CHAT SETTINGS PAGE

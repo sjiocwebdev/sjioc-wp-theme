@@ -31,6 +31,7 @@ Go to **wp-admin → Pages → Add New** for each page below.
 | Events | `events` | Events Page |
 | Photos | `photos` | Photos Page |
 | Contact Us | `contact-us` | Contact Us Page |
+| Hall Rental | `hall-rental` | Hall Rental Page |
 
 For each page:
 1. Enter the **Title** from the table
@@ -51,6 +52,7 @@ https://your-site.com/ministries/
 https://your-site.com/events/
 https://your-site.com/photos/
 https://your-site.com/contact-us/
+https://your-site.com/hall-rental/
 ```
 
 If a URL returns 404, go back to **Settings → Permalinks** and click **Save Changes** again to flush rewrite rules.
@@ -248,10 +250,16 @@ define( 'SJIOC_ONEDRIVE_FOLDER_ID',  '01EO7JTQ2D6I7OJGDJKNHYXQCTOQ4ZTHES' );
 - [ ] First OneDrive sync run via SJIOC → Photos → Sync Now (Section 12f)
 - [ ] Server cron configured (Option A, B, or C in Section 13) — keeps photos alive & celebrations fresh
 - [ ] `DISABLE_WP_CRON` added to `wp-config.php` after server cron is confirmed (Section 13)
+- [ ] Hall Rental page created (`hall-rental`, template "Hall Rental Page") (Section 14)
+- [ ] Hall Rental Customizer settings filled in (hall name, capacity, SP link, OD folder ID) (Section 14b)
+- [ ] Vicar, Trustee, Secretary email addresses set in Customizer — required for rental notifications (Section 14c)
+- [ ] reCAPTCHA v3 keys added in Customizer — recommended for bot protection (Section 15)
 
 ---
 
 ## 11. Email / Contact Form — Microsoft 365 (Outlook) SMTP
+
+> **Admin UI available:** SMTP settings can be configured directly from **wp-admin → SJIOC → Email (SMTP)** without touching `wp-config.php`. Constants in `wp-config.php` always take priority (shown with a green "locked" badge). Use the built-in **Send Test Email** button on that page to verify the configuration is working.
 
 > The contact form routes emails based on the subject selected:
 > - **Contact the Vicar** → Vicar's email
@@ -498,3 +506,92 @@ After setting up, wait 15–20 minutes then check:
 1. **WP Admin → SJIOC → Photos** — "Last sync" timestamp should be recent
 2. **WP Admin → SJIOC → Celebrations** — cache "Generated at" should be recent
 3. Install **WP Crontrol** plugin → all three events should show next scheduled times
+
+---
+
+## 14. Hall Rental Page (SJIOC MBM Hall)
+
+A multi-step rental request form that stores submissions in the database, sends email notifications to staff, and uploads an HTML summary to a SharePoint folder.
+
+### 14a. Create the page
+
+1. Go to **wp-admin → Pages → Add New**
+2. Title: `Hall Rental`, Slug: `hall-rental`, Template: **Hall Rental Page**
+3. Publish
+
+> **Navigation:** The Hall Rental link appears automatically under "Contact" in the nav — it is rendered by the PHP fallback function (`sjioc_primary_nav_fallback`) and does **not** use Appearance → Menus.
+
+### 14b. Configure Customizer settings
+
+Go to **wp-admin → Appearance → Customize → Hall Rental Settings**:
+
+| Setting | Description |
+|---|---|
+| Hall Name | Displayed on the page (e.g. `SJIOC MBM Hall`) |
+| Hall Capacity | Max guests (e.g. `200`) — shown in the form and T&C |
+| SharePoint Rentals Folder URL | Full URL to the SharePoint folder — linked in staff notification emails |
+| OneDrive Rentals Folder ID | Item ID of the folder where HTML summaries are uploaded (see below) |
+
+**To find the OneDrive Rentals Folder ID** — use Graph Explorer:
+```
+GET https://graph.microsoft.com/v1.0/drives/{SJIOC_ONEDRIVE_DRIVE_ID}/root/children
+```
+Find the `SJIOC Hall Rentals` folder in the response and copy its `id` field.
+
+> The Azure AD app registration requires `Files.ReadWrite.All` permission (not just `Files.Read.All`) to upload summary files. Grant this in **portal.azure.com → App registrations → API permissions → Add → Microsoft Graph → Application → Files.ReadWrite.All → Grant admin consent**.
+>
+> After granting the permission, go to **wp-admin → SJIOC → Hall Rentals** and click **Clear OneDrive Token Cache** to force a fresh token.
+
+### 14c. Email notifications
+
+On each new rental submission, an email is automatically sent to the **Vicar, Trustee, and Secretary**. The requester also receives a confirmation email with a reference number.
+
+Ensure these are set in **Customize → Church Information**:
+- Vicar Email
+- Trustee Email
+- Secretary Email
+
+If all three point to the same address (the default `info@sjioc.org`), only one email is sent (duplicates are removed).
+
+### 14d. Database table
+
+The `wp_sjioc_rentals` table is created automatically on first page load after the theme is activated. If the form returns "Failed to save your request," the table likely hasn't been created yet — switch to another theme and back, or wait for the next page load (an `init` hook creates it on first run and sets a flag to skip it thereafter).
+
+### 14e. Admin panel
+
+Go to **wp-admin → SJIOC → Hall Rentals** to:
+- View all requests with status filters (Pending / Approved / Rejected / Cancelled)
+- Open individual requests to review full details
+- Update status and send an email to the requester automatically
+- Export all records to CSV
+
+---
+
+## 15. CAPTCHA — Bot Protection (Google reCAPTCHA v3)
+
+Protects the **Contact Us** and **Hall Rental** forms from automated bot submissions. Uses reCAPTCHA v3 — completely invisible to real users (no checkbox, no image puzzles). A second layer (honeypot hidden field) catches basic bots before reCAPTCHA is even checked.
+
+> **Cost:** Free. Google allows up to 1 million assessments/month at no charge — far more than a church site will ever use.
+
+### 15a. Get your API keys
+
+1. Go to [g.co/recaptcha](https://www.google.com/recaptcha/admin/create) and sign in with a Google account
+2. Fill in:
+   - **Label:** `SJIOC Website`
+   - **reCAPTCHA type:** reCAPTCHA v3
+   - **Domains:** add your production domain (e.g. `sjioc.org`) and `localhost` for local testing
+3. Click **Submit**
+4. Copy the **Site Key** (public — goes in the page HTML) and **Secret Key** (private — used server-side only)
+
+### 15b. Add keys to Customizer
+
+1. Go to **wp-admin → Appearance → Customize → CAPTCHA — Bot Protection**
+2. Paste the **Site Key** into "reCAPTCHA v3 Site Key"
+3. Paste the **Secret Key** into "reCAPTCHA v3 Secret Key"
+4. Click **Publish**
+
+> Forms work normally **without** the keys — CAPTCHA is simply skipped if the keys are not set. Add them when you're ready to enable bot protection.
+
+### 15c. What users see
+
+Nothing. The form looks and behaves identically. A small Google badge appears in the bottom-right corner of the Contact and Hall Rental pages only (required by Google's terms). It is hidden on all other pages automatically.

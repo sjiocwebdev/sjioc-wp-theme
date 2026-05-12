@@ -351,39 +351,57 @@
     if (!fn || !em || !msg) { sjiocToast('⚠ Please fill in your name, email, and message.'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { sjiocToast('⚠ Please enter a valid email.'); return; }
 
+    // Honeypot — bots fill hidden fields, real users never interact with them
+    var hp = document.getElementById('cf-hp');
+    if (hp && hp.value.trim()) return;
+
     var btn = document.getElementById('cf-submit');
     if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
 
-    var data = new FormData();
-    data.append('action',  'sjioc_contact');
-    data.append('nonce',   (window.sjioData || {}).nonce || '');
-    data.append('fname',   fn);
-    data.append('lname',   (document.getElementById('cf-lname')   || {value:''}).value.trim());
-    data.append('email',   em);
-    data.append('phone',   (document.getElementById('cf-phone')   || {value:''}).value.trim());
-    data.append('subject', (document.getElementById('cf-subject') || {value:''}).value);
-    data.append('message', msg);
+    function doContactSubmit(rcToken) {
+      var data = new FormData();
+      data.append('action',          'sjioc_contact');
+      data.append('nonce',           (window.sjioData || {}).nonce || '');
+      data.append('fname',           fn);
+      data.append('lname',           (document.getElementById('cf-lname')   || {value:''}).value.trim());
+      data.append('email',           em);
+      data.append('phone',           (document.getElementById('cf-phone')   || {value:''}).value.trim());
+      data.append('subject',         (document.getElementById('cf-subject') || {value:''}).value);
+      data.append('message',         msg);
+      data.append('recaptcha_token', rcToken || '');
 
-    var ajax = (window.sjioData || {}).ajaxUrl || '/wp-admin/admin-ajax.php';
-    fetch(ajax, { method:'POST', body:data })
-      .then(function (r) { return r.json(); })
-      .then(function (res) {
-        if (res.success) {
-          var suc = document.getElementById('cf-success');
-          if (suc) suc.style.display = 'block';
-          sjiocToast('✅ ' + (res.data.msg || 'Message sent!'));
-          ['cf-fname','cf-lname','cf-email','cf-phone','cf-message'].forEach(function(id){
-            var el=document.getElementById(id); if(el) el.value='';
-          });
-          var sub = document.getElementById('cf-subject'); if(sub) sub.value='';
-        } else {
-          sjiocToast('⚠ ' + ((res.data || {}).msg || 'Error. Please try again.'));
-        }
-      })
-      .catch(function () { sjiocToast('⚠ Network error. Please call us directly.'); })
-      .finally(function () {
-        if (btn) { btn.disabled = false; btn.textContent = 'Send Message ✉'; }
+      var ajax = (window.sjioData || {}).ajaxUrl || '/wp-admin/admin-ajax.php';
+      fetch(ajax, { method:'POST', body:data })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res.success) {
+            var suc = document.getElementById('cf-success');
+            if (suc) suc.style.display = 'block';
+            sjiocToast('✅ ' + (res.data.msg || 'Message sent!'));
+            ['cf-fname','cf-lname','cf-email','cf-phone','cf-message'].forEach(function(id){
+              var el=document.getElementById(id); if(el) el.value='';
+            });
+            var sub = document.getElementById('cf-subject'); if(sub) sub.value='';
+          } else {
+            sjiocToast('⚠ ' + ((res.data || {}).msg || 'Error. Please try again.'));
+          }
+        })
+        .catch(function () { sjiocToast('⚠ Network error. Please call us directly.'); })
+        .finally(function () {
+          if (btn) { btn.disabled = false; btn.textContent = 'Send Message ✉'; }
+        });
+    }
+
+    var rcKey = (window.sjioData || {}).recaptchaKey;
+    if (rcKey && typeof grecaptcha !== 'undefined') {
+      grecaptcha.ready(function () {
+        grecaptcha.execute(rcKey, { action: 'contact' })
+          .then(doContactSubmit)
+          .catch(function () { doContactSubmit(''); });
       });
+    } else {
+      doContactSubmit('');
+    }
   };
 
   /* ─── Toast ─── */

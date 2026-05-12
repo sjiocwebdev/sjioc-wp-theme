@@ -12,6 +12,7 @@ define('SJIOC_DIR', get_template_directory());
 define('SJIOC_URI', get_template_directory_uri());
 
 require_once SJIOC_DIR . '/inc/setup.php';
+require_once SJIOC_DIR . '/inc/recaptcha.php';
 require_once SJIOC_DIR . '/inc/post-types.php';
 require_once SJIOC_DIR . '/inc/contact-form.php';
 require_once SJIOC_DIR . '/inc/chat.php';
@@ -21,3 +22,5 @@ require_once SJIOC_DIR . '/inc/celebrations.php';
 require_once SJIOC_DIR . '/inc/import.php';
 require_once SJIOC_DIR . '/inc/events-admin.php';
 require_once SJIOC_DIR . '/inc/sharepoint.php';
+require_once SJIOC_DIR . '/inc/vehicles.php';
+require_once SJIOC_DIR . '/inc/hall-rental.php';

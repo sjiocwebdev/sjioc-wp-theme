@@ -7,6 +7,17 @@ defined('ABSPATH') || exit;
 function sjioc_handle_contact() {
     check_ajax_referer('sjioc_ajax', 'nonce');
 
+    // Honeypot — bots fill hidden fields; humans never see them
+    if (!empty($_POST['cf_hp'])) {
+        wp_send_json_error(['msg' => 'Submission rejected.']);
+    }
+
+    // reCAPTCHA v3
+    $rc_token = sanitize_text_field($_POST['recaptcha_token'] ?? '');
+    if (!sjioc_recaptcha_verify($rc_token, 'contact')) {
+        wp_send_json_error(['msg' => 'Security check failed. Please refresh the page and try again.']);
+    }
+
     $fname   = sanitize_text_field($_POST['fname']   ?? '');
     $lname   = sanitize_text_field($_POST['lname']   ?? '');
     $email   = sanitize_email($_POST['email']         ?? '');

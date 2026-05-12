@@ -58,6 +58,7 @@ get_header();
       <h3>Send Us a Message</h3>
       <div id="cf-success" class="form-success">✅ Thank you! Your message has been sent. We'll be in touch soon.</div>
       <?php wp_nonce_field('sjioc_ajax','sjioc_nonce'); ?>
+      <div style="display:none" aria-hidden="true"><input type="text" id="cf-hp" tabindex="-1" autocomplete="off"></div>
       <div class="form-row-2">
         <div class="form-group"><label for="cf-fname">First Name <span style="color:var(--cr)">*</span></label><input type="text" id="cf-fname" placeholder="John" required></div>
         <div class="form-group"><label for="cf-lname">Last Name</label><input type="text" id="cf-lname" placeholder="Thomas"></div>
