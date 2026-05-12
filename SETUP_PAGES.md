@@ -246,6 +246,8 @@ define( 'SJIOC_ONEDRIVE_FOLDER_ID',  '01EO7JTQ2D6I7OJGDJKNHYXQCTOQ4ZTHES' );
 - [ ] OneDrive constants added to `wp-config.php` (Section 12d)
 - [ ] `wp_sjioc_photos` table created — re-activate theme or trigger via WP-CLI (Section 12f)
 - [ ] First OneDrive sync run via SJIOC → Photos → Sync Now (Section 12f)
+- [ ] Server cron configured (Option A, B, or C in Section 13) — keeps photos alive & celebrations fresh
+- [ ] `DISABLE_WP_CRON` added to `wp-config.php` after server cron is confirmed (Section 13)
 
 ---
 
@@ -390,3 +392,109 @@ The sync runs automatically every **Sunday at 12:01 AM** (site timezone). Each r
 2. Fetches only new/changed/deleted items via delta query — no full re-scan after the first run
 
 To check the schedule: install **WP Crontrol** and confirm `sjioc_od_sync_cron` is listed.
+
+---
+
+## 13. Server Cron — Keep Photos & Celebrations Fresh (Production Required)
+
+> **Why this matters:** WordPress WP-Cron only fires when someone visits the site. A church website can go hours or days without traffic. Without a real server cron:
+> - OneDrive photo URLs expire after ~1 hour → photos disappear
+> - The Celebrations panel (birthdays & anniversaries) stops updating weekly
+>
+> A server cron pings `wp-cron.php` every 15 minutes regardless of traffic, keeping everything alive. **This is a one-time setup done at deployment — not needed locally.**
+
+---
+
+### Option A — Azure App Service WebJob (Recommended for Azure hosting)
+
+WebJobs are built into Azure App Service at no extra cost.
+
+**Step 1 — Create the script**
+
+Create a file called `run.sh` with this content:
+
+```bash
+#!/bin/bash
+curl -s "https://your-site.azurewebsites.net/wp-cron.php?doing_wp_cron" > /dev/null
+```
+
+Replace `your-site.azurewebsites.net` with your actual Azure App Service URL.
+
+**Step 2 — Create a settings file**
+
+Create a file called `settings.job` with this content:
+
+```json
+{ "schedule": "0 */15 * * * *" }
+```
+
+This runs every 15 minutes (CRON expression: every 15 min, every hour, every day).
+
+**Step 3 — Upload via Kudu**
+
+1. Open Kudu: `https://<your-app>.scm.azurewebsites.net`
+2. Go to **Debug console → CMD**
+3. Navigate to `site/wwwroot/`
+4. Create the folder path: `App_Data/jobs/triggered/wp-cron/`
+5. Upload both `run.sh` and `settings.job` into that folder
+6. In the Azure Portal go to your App Service → **WebJobs** → confirm `wp-cron` appears with schedule
+
+---
+
+### Option B — External Cron Service (Easiest, works with any hosting)
+
+Use a free external service — no server access needed.
+
+1. Go to **[cron-job.org](https://cron-job.org)** and create a free account
+2. Click **Create cronjob**
+3. Fill in:
+   - **URL:** `https://your-site.com/wp-cron.php?doing_wp_cron`
+   - **Execution schedule:** Every 15 minutes
+   - **Request method:** GET
+4. Click **Create** — done
+
+> cron-job.org is free for up to 5 cron jobs and unlimited executions. It simply makes an HTTP GET request to your URL on schedule — no server access required.
+
+---
+
+### Option C — cPanel Hosting (Traditional shared hosting)
+
+If deployed on cPanel-based hosting (Bluehost, SiteGround, etc.):
+
+1. Log in to **cPanel → Cron Jobs**
+2. Set the schedule to **Every 15 Minutes** (use the dropdown)
+3. Enter this command:
+   ```
+   wget -q -O - "https://your-site.com/wp-cron.php?doing_wp_cron" > /dev/null 2>&1
+   ```
+4. Click **Add New Cron Job**
+
+---
+
+### Disable WP-Cron's built-in trigger (Optional but recommended)
+
+Once a real server cron is in place, disable WordPress's built-in visitor-triggered cron to avoid redundant execution on every page load. Add this line to `wp-config.php` **before** `/* That's all, stop editing! */`:
+
+```php
+define( 'DISABLE_WP_CRON', true );
+```
+
+> Do **not** add this line until the server cron is confirmed working. Without either WP-Cron or a server cron, scheduled events will never run.
+
+---
+
+### What the cron keeps alive
+
+| Cron Event | Schedule | What it does |
+|---|---|---|
+| `sjioc_od_refresh_cron` | Hourly | Refreshes expiring OneDrive photo URLs (they last ~1 hr) |
+| `sjioc_od_sync_cron` | Weekly (Sun 12:01 AM) | Pulls new/changed/deleted photos from OneDrive |
+| `sjioc_celebrations_cron` | Weekly (Mon 12:01 AM) | Rebuilds this week's birthdays & anniversaries cache |
+
+### Verify it's working
+
+After setting up, wait 15–20 minutes then check:
+
+1. **WP Admin → SJIOC → Photos** — "Last sync" timestamp should be recent
+2. **WP Admin → SJIOC → Celebrations** — cache "Generated at" should be recent
+3. Install **WP Crontrol** plugin → all three events should show next scheduled times
