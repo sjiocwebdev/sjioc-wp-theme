@@ -53,8 +53,8 @@ $min_setup_date = date('Y-m-d', strtotime('+2 days'));
       </div>
       <div class="hall-feat">
         <span class="hall-feat-icon">&#127908;</span>
-        <h4>Speaker System</h4>
-        <p>Hall speakers available — connect your own microphone or audio device</p>
+        <h4>BYO Sound System</h4>
+        <p>Bring your own speakers &amp; mic — our hall is wired and acoustically ready for your setup</p>
       </div>
     </div>
   </div>
@@ -285,7 +285,7 @@ $min_setup_date = date('Y-m-d', strtotime('+2 days'));
             <div class="rf-inc-item"><span>&#10052;</span> Air Conditioning</div>
             <div class="rf-inc-item"><span>&#128682;</span> Separate Hall Entrance</div>
             <div class="rf-inc-item"><span>&#128663;</span> Free On-site Parking</div>
-            <div class="rf-inc-item"><span>&#127908;</span> Speaker System (BYO mic)</div>
+            <div class="rf-inc-item"><span>&#127908;</span> BYO Sound System Welcome</div>
           </div>
         </div>
         <div class="form-group" style="margin-top:28px">
