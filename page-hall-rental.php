@@ -54,7 +54,7 @@ $min_setup_date = date('Y-m-d', strtotime('+2 days'));
       <div class="hall-feat">
         <span class="hall-feat-icon">&#127908;</span>
         <h4>BYO Sound System</h4>
-        <p>Bring your own speakers &amp; mic — our hall is wired and acoustically ready for your setup</p>
+        <p>Your sound, your way — plug in your own speakers &amp; mic and own the room</p>
       </div>
     </div>
   </div>
