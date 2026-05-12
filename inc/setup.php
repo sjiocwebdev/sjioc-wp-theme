@@ -104,6 +104,19 @@ function sjioc_customizer($wp_customize) {
         ]);
     }
 
+    // Footer logo — separate upload, independent of the nav logo
+    $wp_customize->add_setting('sjioc_footer_logo', [
+        'default'           => '',
+        'sanitize_callback' => 'absint',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control(new WP_Customize_Media_Control($wp_customize, 'sjioc_footer_logo', [
+        'label'       => __('Footer Logo Image', 'sjioc'),
+        'section'     => 'sjioc_info',
+        'mime_type'   => 'image',
+        'description' => __('Upload a logo for the footer. Falls back to the site logo, then the cross SVG.', 'sjioc'),
+    ]));
+
     // Hero watermark — separate upload, independent of the nav logo
     $wp_customize->add_setting('sjioc_hero_watermark', [
         'default'           => '',
@@ -176,8 +189,13 @@ function sjioc_footer() { ?>
     <div class="footer-grid">
       <div>
         <?php
-        $fl_id  = get_theme_mod('custom_logo');
-        $fl_url = $fl_id ? wp_get_attachment_image_url($fl_id, 'medium') : '';
+        // Dedicated footer logo → site logo → SVG fallback
+        $fl_att = get_theme_mod('sjioc_footer_logo');
+        $fl_url = $fl_att ? wp_get_attachment_image_url($fl_att, 'medium') : '';
+        if (!$fl_url) {
+            $fl_id  = get_theme_mod('custom_logo');
+            $fl_url = $fl_id ? wp_get_attachment_image_url($fl_id, 'medium') : '';
+        }
         ?>
         <?php if ($fl_url): ?>
           <img src="<?php echo esc_url($fl_url); ?>" alt="<?php echo esc_attr(sjioc_name()); ?>" class="footer-logo">

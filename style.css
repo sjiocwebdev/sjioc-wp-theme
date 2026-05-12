@@ -505,8 +505,8 @@ input, textarea, select { font-family:'Lato', sans-serif; }
   width:min(680px, 70vmin);
   height:min(680px, 70vmin);
   object-fit:contain;
-  opacity:.08;
-  filter:brightness(0) invert(1);
+  opacity:.13;
+  filter:grayscale(1) brightness(4);
 }
 .hero-content {
   position:relative; z-index:2; text-align:center; padding:0 24px;
@@ -958,8 +958,8 @@ input, textarea, select { font-family:'Lato', sans-serif; }
 ═══════════════════════════════════════════════════ */
 #site-footer { background:var(--cr-dk); padding:56px 0 28px; }
 .footer-grid { display:grid; grid-template-columns:1.7fr 1fr 1fr 1fr; gap:36px; margin-bottom:40px; }
-.footer-logo { display:block; height:100px; width:auto; object-fit:contain; margin-bottom:14px; }
-.footer-logo-svg { display:block; width:90px; height:90px; margin-bottom:14px; }
+.footer-logo { display:block; height:160px; width:auto; max-width:100%; object-fit:contain; margin-bottom:14px; }
+.footer-logo-svg { display:block; width:140px; height:140px; margin-bottom:14px; }
 .footer-brand-name { font-family:'Playfair Display',serif; color:var(--go); font-size:1.05rem; margin-bottom:12px; display:block; }
 .footer-brand p { font-size:.86rem; color:rgba(255,255,255,.58); line-height:1.72; margin-bottom:6px; }
 .footer-col-title { font-size:.67rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--go); margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid rgba(201,168,76,.2); display:block; }
