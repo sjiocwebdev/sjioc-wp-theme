@@ -13,7 +13,7 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
 <section class="home-hero" aria-label="Welcome banner">
   <div class="hero-bg" role="presentation"></div>
   <div class="hero-overlay" role="presentation"></div>
-  <?php
+  <!--<?php
   // Dedicated watermark → site logo → SVG fallback
   $wm_att = get_theme_mod('sjioc_hero_watermark');
   $wm_url = $wm_att ? wp_get_attachment_image_url($wm_att, 'full') : '';
@@ -34,7 +34,7 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
         <circle cx="23" cy="23" r="2.6" fill="currentColor" opacity=".5"/>
       </svg>
     <?php endif; ?>
-  </div>
+  </div>-->
   <div class="hero-content">
     <span class="hero-eyebrow"><?php echo esc_html($hero_eyebrow); ?></span>
     <h1><?php echo esc_html($hero_title); ?></h1>

@@ -42,7 +42,7 @@ $_sjioc_celeb_total = count($_sjioc_bdays) + count($_sjioc_annivs);
       <span>📞 <strong><?php echo esc_html(sjioc_phone()); ?></strong></span>
       <span>🕐 Holy Qurbana <strong><?php echo esc_html(sjioc_qurbana()); ?></strong> · Sunday School <strong><?php echo esc_html(sjioc_school()); ?></strong></span>
       <span>✉ <strong><?php echo esc_html(sjioc_email()); ?></strong></span>
-      <span>Serving: Exton · West Chester · Upper Darby · King of Prussia · Springfield · Drexel Hill · Glen Mills</span>
+      <span>Serving: Delaware County · Chester County · New Jersey · Delaware · Bucks County · Philadelphia County</span>
       <span>📍 <strong><?php echo esc_html(sjioc_address()); ?></strong></span>
       <span>📞 <strong><?php echo esc_html(sjioc_phone()); ?></strong></span>
       <span>🕐 Holy Qurbana <strong><?php echo esc_html(sjioc_qurbana()); ?></strong> · Sunday School <strong><?php echo esc_html(sjioc_school()); ?></strong></span>
