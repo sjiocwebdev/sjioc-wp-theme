@@ -74,8 +74,8 @@ function sjioc_azure_oai($message) {
             ['role' => 'system', 'content' => sjioc_chat_system_prompt($kb)],
             ['role' => 'user',   'content' => $message],
         ],
-        'max_tokens'  => 250,
-        'temperature' => 0.4,
+        'max_tokens'  => max(50, min(1000, (int) get_option('sjioc_chat_max_tokens', 250))),
+        'temperature' => max(0.0, min(1.0, (float) get_option('sjioc_chat_temperature', 0.4))),
     ]);
 
     $res = wp_remote_post($url, [
@@ -102,22 +102,27 @@ function sjioc_azure_oai($message) {
 }
 
 function sjioc_chat_system_prompt($kb = '') {
-    $prompt = sprintf(
-        "You are a friendly parish assistant for %s, an Indian Orthodox Christian church at %s.\n" .
-        "Phone: %s | Email: %s\n" .
-        "Service Times: Holy Qurbana %s | Sunday School %s | Saturday %s\n\n" .
-        "Answer questions about the church warmly and concisely (2-4 sentences max). " .
-        "If you don't know something, direct the person to contact the Secretary or a Trustee at %s. " .
-        "Never invent information.",
-        sjioc_name(), sjioc_address(),
-        sjioc_phone(), sjioc_email(),
-        sjioc_qurbana(), sjioc_school(), sjioc_get('sjioc_saturday', '5:00–7:30 PM'),
-        sjioc_phone()
+    $header = sprintf(
+        "You are the parish assistant for %s, an Indian Orthodox Christian church.\n" .
+        "Address: %s | Phone: %s | Email: %s\n" .
+        "Services: Holy Qurbana %s | Sunday School %s | Saturday %s\n\n",
+        sjioc_name(), sjioc_address(), sjioc_phone(), sjioc_email(),
+        sjioc_qurbana(), sjioc_school(), sjioc_get('sjioc_saturday', '5:00–7:30 PM')
     );
 
+    $rules  = get_option('sjioc_chat_rules', sjioc_default_chat_rules());
+    $prompt = $header . $rules;
+
     if ($kb) {
-        $prompt .= "\n\nAdditional parish info:\n" . mb_substr($kb, 0, 3000);
+        $prompt .= "\n\nParish info:\n" . mb_substr($kb, 0, 2000);
     }
 
     return $prompt;
+}
+
+function sjioc_default_chat_rules() {
+    return "Only answer questions about this church, its faith, services, events, and parish life.\n" .
+           "If a question is unrelated to the church, reply: \"I can only help with parish questions. Please call us for assistance.\"\n" .
+           "Keep answers to 2-3 sentences. Never invent or guess information.\n" .
+           "If unsure, direct the person to contact the Secretary or a Trustee using the contact details above.";
 }
