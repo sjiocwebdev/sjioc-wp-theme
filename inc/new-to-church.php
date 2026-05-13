@@ -7,6 +7,11 @@ add_action('wp_ajax_sjioc_new_to_church',        'sjioc_handle_new_to_church');
 function sjioc_handle_new_to_church(): void {
     check_ajax_referer('sjioc_ntc', 'nonce');
 
+    $rc_token = sanitize_text_field($_POST['recaptcha_token'] ?? '');
+    if (!sjioc_recaptcha_verify($rc_token, 'new_to_church', 0.5)) {
+        wp_send_json_error(['msg' => 'Security check failed. Please refresh and try again.']);
+    }
+
     $fname  = sanitize_text_field($_POST['ntc_fname']   ?? '');
     $lname  = sanitize_text_field($_POST['ntc_lname']   ?? '');
     $phone  = sanitize_text_field($_POST['ntc_phone']   ?? '');

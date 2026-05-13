@@ -486,6 +486,7 @@ if ($announcements):
 
       <form id="ntc-form" novalidate>
         <?php wp_nonce_field('sjioc_ntc', 'sjioc_ntc_nonce'); ?>
+        <input type="hidden" name="recaptcha_token" id="ntc_recaptcha_token">
 
         <div class="ntc-row-2">
           <div class="ntc-group">
@@ -569,8 +570,13 @@ if ($announcements):
   </div><!-- /ntc-modal -->
 </div><!-- /ntc-overlay -->
 
+<?php $rc_site_key = sjioc_recaptcha_site_key(); ?>
+<?php if ($rc_site_key): ?>
+<script src="https://www.google.com/recaptcha/api.js?render=<?php echo esc_attr($rc_site_key); ?>"></script>
+<?php endif; ?>
 <script>
 (function () {
+  var rcKey    = <?php echo wp_json_encode($rc_site_key); ?>;
   var overlay  = document.getElementById('ntc-overlay');
   var openBtn  = document.getElementById('ntc-open-btn');
   var closeBtn = document.getElementById('ntc-close');
@@ -616,40 +622,52 @@ if ($announcements):
         errBox.hidden = false; return;
       }
       submit.disabled = true; submit.textContent = '⏳ Sending…';
-      var nonce = document.querySelector('input[name="sjioc_ntc_nonce"]');
-      var body  = new URLSearchParams({
-        action:       'sjioc_new_to_church',
-        nonce:        nonce ? nonce.value : '',
-        ntc_fname:    fname,
-        ntc_lname:    lname,
-        ntc_phone:    phone,
-        ntc_address:  document.getElementById('ntc-address').value,
-        ntc_visit:    document.getElementById('ntc-visit').value,
-        ntc_family:   document.getElementById('ntc-family').value,
-        ntc_kerala:   document.getElementById('ntc-kerala').value,
-        ntc_parish:   document.getElementById('ntc-parish').value,
-        ntc_call:     callHid.value,
-      });
-      fetch(typeof sjioData !== 'undefined' ? sjioData.ajaxUrl : '/wp-admin/admin-ajax.php', {
-        method: 'POST', body: body
-      }).then(function (r) { return r.json(); })
-        .then(function (d) {
-          if (d.success) {
-            form.hidden    = true;
-            success.textContent = d.data.msg;
-            success.hidden = false;
-          } else {
-            errBox.textContent = (d.data && d.data.msg) ? d.data.msg : 'Something went wrong. Please try again.';
+
+      function doSubmit(rcToken) {
+        var nonce = document.querySelector('input[name="sjioc_ntc_nonce"]');
+        var body  = new URLSearchParams({
+          action:          'sjioc_new_to_church',
+          nonce:           nonce ? nonce.value : '',
+          recaptcha_token: rcToken || '',
+          ntc_fname:       fname,
+          ntc_lname:       lname,
+          ntc_phone:       phone,
+          ntc_address:     document.getElementById('ntc-address').value,
+          ntc_visit:       document.getElementById('ntc-visit').value,
+          ntc_family:      document.getElementById('ntc-family').value,
+          ntc_kerala:      document.getElementById('ntc-kerala').value,
+          ntc_parish:      document.getElementById('ntc-parish').value,
+          ntc_call:        callHid.value,
+        });
+        fetch(typeof sjioData !== 'undefined' ? sjioData.ajaxUrl : '/wp-admin/admin-ajax.php', {
+          method: 'POST', body: body
+        }).then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (d.success) {
+              form.hidden    = true;
+              success.textContent = d.data.msg;
+              success.hidden = false;
+            } else {
+              errBox.textContent = (d.data && d.data.msg) ? d.data.msg : 'Something went wrong. Please try again.';
+              errBox.hidden = false;
+              submit.disabled = false;
+              submit.textContent = 'Send — We\'d Love to Meet You ➤';
+            }
+          }).catch(function () {
+            errBox.textContent = 'Network error. Please try again.';
             errBox.hidden = false;
             submit.disabled = false;
             submit.textContent = 'Send — We\'d Love to Meet You ➤';
-          }
-        }).catch(function () {
-          errBox.textContent = 'Network error. Please try again.';
-          errBox.hidden = false;
-          submit.disabled = false;
-          submit.textContent = 'Send — We\'d Love to Meet You ➤';
+          });
+      }
+
+      if (rcKey && typeof grecaptcha !== 'undefined') {
+        grecaptcha.ready(function () {
+          grecaptcha.execute(rcKey, { action: 'new_to_church' }).then(doSubmit);
         });
+      } else {
+        doSubmit('');
+      }
     });
   }
 })();
