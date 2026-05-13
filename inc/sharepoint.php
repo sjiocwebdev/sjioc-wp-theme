@@ -92,9 +92,6 @@ add_action('after_switch_theme', function () {
         $next->setTimezone(new DateTimeZone('UTC'));
         wp_schedule_event($next->getTimestamp(), 'sjioc_weekly', 'sjioc_od_sync_cron');
     }
-    if (!wp_next_scheduled('sjioc_od_refresh_cron')) {
-        wp_schedule_event(time(), 'hourly', 'sjioc_od_refresh_cron');
-    }
 });
 
 add_action('switch_theme', function () {
@@ -164,36 +161,48 @@ function sjioc_od_get_token(): string|false {
 }
 
 /* ─────────────────────────────────────
-   URL REFRESH
-   @microsoft.graph.downloadUrl SAS tokens expire per their se= param
-   (~1 hour typical). Hourly cron refreshes rows expiring within 2 hours.
-   Also runs after every delta sync.
+   REST PROXY — GET /wp-json/sjioc/v1/photo/{id}
+   Streams OneDrive media through WordPress to bypass IP restrictions
+   on @microsoft.graph.downloadUrl. Public — no auth required.
+   Returns 404 if row not found, 502 if Graph fetch fails.
 ───────────────────────────────────── */
 
-function sjioc_od_parse_expiry(string $url, int $fallback_seconds): string {
-    $query = (string) parse_url($url, PHP_URL_QUERY);
-    if ($query) {
-        parse_str($query, $params);
-        if (!empty($params['se'])) {
-            $ts = strtotime($params['se']);
-            if ($ts > 0) return gmdate('Y-m-d H:i:s', $ts);
-        }
-    }
-    return gmdate('Y-m-d H:i:s', time() + $fallback_seconds);
-}
+add_action('rest_api_init', function () {
+    register_rest_route('sjioc/v1', '/photo/(?P<id>\d+)', [
+        'methods'             => 'GET',
+        'callback'            => 'sjioc_photo_proxy',
+        'permission_callback' => '__return_true',
+        'args'                => [
+            'id' => ['validate_callback' => fn($v) => is_numeric($v) && (int)$v > 0],
+        ],
+    ]);
+});
 
-function sjioc_od_refresh_urls(string $token): int {
+function sjioc_photo_proxy(WP_REST_Request $request): void {
     global $wpdb;
+    $id    = (int) $request->get_param('id');
     $table = $wpdb->prefix . 'sjioc_photos';
 
-    $rows = $wpdb->get_results(
-        "SELECT id, od_drive_id, od_item_id FROM {$table}
-         WHERE download_url IS NULL OR download_url = ''
-            OR url_expires IS NULL OR url_expires <= DATE_ADD(NOW(), INTERVAL 2 HOUR)"
-    );
+    $row = $wpdb->get_row($wpdb->prepare(
+        "SELECT od_drive_id, od_item_id FROM {$table} WHERE id = %d LIMIT 1",
+        $id
+    ));
+    if (!$row) {
+        status_header(404);
+        exit;
+    }
 
-    $refreshed = 0;
-    foreach ($rows as $row) {
+    // 50-minute transient cache for the pre-auth download URL
+    $cache_key = 'sjioc_photo_url_' . $id;
+    $dl_url    = get_transient($cache_key);
+
+    if (!$dl_url) {
+        $token = sjioc_od_get_token();
+        if (!$token) {
+            status_header(502);
+            exit;
+        }
+
         $resp = wp_remote_get(
             'https://graph.microsoft.com/v1.0/drives/' . $row->od_drive_id . '/items/' . $row->od_item_id,
             [
@@ -201,32 +210,35 @@ function sjioc_od_refresh_urls(string $token): int {
                 'timeout' => 15,
             ]
         );
-        if (is_wp_error($resp) || wp_remote_retrieve_response_code($resp) !== 200) continue;
+        if (is_wp_error($resp) || wp_remote_retrieve_response_code($resp) !== 200) {
+            status_header(502);
+            exit;
+        }
 
-        $data = json_decode(wp_remote_retrieve_body($resp), true);
-        $url  = $data['@microsoft.graph.downloadUrl'] ?? '';
-        if (!$url) continue;
+        $data   = json_decode(wp_remote_retrieve_body($resp), true);
+        $dl_url = $data['@microsoft.graph.downloadUrl'] ?? '';
+        if (!$dl_url) {
+            status_header(502);
+            exit;
+        }
 
-        $wpdb->update(
-            $table,
-            [
-                'download_url' => $url,
-                'url_expires'  => sjioc_od_parse_expiry($url, 23 * HOUR_IN_SECONDS),
-            ],
-            ['id' => (int) $row->id]
-        );
-        $refreshed++;
+        set_transient($cache_key, $dl_url, 50 * MINUTE_IN_SECONDS);
     }
 
-    return $refreshed;
-}
+    $media = wp_remote_get($dl_url, ['timeout' => 30]);
+    if (is_wp_error($media) || wp_remote_retrieve_response_code($media) !== 200) {
+        status_header(502);
+        exit;
+    }
 
-function sjioc_od_refresh_cron_run(): void {
-    if (!sjioc_od_is_configured()) return;
-    $token = sjioc_od_get_token();
-    if ($token) sjioc_od_refresh_urls($token);
+    $content_type = wp_remote_retrieve_header($media, 'content-type') ?: 'application/octet-stream';
+    while (ob_get_level()) ob_end_clean();
+    header('Content-Type: ' . $content_type);
+    header('Cache-Control: public, max-age=3600');
+    header('X-Robots-Tag: noindex');
+    echo wp_remote_retrieve_body($media);
+    exit;
 }
-add_action('sjioc_od_refresh_cron', 'sjioc_od_refresh_cron_run');
 
 /* ─────────────────────────────────────
    DELTA SYNC
@@ -345,18 +357,14 @@ function sjioc_od_delta_sync(string $token, bool $fresh = false): array {
             );
             $updated++;
         } else {
-            $dl_url    = $item['@microsoft.graph.downloadUrl'] ?? '';
-            $dl_expiry = $dl_url ? sjioc_od_parse_expiry($dl_url, HOUR_IN_SECONDS) : null;
             $wpdb->insert($table, [
-                'od_item_id'   => $item['id'],
-                'od_drive_id'  => sjioc_od_drive_id(),
-                'file_name'    => $item['name'],
-                'category'     => $category,
-                'album'        => $album,
-                'title'        => $title,
-                'media_type'   => $media_type,
-                'download_url' => $dl_url    ?: null,
-                'url_expires'  => $dl_expiry ?: null,
+                'od_item_id'  => $item['id'],
+                'od_drive_id' => sjioc_od_drive_id(),
+                'file_name'   => $item['name'],
+                'category'    => $category,
+                'album'       => $album,
+                'title'       => $title,
+                'media_type'  => $media_type,
             ]);
             $inserted++;
         }
@@ -381,16 +389,13 @@ function sjioc_od_sync(): array {
 
     sjioc_od_create_table();
 
-    $delta         = sjioc_od_delta_sync($token);
+    $delta = sjioc_od_delta_sync($token);
 
     if (isset($delta['error'])) return $delta;
 
-    $url_refreshed = sjioc_od_refresh_urls($token);
-
-    $result = array_merge($delta, ['url_refreshed' => $url_refreshed]);
     update_option('sjioc_od_last_sync',   current_time('mysql'), false);
-    update_option('sjioc_od_sync_result', $result,               false);
-    return $result;
+    update_option('sjioc_od_sync_result', $delta,                false);
+    return $delta;
 }
 
 /* ─────────────────────────────────────
@@ -493,8 +498,7 @@ function sjioc_od_photos_page(): void {
                 <tr><th>Last result</th><td>
                     <?php echo (int)($last_result['inserted'] ?? 0); ?> new &nbsp;&middot;&nbsp;
                     <?php echo (int)($last_result['updated']  ?? 0); ?> updated &nbsp;&middot;&nbsp;
-                    <?php echo (int)($last_result['deleted']  ?? 0); ?> removed &nbsp;&middot;&nbsp;
-                    <?php echo (int)($last_result['url_refreshed'] ?? 0); ?> URLs refreshed
+                    <?php echo (int)($last_result['deleted']  ?? 0); ?> removed
                 </td></tr>
                 <?php endif; ?>
                 <tr><th>Next auto-sync</th><td>
@@ -615,7 +619,7 @@ function sjioc_od_photos_page(): void {
                 res.innerHTML = '<div class="notice notice-success inline"><p>'
                               + '<strong>Sync complete.</strong> '
                               + d.inserted + ' new · ' + d.updated + ' updated · '
-                              + d.deleted  + ' removed · ' + d.url_refreshed + ' URLs refreshed.'
+                              + d.deleted  + ' removed.'
                               + '</p></div>';
             }
         })

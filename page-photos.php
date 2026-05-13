@@ -9,8 +9,6 @@ $table = $wpdb->prefix . 'sjioc_photos';
 
 $all_photos = $wpdb->get_results(
     "SELECT * FROM {$table}
-     WHERE download_url IS NOT NULL AND download_url != ''
-       AND url_expires IS NOT NULL AND url_expires > NOW()
      ORDER BY category, album, title"
 );
 
@@ -23,10 +21,10 @@ foreach ($all_photos as $p) {
     $is_video = ($p->media_type ?? 'image') === 'video';
     if (!in_array($cat, $cats_found, true)) $cats_found[] = $cat;
     if (!isset($album_map[$cat][$album])) {
-        $album_map[$cat][$album] = ['thumb' => $p->download_url, 'count' => 0, 'has_video' => false, 'thumb_is_video' => $is_video];
+        $album_map[$cat][$album] = ['thumb' => rest_url('sjioc/v1/photo/' . $p->id), 'count' => 0, 'has_video' => false, 'thumb_is_video' => $is_video];
     } elseif ($album_map[$cat][$album]['thumb_is_video'] && !$is_video) {
-        // Prefer an image URL as the album card thumbnail
-        $album_map[$cat][$album]['thumb']          = $p->download_url;
+        // Prefer an image as the album card thumbnail
+        $album_map[$cat][$album]['thumb']          = rest_url('sjioc/v1/photo/' . $p->id);
         $album_map[$cat][$album]['thumb_is_video'] = false;
     }
     if ($is_video) $album_map[$cat][$album]['has_video'] = true;
@@ -128,7 +126,7 @@ var SJIOC_PHOTOS = <?php echo wp_json_encode(array_map(function ($p) {
     return [
         'cat'        => $p->category,
         'album'      => $p->album,
-        'url'        => $p->download_url,
+        'url'        => rest_url('sjioc/v1/photo/' . $p->id),
         'title'      => $p->title ?: pathinfo($p->file_name, PATHINFO_FILENAME),
         'media_type' => $p->media_type ?? 'image',
     ];
