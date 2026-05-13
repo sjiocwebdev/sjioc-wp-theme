@@ -92,7 +92,9 @@ add_action('after_switch_theme', function () {
         $next->setTimezone(new DateTimeZone('UTC'));
         wp_schedule_event($next->getTimestamp(), 'sjioc_weekly', 'sjioc_od_sync_cron');
     }
-    // sjioc_od_refresh_cron removed — share links last 30 days; refresh_urls runs after each delta sync
+    if (!wp_next_scheduled('sjioc_od_refresh_cron')) {
+        wp_schedule_event(time(), 'hourly', 'sjioc_od_refresh_cron');
+    }
 });
 
 add_action('switch_theme', function () {
@@ -162,49 +164,23 @@ function sjioc_od_get_token(): string|false {
 }
 
 /* ─────────────────────────────────────
-   SHARE LINK CREATION
-   Creates a 30-day anonymous view link via Graph API createLink.
-   Requires Files.ReadWrite.All permission and anonymous sharing
-   enabled in SharePoint Admin → Policies → Sharing → "Anyone".
-   Returns empty strings on failure (caller falls back gracefully).
-───────────────────────────────────── */
-
-function sjioc_od_create_share_link(string $token, string $drive_id, string $item_id): array {
-    $expiry = gmdate('Y-m-d\TH:i:s\Z', time() + 30 * DAY_IN_SECONDS);
-    $resp   = wp_remote_post(
-        'https://graph.microsoft.com/v1.0/drives/' . $drive_id . '/items/' . $item_id . '/createLink',
-        [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $token,
-                'Content-Type'  => 'application/json',
-            ],
-            'body'    => wp_json_encode([
-                'type'               => 'view',
-                'scope'              => 'anonymous',
-                'expirationDateTime' => $expiry,
-            ]),
-            'timeout' => 15,
-        ]
-    );
-
-    $code = is_wp_error($resp) ? 0 : wp_remote_retrieve_response_code($resp);
-    if ($code < 200 || $code >= 300) return ['url' => '', 'expires' => ''];
-
-    $data = json_decode(wp_remote_retrieve_body($resp), true);
-    $url  = $data['link']['webUrl'] ?? '';
-    if (!$url) return ['url' => '', 'expires' => ''];
-
-    $exp_raw = $data['expirationDateTime'] ?? $expiry;
-    $expires = gmdate('Y-m-d H:i:s', strtotime($exp_raw) - HOUR_IN_SECONDS);
-    return ['url' => $url, 'expires' => $expires];
-}
-
-/* ─────────────────────────────────────
    URL REFRESH
-   Share links last 30 days. Only rows expiring within 3 days
-   (or missing a URL) are refreshed. Runs after every delta sync —
-   no separate hourly cron needed.
+   @microsoft.graph.downloadUrl SAS tokens expire per their se= param
+   (~1 hour typical). Hourly cron refreshes rows expiring within 2 hours.
+   Also runs after every delta sync.
 ───────────────────────────────────── */
+
+function sjioc_od_parse_expiry(string $url, int $fallback_seconds): string {
+    $query = (string) parse_url($url, PHP_URL_QUERY);
+    if ($query) {
+        parse_str($query, $params);
+        if (!empty($params['se'])) {
+            $ts = strtotime($params['se']);
+            if ($ts > 0) return gmdate('Y-m-d H:i:s', $ts);
+        }
+    }
+    return gmdate('Y-m-d H:i:s', time() + $fallback_seconds);
+}
 
 function sjioc_od_refresh_urls(string $token): int {
     global $wpdb;
@@ -213,16 +189,30 @@ function sjioc_od_refresh_urls(string $token): int {
     $rows = $wpdb->get_results(
         "SELECT id, od_drive_id, od_item_id FROM {$table}
          WHERE download_url IS NULL OR download_url = ''
-            OR url_expires IS NULL OR url_expires <= DATE_ADD(NOW(), INTERVAL 3 DAY)"
+            OR url_expires IS NULL OR url_expires <= DATE_ADD(NOW(), INTERVAL 2 HOUR)"
     );
 
     $refreshed = 0;
     foreach ($rows as $row) {
-        $link = sjioc_od_create_share_link($token, $row->od_drive_id, $row->od_item_id);
-        if (!$link['url']) continue;
+        $resp = wp_remote_get(
+            'https://graph.microsoft.com/v1.0/drives/' . $row->od_drive_id . '/items/' . $row->od_item_id,
+            [
+                'headers' => ['Authorization' => 'Bearer ' . $token],
+                'timeout' => 15,
+            ]
+        );
+        if (is_wp_error($resp) || wp_remote_retrieve_response_code($resp) !== 200) continue;
+
+        $data = json_decode(wp_remote_retrieve_body($resp), true);
+        $url  = $data['@microsoft.graph.downloadUrl'] ?? '';
+        if (!$url) continue;
+
         $wpdb->update(
             $table,
-            ['download_url' => $link['url'], 'url_expires' => $link['expires']],
+            [
+                'download_url' => $url,
+                'url_expires'  => sjioc_od_parse_expiry($url, 23 * HOUR_IN_SECONDS),
+            ],
             ['id' => (int) $row->id]
         );
         $refreshed++;
@@ -230,6 +220,13 @@ function sjioc_od_refresh_urls(string $token): int {
 
     return $refreshed;
 }
+
+function sjioc_od_refresh_cron_run(): void {
+    if (!sjioc_od_is_configured()) return;
+    $token = sjioc_od_get_token();
+    if ($token) sjioc_od_refresh_urls($token);
+}
+add_action('sjioc_od_refresh_cron', 'sjioc_od_refresh_cron_run');
 
 /* ─────────────────────────────────────
    DELTA SYNC
@@ -348,22 +345,19 @@ function sjioc_od_delta_sync(string $token, bool $fresh = false): array {
             );
             $updated++;
         } else {
+            $dl_url    = $item['@microsoft.graph.downloadUrl'] ?? '';
+            $dl_expiry = $dl_url ? sjioc_od_parse_expiry($dl_url, HOUR_IN_SECONDS) : null;
             $wpdb->insert($table, [
-                'od_item_id'  => $item['id'],
-                'od_drive_id' => sjioc_od_drive_id(),
-                'file_name'   => $item['name'],
-                'category'    => $category,
-                'album'       => $album,
-                'title'       => $title,
-                'media_type'  => $media_type,
+                'od_item_id'   => $item['id'],
+                'od_drive_id'  => sjioc_od_drive_id(),
+                'file_name'    => $item['name'],
+                'category'     => $category,
+                'album'        => $album,
+                'title'        => $title,
+                'media_type'   => $media_type,
+                'download_url' => $dl_url    ?: null,
+                'url_expires'  => $dl_expiry ?: null,
             ]);
-            $link = sjioc_od_create_share_link($token, sjioc_od_drive_id(), $item['id']);
-            if ($link['url']) {
-                $wpdb->update($table,
-                    ['download_url' => $link['url'], 'url_expires' => $link['expires']],
-                    ['od_item_id'  => $item['id']]
-                );
-            }
             $inserted++;
         }
     }
