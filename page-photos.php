@@ -14,16 +14,22 @@ $all_photos = $wpdb->get_results(
      ORDER BY category, album, title"
 );
 
-// Build album map: cat → album → [thumb, count]
+// Build album map: cat → album → [thumb, count, has_video, thumb_is_video]
 $album_map  = [];
 $cats_found = [];
 foreach ($all_photos as $p) {
-    $cat   = $p->category ?: 'other';
-    $album = $p->album    ?: '';
+    $cat      = $p->category ?: 'other';
+    $album    = $p->album    ?: '';
+    $is_video = ($p->media_type ?? 'image') === 'video';
     if (!in_array($cat, $cats_found, true)) $cats_found[] = $cat;
     if (!isset($album_map[$cat][$album])) {
-        $album_map[$cat][$album] = ['thumb' => $p->download_url, 'count' => 0];
+        $album_map[$cat][$album] = ['thumb' => $p->download_url, 'count' => 0, 'has_video' => false, 'thumb_is_video' => $is_video];
+    } elseif ($album_map[$cat][$album]['thumb_is_video'] && !$is_video) {
+        // Prefer an image URL as the album card thumbnail
+        $album_map[$cat][$album]['thumb']          = $p->download_url;
+        $album_map[$cat][$album]['thumb_is_video'] = false;
     }
+    if ($is_video) $album_map[$cat][$album]['has_video'] = true;
     $album_map[$cat][$album]['count']++;
 }
 
@@ -62,16 +68,26 @@ $sorted_cats = array_merge(
         $label      = $album ?: ucfirst($cat) . ' Photos';
         $safe_cat   = esc_attr($cat);
         $safe_album = esc_attr($album);
+        $item_word  = $info['has_video'] ? 'item' : 'photo';
+        $item_pl    = $info['has_video'] ? 'items' : 'photos';
+        $count_word = $info['count'] !== 1 ? $item_pl : $item_word;
       ?>
       <div class="gal-album-card" data-cat="<?php echo $safe_cat; ?>"
            role="button" tabindex="0"
-           aria-label="<?php echo esc_attr($label . ' — ' . $info['count'] . ' photos'); ?>"
+           aria-label="<?php echo esc_attr($label . ' — ' . $info['count'] . ' ' . $count_word); ?>"
            onclick="galOpen('<?php echo $safe_cat; ?>','<?php echo $safe_album; ?>')"
            onkeydown="if(event.key==='Enter')galOpen('<?php echo $safe_cat; ?>','<?php echo $safe_album; ?>')">
+        <?php if (!$info['thumb_is_video']): ?>
         <img src="<?php echo esc_url($info['thumb']); ?>" alt="<?php echo esc_attr($label); ?>" loading="lazy">
+        <?php else: ?>
+        <div class="gal-album-video-only-thumb" aria-hidden="true">&#9654;</div>
+        <?php endif; ?>
+        <?php if ($info['has_video']): ?>
+        <div class="gal-video-badge" aria-hidden="true">&#9654;</div>
+        <?php endif; ?>
         <div class="gal-album-info">
           <h4><?php echo esc_html($label); ?></h4>
-          <span><?php echo (int) $info['count']; ?> photo<?php echo $info['count'] !== 1 ? 's' : ''; ?></span>
+          <span><?php echo (int) $info['count'] . ' ' . esc_html($count_word); ?></span>
         </div>
       </div>
       <?php endforeach; ?>
@@ -95,20 +111,35 @@ $sorted_cats = array_merge(
 </div></div>
 
 <!-- Lightbox -->
-<div class="lightbox" id="sjioc-lightbox" onclick="sjiocCloseLightbox(event)" role="dialog" aria-modal="true" aria-label="Photo viewer">
-  <button class="lb-close" id="lb-close" onclick="sjiocCloseLightbox()" aria-label="Close photo viewer">&times;</button>
-  <img id="lb-img" src="" alt="">
+<div class="lightbox" id="sjioc-lightbox" onclick="if(event.target===this)sjiocCloseLightbox()" role="dialog" aria-modal="true" aria-label="Media viewer">
+  <button class="lb-close" id="lb-close" onclick="sjiocCloseLightbox()" aria-label="Close viewer">&times;</button>
+  <div class="lb-inner">
+    <button class="lb-prev" id="lb-prev" onclick="lbNav(-1)" aria-label="Previous" style="display:none">&#10094;</button>
+    <div class="lb-center">
+      <div id="lb-media"></div>
+      <p id="lb-caption"></p>
+    </div>
+    <button class="lb-next" id="lb-next" onclick="lbNav(1)" aria-label="Next" style="display:none">&#10095;</button>
+  </div>
 </div>
 
 <script>
 var SJIOC_PHOTOS = <?php echo wp_json_encode(array_map(function ($p) {
     return [
-        'cat'   => $p->category,
-        'album' => $p->album,
-        'url'   => $p->download_url,
-        'title' => $p->title ?: pathinfo($p->file_name, PATHINFO_FILENAME),
+        'cat'        => $p->category,
+        'album'      => $p->album,
+        'url'        => $p->download_url,
+        'title'      => $p->title ?: pathinfo($p->file_name, PATHINFO_FILENAME),
+        'media_type' => $p->media_type ?? 'image',
     ];
 }, $all_photos)); ?>;
+
+var _currentPhotos = [];
+var _lbIdx = 0;
+
+function lbEsc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
 function galCat(btn, cat) {
     document.querySelectorAll('#gal-cat-bar .filter-btn').forEach(function(b) { b.classList.remove('is-active'); });
@@ -119,17 +150,19 @@ function galCat(btn, cat) {
 }
 
 function galOpen(cat, album) {
-    var photos = SJIOC_PHOTOS.filter(function(p) { return p.cat === cat && p.album === album; });
-    var label  = album || (cat.charAt(0).toUpperCase() + cat.slice(1) + ' Photos');
+    _currentPhotos = SJIOC_PHOTOS.filter(function(p) { return p.cat === cat && p.album === album; });
+    var label = album || (cat.charAt(0).toUpperCase() + cat.slice(1) + ' Photos');
     document.getElementById('gal-album-title').textContent = label;
     var grid = document.getElementById('gal-grid');
-    grid.innerHTML = photos.map(function(p) {
-        var esc = function(s){ return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); };
-        return '<div class="gallery-item" role="button" tabindex="0"'
-             + ' data-url="' + esc(p.url) + '" data-title="' + esc(p.title) + '"'
-             + ' aria-label="View ' + esc(p.title) + '">'
-             + '<img src="' + esc(p.url) + '" alt="' + esc(p.title) + '" loading="lazy">'
-             + '<div class="gallery-overlay"><span>' + esc(p.title) + '</span></div>'
+    grid.innerHTML = _currentPhotos.map(function(p, idx) {
+        var isVideo = p.media_type === 'video';
+        var thumb   = isVideo
+            ? '<div class="gallery-item-video-thumb" aria-hidden="true">&#9654;</div>'
+            : '<img src="' + lbEsc(p.url) + '" alt="' + lbEsc(p.title) + '" loading="lazy">';
+        return '<div class="gallery-item" role="button" tabindex="0" data-idx="' + idx + '"'
+             + ' aria-label="' + (isVideo ? 'Play ' : 'View ') + lbEsc(p.title) + '">'
+             + thumb
+             + '<div class="gallery-overlay"><span>' + lbEsc(p.title) + '</span></div>'
              + '</div>';
     }).join('');
     document.getElementById('gal-albums').style.display  = 'none';
@@ -141,13 +174,13 @@ function galOpen(cat, album) {
 document.addEventListener('click', function(e) {
     var item = e.target.closest('#gal-grid .gallery-item');
     if (!item) return;
-    sjiocOpenLightbox(item.dataset.url, item.dataset.title);
+    sjiocOpenLightbox(_currentPhotos, parseInt(item.dataset.idx, 10));
 });
 document.addEventListener('keydown', function(e) {
     if (e.key !== 'Enter') return;
     var item = e.target.closest('#gal-grid .gallery-item');
     if (!item) return;
-    sjiocOpenLightbox(item.dataset.url, item.dataset.title);
+    sjiocOpenLightbox(_currentPhotos, parseInt(item.dataset.idx, 10));
 });
 
 function galBack() {
@@ -155,6 +188,69 @@ function galBack() {
     document.getElementById('gal-albums').style.display  = '';
     document.getElementById('gal-cat-bar').style.display = '';
 }
+
+// ── Lightbox overrides (extends main.js sjiocOpenLightbox) ─────────
+window.sjiocOpenLightbox = function(photos, idx) {
+    _currentPhotos = Array.isArray(photos) ? photos : [];
+    _lbIdx = typeof idx === 'number' ? idx : 0;
+    lbRender();
+    var lb = document.getElementById('sjioc-lightbox');
+    if (!lb) return;
+    lb.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('lb-close').focus();
+};
+
+function lbRender() {
+    var p       = _currentPhotos[_lbIdx];
+    var media   = document.getElementById('lb-media');
+    var caption = document.getElementById('lb-caption');
+    var prev    = document.getElementById('lb-prev');
+    var next    = document.getElementById('lb-next');
+    if (!p || !media) return;
+    var old = media.querySelector('video');
+    if (old) old.pause();
+    if (p.media_type === 'video') {
+        media.innerHTML = '<video controls autoplay playsinline>'
+                        + '<source src="' + lbEsc(p.url) + '">'
+                        + 'Your browser does not support video playback.'
+                        + '</video>';
+    } else {
+        media.innerHTML = '<img src="' + lbEsc(p.url) + '" alt="' + lbEsc(p.title) + '">';
+    }
+    if (caption) caption.textContent = p.title || '';
+    if (prev) prev.style.display = _lbIdx > 0 ? '' : 'none';
+    if (next) next.style.display = _lbIdx < _currentPhotos.length - 1 ? '' : 'none';
+}
+
+window.lbNav = function(dir) {
+    var n = _lbIdx + dir;
+    if (n < 0 || n >= _currentPhotos.length) return;
+    _lbIdx = n;
+    lbRender();
+};
+
+window.sjiocCloseLightbox = function() {
+    var lb = document.getElementById('sjioc-lightbox');
+    if (!lb) return;
+    var video = lb.querySelector('video');
+    if (video) video.pause();
+    lb.classList.remove('is-open');
+    document.body.style.overflow = '';
+};
+
+// Arrow key nav + ESC video-stop (ESC class removal handled by main.js)
+document.addEventListener('keydown', function(e) {
+    var lb = document.getElementById('sjioc-lightbox');
+    if (!lb || !lb.classList.contains('is-open')) return;
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); lbNav(-1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); lbNav(1); }
+    if (e.key === 'Escape') {
+        var video = lb.querySelector('video');
+        if (video) video.pause();
+        document.body.style.overflow = '';
+    }
+});
 </script>
 
 <?php sjioc_footer(); get_footer(); ?>

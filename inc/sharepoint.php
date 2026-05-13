@@ -65,6 +65,7 @@ function sjioc_od_create_table(): void {
         category     VARCHAR(60)  NOT NULL DEFAULT '',
         album        VARCHAR(120) NOT NULL DEFAULT '',
         title        VARCHAR(255) NOT NULL DEFAULT '',
+        media_type   VARCHAR(10)  NOT NULL DEFAULT 'image',
         download_url TEXT,
         url_expires  DATETIME,
         created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -76,19 +77,22 @@ function sjioc_od_create_table(): void {
 }
 add_action('after_switch_theme', 'sjioc_od_create_table');
 
+// Applies schema changes (e.g. new columns) to existing installs without requiring theme reactivation
+add_action('admin_init', function () {
+    if (get_option('sjioc_photos_db_ver') === '2') return;
+    sjioc_od_create_table();
+    update_option('sjioc_photos_db_ver', '2');
+});
+
 /* ── Cron ────────────────────────────────────────────── */
 add_action('after_switch_theme', function () {
-    // Weekly full delta sync (new photos, removals)
     if (!wp_next_scheduled('sjioc_od_sync_cron')) {
         $tz   = new DateTimeZone(wp_timezone_string() ?: 'UTC');
         $next = new DateTime('next sunday 00:01', $tz);
         $next->setTimezone(new DateTimeZone('UTC'));
         wp_schedule_event($next->getTimestamp(), 'sjioc_weekly', 'sjioc_od_sync_cron');
     }
-    // Hourly URL refresh — keeps download_urls alive (they expire ~1 h from Graph API)
-    if (!wp_next_scheduled('sjioc_od_refresh_cron')) {
-        wp_schedule_event(time() + 300, 'hourly', 'sjioc_od_refresh_cron');
-    }
+    // sjioc_od_refresh_cron removed — share links last 30 days; refresh_urls runs after each delta sync
 });
 
 add_action('switch_theme', function () {
@@ -99,11 +103,6 @@ add_action('switch_theme', function () {
 });
 
 add_action('sjioc_od_sync_cron', 'sjioc_od_sync');
-
-add_action('sjioc_od_refresh_cron', function () {
-    $token = sjioc_od_get_token();
-    if ($token) sjioc_od_refresh_urls($token);
-});
 
 /* ── Admin menu (self-registered) ────────────────────── */
 add_action('admin_menu', function () {
@@ -163,53 +162,67 @@ function sjioc_od_get_token(): string|false {
 }
 
 /* ─────────────────────────────────────
+   SHARE LINK CREATION
+   Creates a 30-day anonymous view link via Graph API createLink.
+   Requires Files.ReadWrite.All permission and anonymous sharing
+   enabled in SharePoint Admin → Policies → Sharing → "Anyone".
+   Returns empty strings on failure (caller falls back gracefully).
+───────────────────────────────────── */
+
+function sjioc_od_create_share_link(string $token, string $drive_id, string $item_id): array {
+    $expiry = gmdate('Y-m-d\TH:i:s\Z', time() + 30 * DAY_IN_SECONDS);
+    $resp   = wp_remote_post(
+        'https://graph.microsoft.com/v1.0/drives/' . $drive_id . '/items/' . $item_id . '/createLink',
+        [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $token,
+                'Content-Type'  => 'application/json',
+            ],
+            'body'    => wp_json_encode([
+                'type'               => 'view',
+                'scope'              => 'anonymous',
+                'expirationDateTime' => $expiry,
+            ]),
+            'timeout' => 15,
+        ]
+    );
+
+    $code = is_wp_error($resp) ? 0 : wp_remote_retrieve_response_code($resp);
+    if ($code < 200 || $code >= 300) return ['url' => '', 'expires' => ''];
+
+    $data = json_decode(wp_remote_retrieve_body($resp), true);
+    $url  = $data['link']['webUrl'] ?? '';
+    if (!$url) return ['url' => '', 'expires' => ''];
+
+    $exp_raw = $data['expirationDateTime'] ?? $expiry;
+    $expires = gmdate('Y-m-d H:i:s', strtotime($exp_raw) - HOUR_IN_SECONDS);
+    return ['url' => $url, 'expires' => $expires];
+}
+
+/* ─────────────────────────────────────
    URL REFRESH
-   The delta endpoint does not return @microsoft.graph.downloadUrl
-   with app-only (client_credentials) auth — only direct item GETs do.
-   Runs after every delta sync to populate URLs for newly inserted rows
-   and refresh any existing rows expiring within 2 hours.
+   Share links last 30 days. Only rows expiring within 3 days
+   (or missing a URL) are refreshed. Runs after every delta sync —
+   no separate hourly cron needed.
 ───────────────────────────────────── */
 
 function sjioc_od_refresh_urls(string $token): int {
     global $wpdb;
     $table = $wpdb->prefix . 'sjioc_photos';
 
-    // Refresh URLs that are missing or expiring within 20 minutes
     $rows = $wpdb->get_results(
         "SELECT id, od_drive_id, od_item_id FROM {$table}
          WHERE download_url IS NULL OR download_url = ''
-            OR url_expires IS NULL OR url_expires <= DATE_ADD(NOW(), INTERVAL 20 MINUTE)"
+            OR url_expires IS NULL OR url_expires <= DATE_ADD(NOW(), INTERVAL 3 DAY)"
     );
 
     $refreshed = 0;
     foreach ($rows as $row) {
-        $resp = wp_remote_get(
-            'https://graph.microsoft.com/v1.0/drives/' . $row->od_drive_id
-            . '/items/' . $row->od_item_id,
-            [
-                'headers' => ['Authorization' => 'Bearer ' . $token],
-                'timeout' => 15,
-            ]
-        );
-        if (is_wp_error($resp)) continue;
-        if (wp_remote_retrieve_response_code($resp) !== 200) continue;
-
-        $data = json_decode(wp_remote_retrieve_body($resp), true);
-        $url  = $data['@microsoft.graph.downloadUrl'] ?? '';
-        if (!$url) continue;
-
-        // Parse the actual expiry from the URL's se= (Signed Expiry) parameter.
-        // Microsoft controls the real lifetime — we just track it accurately.
-        // Fall back to 23 h if se= is absent (conservative but won't over-refresh).
-        parse_str(parse_url($url, PHP_URL_QUERY) ?: '', $qs);
-        $se      = $qs['se'] ?? '';
-        $expires = $se
-            ? gmdate('Y-m-d H:i:s', strtotime($se) - 30)   // 30-sec safety margin only
-            : gmdate('Y-m-d H:i:s', time() + 23 * HOUR_IN_SECONDS);
-
+        $link = sjioc_od_create_share_link($token, $row->od_drive_id, $row->od_item_id);
+        if (!$link['url']) continue;
         $wpdb->update(
             $table,
-            ['download_url' => $url, 'url_expires' => $expires],
+            ['download_url' => $link['url'], 'url_expires' => $link['expires']],
             ['id' => (int) $row->id]
         );
         $refreshed++;
@@ -291,8 +304,12 @@ function sjioc_od_delta_sync(string $token, bool $fresh = false): array {
         }
         if (empty($item['file'])) continue;
 
-        $mime = $item['file']['mimeType'] ?? '';
-        if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) continue;
+        $mime        = $item['file']['mimeType'] ?? '';
+        $image_mimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        $video_mimes = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
+        if (!in_array($mime, array_merge($image_mimes, $video_mimes), true)) continue;
+
+        $media_type = in_array($mime, $video_mimes, true) ? 'video' : 'image';
 
         // Resolve category + album via two-level parent chain from SJIOC_ONEDRIVE_FOLDER_ID
         $parent_id = $item['parentReference']['id'] ?? '';
@@ -310,9 +327,7 @@ function sjioc_od_delta_sync(string $token, bool $fresh = false): array {
             $album    = $parent['name'];
         }
 
-        $dl_url  = $item['@microsoft.graph.downloadUrl'] ?? '';
-        $title   = pathinfo($item['name'], PATHINFO_FILENAME);
-        $expires = gmdate('Y-m-d H:i:s', time() + 55 * MINUTE_IN_SECONDS);
+        $title = pathinfo($item['name'], PATHINFO_FILENAME);
 
         $exists = $wpdb->get_var($wpdb->prepare(
             "SELECT id FROM {$table} WHERE od_item_id = %s LIMIT 1",
@@ -323,27 +338,32 @@ function sjioc_od_delta_sync(string $token, bool $fresh = false): array {
             $wpdb->update(
                 $table,
                 [
-                    'file_name'    => $item['name'],
-                    'category'     => $category,
-                    'album'        => $album,
-                    'title'        => $title,
-                    'download_url' => $dl_url,
-                    'url_expires'  => $expires,
+                    'file_name'  => $item['name'],
+                    'category'   => $category,
+                    'album'      => $album,
+                    'title'      => $title,
+                    'media_type' => $media_type,
                 ],
                 ['od_item_id' => $item['id']]
             );
             $updated++;
         } else {
             $wpdb->insert($table, [
-                'od_item_id'   => $item['id'],
-                'od_drive_id'  => sjioc_od_drive_id(),
-                'file_name'    => $item['name'],
-                'category'     => $category,
-                'album'        => $album,
-                'title'        => $title,
-                'download_url' => $dl_url,
-                'url_expires'  => $expires,
+                'od_item_id'  => $item['id'],
+                'od_drive_id' => sjioc_od_drive_id(),
+                'file_name'   => $item['name'],
+                'category'    => $category,
+                'album'       => $album,
+                'title'       => $title,
+                'media_type'  => $media_type,
             ]);
+            $link = sjioc_od_create_share_link($token, sjioc_od_drive_id(), $item['id']);
+            if ($link['url']) {
+                $wpdb->update($table,
+                    ['download_url' => $link['url'], 'url_expires' => $link['expires']],
+                    ['od_item_id'  => $item['id']]
+                );
+            }
             $inserted++;
         }
     }
@@ -557,7 +577,8 @@ function sjioc_od_photos_page(): void {
         <p class="description">
             <strong>Top-level folders</strong> → category (worship · events · ministries · community)<br>
             <strong>Sub-folders</strong> → album name shown in the gallery<br>
-            Supported: <code>.jpg</code> <code>.jpeg</code> <code>.png</code> <code>.webp</code>
+            Supported images: <code>.jpg</code> <code>.png</code> <code>.webp</code> <code>.gif</code><br>
+            Supported videos: <code>.mp4</code> <code>.mov</code> <code>.avi</code>
         </p>
 
         <hr style="margin:32px 0">
