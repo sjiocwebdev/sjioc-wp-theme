@@ -26,10 +26,7 @@ function sjioc_chat_ajax() {
             wp_send_json_success(['html' => sjioc_plate_html($vehicle)]);
             return;
         }
-        wp_send_json_success(['html' =>
-            '&#10060; No vehicle registered with plate <strong>' . esc_html(strtoupper($message)) . '</strong>.<br><br>' .
-            'Please contact the <strong>Secretary</strong> or a <strong>Trustee</strong>.<br>&#128222; ' . esc_html(sjioc_phone())
-        ]);
+        wp_send_json_success(['html' => sjioc_plate_not_found_html(strtoupper($message))]);
         return;
     }
 
@@ -55,15 +52,26 @@ function sjioc_lookup_plate($normalized) {
 }
 
 function sjioc_plate_html($v) {
-    $tel   = preg_replace('/\D/', '', $v->owner_phone);
     $html  = '&#128663; <strong>Vehicle Found</strong><br><br>';
     $html .= 'Owner: <strong>' . esc_html($v->owner_name) . '</strong><br>';
-    $html .= 'Phone: <a href="tel:' . esc_attr($tel) . '" style="color:var(--go)">' . esc_html($v->owner_phone) . '</a><br>';
     if (!empty($v->vehicle_desc)) {
         $html .= 'Vehicle: ' . esc_html($v->vehicle_desc) . '<br>';
     }
-    $html .= '<br>Please contact the owner directly to resolve the parking situation. &#128591;';
+    $html .= '<br>Please speak with a <strong>Trustee</strong> or <strong>Usher</strong> to reach the owner. &#128591;';
     return $html;
+}
+
+function sjioc_plate_not_found_html($plate) {
+    $ph  = esc_html(sjioc_phone());
+    $p   = '<strong>' . esc_html($plate) . '</strong>';
+    $msgs = [
+        '&#128269; Plate ' . $p . ' isn\'t in our parish registry. Could be a visitor or a typo — double-check and try again. For help, contact our <strong>Secretary</strong> or a <strong>Trustee</strong>.<br>&#128222; ' . $ph,
+        '&#128663; ' . $p . ' drew a blank! This vehicle isn\'t registered with SJIOC. Let our <strong>Secretary</strong> or a <strong>Trustee</strong> know — they can help track down the owner.<br>&#128222; ' . $ph,
+        '&#128664; Hmm, ' . $p . ' doesn\'t match anyone in our records. Might be a guest today? Our <strong>Secretary</strong> or a <strong>Trustee</strong> can assist.<br>&#128222; ' . $ph,
+        '&#128270; No match for ' . $p . ' in the SJIOC registry. If you think this plate should be registered, speak with our <strong>Secretary</strong> or a <strong>Trustee</strong>.<br>&#128222; ' . $ph,
+        '&#128203; ' . $p . ' isn\'t on our list — possibly a visitor\'s vehicle. Our <strong>Secretary</strong> or a <strong>Trustee</strong> can help you sort it out.<br>&#128222; ' . $ph,
+    ];
+    return $msgs[ array_rand($msgs) ];
 }
 
 function sjioc_azure_oai($message) {
