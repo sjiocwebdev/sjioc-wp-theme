@@ -1695,3 +1695,40 @@ input, textarea, select { font-family:'Lato', sans-serif; }
   .wbar-tab { padding:0 16px; justify-content:center; }
   .wbar-icon { font-size:1.38rem; }
 }
+
+/* ── Gallery & Lightbox — deter casual image saving ── */
+#gal-albums img,
+#gal-grid img {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+.gallery-overlay { z-index: 2; }
+
+.gal-album-card { position: relative; }
+
+.gal-album-card::after,
+.gallery-item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+#lb-media img {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+#lb-media { position: relative; }
+
+#lb-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}

@@ -76,7 +76,7 @@ $sorted_cats = array_merge(
            onclick="galOpen('<?php echo $safe_cat; ?>','<?php echo $safe_album; ?>')"
            onkeydown="if(event.key==='Enter')galOpen('<?php echo $safe_cat; ?>','<?php echo $safe_album; ?>')">
         <?php if (!$info['thumb_is_video']): ?>
-        <img src="<?php echo esc_url($info['thumb']); ?>" alt="<?php echo esc_attr($label); ?>" loading="lazy">
+        <img src="<?php echo esc_url($info['thumb']); ?>" alt="<?php echo esc_attr($label); ?>" loading="lazy" draggable="false">
         <?php else: ?>
         <div class="gal-album-video-only-thumb" aria-hidden="true">&#9654;</div>
         <?php endif; ?>
@@ -214,7 +214,7 @@ function lbRender() {
                         + 'Your browser does not support video playback.'
                         + '</video>';
     } else {
-        media.innerHTML = '<img src="' + lbEsc(p.url) + '" alt="' + lbEsc(p.title) + '">';
+        media.innerHTML = '<img src="' + lbEsc(p.url) + '" alt="' + lbEsc(p.title) + '" draggable="false">';
     }
     if (caption) caption.textContent = p.title || '';
     if (prev) prev.style.display = _lbIdx > 0 ? '' : 'none';
@@ -236,6 +236,13 @@ window.sjiocCloseLightbox = function() {
     lb.classList.remove('is-open');
     document.body.style.overflow = '';
 };
+
+// Suppress right-click on gallery and lightbox images — leave video context menu intact
+document.addEventListener('contextmenu', function(e) {
+    var inGallery = e.target.closest('#gal-albums, #gal-photos');
+    var inLbImg   = e.target.closest('#lb-media');
+    if (inGallery || (inLbImg && !e.target.closest('video'))) e.preventDefault();
+});
 
 // Arrow key nav + ESC video-stop (ESC class removal handled by main.js)
 document.addEventListener('keydown', function(e) {
