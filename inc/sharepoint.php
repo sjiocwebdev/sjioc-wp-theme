@@ -179,6 +179,14 @@ add_action('rest_api_init', function () {
 });
 
 function sjioc_photo_proxy(WP_REST_Request $request): void {
+    $ip_key = 'sjioc_rl_photo_' . md5($_SERVER['REMOTE_ADDR'] ?? '');
+    $hits   = (int) get_transient($ip_key);
+    if ($hits >= 60) {
+        status_header(429);
+        exit;
+    }
+    set_transient($ip_key, $hits + 1, 60);
+
     global $wpdb;
     $id    = (int) $request->get_param('id');
     $table = $wpdb->prefix . 'sjioc_photos';
