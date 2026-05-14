@@ -268,9 +268,14 @@
       .then(function (res) {
         var ind = document.getElementById('typingInd');
         if (ind) msgs.removeChild(ind);
-        var html = (res.success && res.data && res.data.html)
-          ? res.data.html
-          : 'Sorry, something went wrong. Please call us directly. &#128222;';
+        var html;
+        if (res.success && res.data && res.data.html) {
+          html = res.data.html;
+        } else if (!res.success && typeof res.data === 'string' && res.data) {
+          html = res.data;
+        } else {
+          html = 'Sorry, something went wrong. Please call us directly. &#128222;';
+        }
         appendMsg(html, 'bot');
       })
       .catch(function () {

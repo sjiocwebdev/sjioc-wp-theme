@@ -34,9 +34,13 @@ function sjioc_chat_ajax() {
     $ip_key = 'sjioc_rl_chat_' . md5($_SERVER['REMOTE_ADDR'] ?? '');
     $hits   = (int) get_transient($ip_key);
     if ($hits >= 5) {
-        wp_send_json_error('Too many requests — please wait a few minutes before trying again.');
+        wp_send_json_error('Too many requests — please wait 3 minutes before trying again.');
     }
     set_transient($ip_key, $hits + 1, 180);
+
+    if (mb_strlen($message) > 500) {
+        wp_send_json_error('Please keep your message under 500 characters.');
+    }
 
     // General question → Azure OpenAI
     wp_send_json_success(['html' => sjioc_azure_oai($message)]);
