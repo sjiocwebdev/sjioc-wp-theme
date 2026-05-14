@@ -300,23 +300,27 @@
   /* ─────────────────────────────────────────
      GALLERY LIGHTBOX
   ───────────────────────────────────────── */
-  window.sjiocOpenLightbox = function (src, alt) {
-    var lb  = document.getElementById('sjioc-lightbox');
-    var img = document.getElementById('lb-img');
-    if (!lb || !img) return;
-    img.src = src; img.alt = alt || '';
-    lb.classList.add('is-open');
-    document.body.style.overflow = 'hidden';
-    document.getElementById('lb-close').focus();
-  };
+  if (!window.sjiocOpenLightbox) {
+    window.sjiocOpenLightbox = function (src, alt) {
+      var lb  = document.getElementById('sjioc-lightbox');
+      var img = document.getElementById('lb-img');
+      if (!lb || !img) return;
+      img.src = src; img.alt = alt || '';
+      lb.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+      document.getElementById('lb-close').focus();
+    };
+  }
 
-  window.sjiocCloseLightbox = function (e) {
-    if (!e || e.target !== document.getElementById('lb-img')) {
-      var lb = document.getElementById('sjioc-lightbox');
-      if (lb) lb.classList.remove('is-open');
-      document.body.style.overflow = '';
-    }
-  };
+  if (!window.sjiocCloseLightbox) {
+    window.sjiocCloseLightbox = function (e) {
+      if (!e || e.target !== document.getElementById('lb-img')) {
+        var lb = document.getElementById('sjioc-lightbox');
+        if (lb) lb.classList.remove('is-open');
+        document.body.style.overflow = '';
+      }
+    };
+  }
 
   /* ─────────────────────────────────────────
      FILTER BARS (Events & Gallery)
