@@ -4,8 +4,7 @@
  */
 get_header();
 
-$gcal_subscribe = SJIOC_GCAL_ID  ? 'https://calendar.google.com/calendar/r?cid=' . rawurlencode(SJIOC_GCAL_ID)  : '';
-$gcal_ics       = SJIOC_GCAL_ICS ?: '';
+$gcal_ics = SJIOC_GCAL_ICS ?: '';
 ?>
 <div class="page-hero"><div class="container"><h1>Parish Events</h1><p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › Events</p></div></div>
 
@@ -43,17 +42,13 @@ $gcal_ics       = SJIOC_GCAL_ICS ?: '';
     <p id="ev-loading" class="tc" style="color:var(--tl);margin:48px 0">Loading events&hellip;</p>
     <p id="ev-error"   class="tc" style="display:none;color:var(--cr);margin:48px 0">Could not load events. Please try again later.</p>
 
-    <?php if ($gcal_subscribe || $gcal_ics) : ?>
     <div class="ev-subscribe" id="calendar">
       <span>Subscribe to our calendar:</span>
-      <?php if ($gcal_subscribe) : ?>
-      <a href="<?php echo esc_url($gcal_subscribe); ?>" target="_blank" rel="noopener noreferrer" class="btn btn-ol btn-sm">&#128197; Google Calendar</a>
-      <?php endif; ?>
+      <a href="<?php echo esc_url(rest_url('sjioc/v1/calendar.ics')); ?>" class="btn btn-ol btn-sm">&#128462; Download ICS</a>
       <?php if ($gcal_ics) : ?>
-      <a href="<?php echo esc_url($gcal_ics); ?>" class="btn btn-ol btn-sm">&#128462; Download ICS</a>
+      <a href="<?php echo esc_url($gcal_ics); ?>" target="_blank" rel="noopener noreferrer" class="btn btn-ol btn-sm">&#128197; Subscribe (Outlook / GCal)</a>
       <?php endif; ?>
     </div>
-    <?php endif; ?>
 
   </div>
 </div>

@@ -22,6 +22,21 @@ add_action('admin_init', function () {
         sjioc_create_events_table();
         update_option('sjioc_events_db_ver', '1');
     }
+    // CSV template download — must run before any HTML output
+    if (($_GET['page'] ?? '') === 'sjioc-events'
+        && ($_GET['action'] ?? '') === 'csv_template'
+        && current_user_can('manage_options')
+        && isset($_GET['_wpnonce'])
+        && wp_verify_nonce(sanitize_key($_GET['_wpnonce']), 'sjioc_csv_template')) {
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="events-import-template.csv"');
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['Title', 'Start Date', 'Start Time', 'End Date', 'End Time', 'All Day', 'Location', 'Description', 'URL']);
+        fputcsv($out, ['Parish Picnic',       '2026-06-07', '10:00', '2026-06-07', '14:00', 'No',  'Church Grounds',  'Annual outdoor gathering.', '']);
+        fputcsv($out, ['Sunday School Opening','2026-09-07', '',      '',           '',      'Yes', 'Fellowship Hall', 'New academic year kickoff.', '']);
+        fclose($out);
+        exit;
+    }
 });
 
 function sjioc_create_events_table(): void {
@@ -62,7 +77,7 @@ add_action('wp_enqueue_scripts', function () {
     ]);
 });
 
-// ── REST endpoint — GET /wp-json/sjioc/v1/events ──────────────────────────
+// ── REST endpoints ─────────────────────────────────────────────────────────
 add_action('rest_api_init', function () {
     register_rest_route('sjioc/v1', '/events', [
         'methods'             => 'GET',
@@ -71,6 +86,11 @@ add_action('rest_api_init', function () {
         'args'                => [
             'months' => ['default' => 6, 'sanitize_callback' => fn($v) => max(1, min(12, (int)$v))],
         ],
+    ]);
+    register_rest_route('sjioc/v1', '/calendar\.ics', [
+        'methods'             => 'GET',
+        'callback'            => 'sjioc_calendar_ics_endpoint',
+        'permission_callback' => '__return_true',
     ]);
 });
 
@@ -190,6 +210,19 @@ function sjioc_events_settings_page(): void {
     $notice  = '';
     $editing = null;
 
+    // ── Import CSV ───────────────────────────────────────────────────────────
+    if (isset($_POST['sjioc_import_csv'])) {
+        check_admin_referer('sjioc_events_admin');
+        if (!empty($_FILES['ev_csv']['tmp_name']) && $_FILES['ev_csv']['error'] === UPLOAD_ERR_OK) {
+            $result = sjioc_parse_import_csv($_FILES['ev_csv']['tmp_name']);
+            $msg    = $result['imported'] . ' event(s) imported.';
+            if ($result['errors']) $msg .= ' Skipped: ' . implode(' | ', array_slice($result['errors'], 0, 5));
+            $notice = '<div class="notice notice-success is-dismissible"><p>' . esc_html($msg) . '</p></div>';
+        } else {
+            $notice = '<div class="notice notice-error"><p>No file selected or upload failed.</p></div>';
+        }
+    }
+
     // ── Save GCal credentials ────────────────────────────────────────────
     if (isset($_POST['sjioc_save_gcal'])) {
         check_admin_referer('sjioc_events_admin');
@@ -290,6 +323,26 @@ function sjioc_events_settings_page(): void {
         <?php if ($last_sync) echo 'Last synced: ' . esc_html(date('M j, Y g:i a', strtotime($last_sync))); ?>
       </span>
     </p>
+    </form>
+
+    <hr style="margin:28px 0">
+
+    <!-- ── Import from Spreadsheet ── -->
+    <h2 class="title">Import from Spreadsheet</h2>
+    <p style="color:#555;margin-bottom:12px">
+      Upload a CSV file. Each row is one event.
+      <a href="<?php echo esc_url(wp_nonce_url($base_url . '&action=csv_template', 'sjioc_csv_template')); ?>">
+        Download template
+      </a> to see the required column format.
+    </p>
+    <form method="post" enctype="multipart/form-data">
+    <?php wp_nonce_field('sjioc_events_admin'); ?>
+    <p>
+      <input type="file" name="ev_csv" accept=".csv,text/csv">
+      &nbsp;
+      <?php submit_button('Import Events', 'secondary', 'sjioc_import_csv', false); ?>
+    </p>
+    <p class="description">Dates must be in <strong>YYYY-MM-DD</strong> format. Times in <strong>HH:MM</strong> (24-hour). Leave Start Time blank for all-day events.</p>
     </form>
 
     <hr style="margin:28px 0">
@@ -440,6 +493,144 @@ function sjioc_events_settings_page(): void {
     })();
     </script>
     <?php
+}
+
+// ── ICS calendar download ──────────────────────────────────────────────────
+function sjioc_calendar_ics_endpoint(): void {
+    $ics = sjioc_generate_ics();
+    header('Content-Type: text/calendar; charset=utf-8');
+    header('Content-Disposition: inline; filename="sjioc-events.ics"');
+    header('Cache-Control: public, max-age=1800');
+    header('X-Robots-Tag: noindex');
+    echo $ics;
+    exit;
+}
+
+function sjioc_generate_ics(): string {
+    $events = sjioc_get_db_events(12);
+    $host   = parse_url(home_url(), PHP_URL_HOST) ?: 'sjioc';
+    $now    = gmdate('Ymd\THis\Z');
+    $lines  = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//SJIOC//Parish Events//EN',
+        sjioc_ics_fold('X-WR-CALNAME:' . sjioc_ics_escape(sjioc_name() . ' — Events')),
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+    ];
+    foreach ($events as $e) {
+        $lines[] = 'BEGIN:VEVENT';
+        $lines[] = 'UID:sjioc-ev-' . $e['id'] . '@' . $host;
+        $lines[] = 'DTSTAMP:' . $now;
+        if ($e['all_day']) {
+            $start   = str_replace('-', '', substr($e['start'], 0, 10));
+            $end     = $e['end'] ? str_replace('-', '', substr($e['end'], 0, 10)) : $start;
+            $lines[] = 'DTSTART;VALUE=DATE:' . $start;
+            $lines[] = 'DTEND;VALUE=DATE:'   . $end;
+        } else {
+            $ts_s    = strtotime($e['start']);
+            $ts_e    = $e['end'] ? strtotime($e['end']) : $ts_s + 3600;
+            $lines[] = 'DTSTART:' . date('Ymd\THis', $ts_s);  // floating local time
+            $lines[] = 'DTEND:'   . date('Ymd\THis', $ts_e);
+        }
+        $lines[] = sjioc_ics_fold('SUMMARY:'     . sjioc_ics_escape($e['title']));
+        if ($e['description']) $lines[] = sjioc_ics_fold('DESCRIPTION:' . sjioc_ics_escape($e['description']));
+        if ($e['location'])    $lines[] = sjioc_ics_fold('LOCATION:'    . sjioc_ics_escape($e['location']));
+        if ($e['url'])         $lines[] = 'URL:' . $e['url'];
+        $lines[] = 'END:VEVENT';
+    }
+    $lines[] = 'END:VCALENDAR';
+    return implode("\r\n", $lines) . "\r\n";
+}
+
+function sjioc_ics_escape(string $s): string {
+    $s = strip_tags($s);
+    return str_replace(['\\', ';', ',', "\r\n", "\n", "\r"], ['\\\\', '\;', '\,', '\n', '\n', '\n'], $s);
+}
+
+function sjioc_ics_fold(string $line): string {
+    if (strlen($line) <= 75) return $line;
+    $out = '';
+    $len = 0;
+    foreach (str_split($line) as $ch) {
+        if ($len >= 74) { $out .= "\r\n "; $len = 1; }
+        $out .= $ch;
+        $len++;
+    }
+    return $out;
+}
+
+// ── CSV import ─────────────────────────────────────────────────────────────
+function sjioc_parse_import_csv(string $file): array {
+    $handle = fopen($file, 'r');
+    if (!$handle) return ['imported' => 0, 'errors' => ['Could not open file.']];
+
+    fgetcsv($handle); // skip header row
+
+    global $wpdb;
+    $t        = sjioc_events_table();
+    $imported = 0;
+    $errors   = [];
+    $row_num  = 1;
+
+    while (($row = fgetcsv($handle)) !== false) {
+        $row_num++;
+        if (count($row) < 2 || trim($row[0]) === '') continue;
+
+        [$title, $start_d, $start_t, $end_d, $end_t, $all_day_str, $location, $desc, $url]
+            = array_pad($row, 9, '');
+
+        $title   = sanitize_text_field(trim($title));
+        $start_d = trim($start_d);
+
+        if (!$title || !$start_d) {
+            $errors[] = "Row {$row_num}: Title and Start Date required.";
+            continue;
+        }
+
+        $ts = strtotime($start_d);
+        if (!$ts) {
+            $errors[] = "Row {$row_num}: Invalid date '{$start_d}' — use YYYY-MM-DD.";
+            continue;
+        }
+        $start_d = date('Y-m-d', $ts);
+
+        $all_day    = in_array(strtolower(trim($all_day_str)), ['yes','y','1','true'], true)
+                   || trim($start_t) === '';
+        $start_time = null;
+        $end_date   = null;
+        $end_time   = null;
+
+        if (!$all_day && trim($start_t)) {
+            $ts_t = strtotime('2000-01-01 ' . trim($start_t));
+            if ($ts_t) $start_time = date('H:i:s', $ts_t);
+        }
+        if (trim($end_d)) {
+            $ts_e = strtotime(trim($end_d));
+            if ($ts_e) $end_date = date('Y-m-d', $ts_e);
+        }
+        if (!$all_day && trim($end_t) && $end_date) {
+            $ts_et = strtotime('2000-01-01 ' . trim($end_t));
+            if ($ts_et) $end_time = date('H:i:s', $ts_et);
+        }
+
+        $wpdb->insert($t, [
+            'title'       => $title,
+            'description' => sanitize_textarea_field(trim($desc)),
+            'location'    => sanitize_text_field(trim($location)),
+            'start_date'  => $start_d,
+            'start_time'  => $start_time,
+            'end_date'    => $end_date,
+            'end_time'    => $end_time,
+            'all_day'     => $all_day ? 1 : 0,
+            'url'         => esc_url_raw(trim($url)),
+            'source'      => 'manual',
+        ], ['%s','%s','%s','%s','%s','%s','%s','%d','%s','%s']);
+        $imported++;
+    }
+
+    fclose($handle);
+    return ['imported' => $imported, 'errors' => $errors];
 }
 
 // ── Google Calendar API fetch ──────────────────────────────────────────────
