@@ -20,7 +20,7 @@ require_once SJIOC_DIR . '/inc/admin.php';
 require_once SJIOC_DIR . '/inc/members.php';
 require_once SJIOC_DIR . '/inc/celebrations.php';
 require_once SJIOC_DIR . '/inc/import.php';
-require_once SJIOC_DIR . '/inc/events-admin.php';
+require_once SJIOC_DIR . '/inc/events.php';
 require_once SJIOC_DIR . '/inc/sharepoint.php';
 require_once SJIOC_DIR . '/inc/vehicles.php';
 require_once SJIOC_DIR . '/inc/hall-rental.php';

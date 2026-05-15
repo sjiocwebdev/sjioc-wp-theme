@@ -1,0 +1,241 @@
+/* ═══════════════════════════════════════════════════
+   EVENTS PAGE — assets/css/events.css
+   Scoped to .sjioc-events and .ev-modal
+═══════════════════════════════════════════════════ */
+
+/* ── View toggle bar ───────────────────────────────────────────── */
+.ev-view-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+.ev-view-btn {
+  padding: 7px 18px;
+  font-size: .74rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  border: 2px solid var(--border);
+  background: transparent;
+  color: var(--tm);
+  cursor: pointer;
+  transition: var(--ease);
+}
+.ev-view-btn:hover    { color: var(--go); border-color: var(--go); }
+.ev-view-btn.is-active { background: var(--cr); color: #fff; border-color: var(--cr); }
+
+/* ── Calendar navigation ───────────────────────────────────────── */
+.ev-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.ev-cal-nav h3 {
+  font-family: 'Playfair Display', serif;
+  color: var(--cr);
+  font-size: 1.38rem;
+  margin: 0;
+  min-width: 220px;
+  text-align: center;
+}
+.ev-cal-arrow { padding: 6px 14px; font-size: .82rem; }
+
+/* ── Calendar grid ─────────────────────────────────────────────── */
+.ev-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-top: 2px solid var(--cr);
+  border-left: 1px solid var(--border);
+  margin-bottom: 44px;
+}
+.ev-cal-head {
+  background: var(--cr);
+  color: var(--go-lt);
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 9px 4px;
+}
+.ev-cal-day {
+  min-height: 90px;
+  padding: 8px 6px 4px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--ww);
+  position: relative;
+  vertical-align: top;
+}
+.ev-cal-day.other-month              { background: #f4efe8; }
+.ev-cal-day.other-month .ev-cal-num  { color: #c5b49a; }
+.ev-cal-day.is-today                 { background: #fff9ef; }
+.ev-cal-day.has-events               { cursor: default; }
+.ev-cal-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .76rem;
+  font-weight: 700;
+  color: var(--tm);
+  line-height: 1;
+  margin-bottom: 4px;
+  width: 22px;
+  height: 22px;
+}
+.ev-cal-day.is-today .ev-cal-num {
+  background: var(--cr);
+  color: #fff;
+  border-radius: 50%;
+}
+.ev-cal-event-label {
+  display: block;
+  font-size: .6rem;
+  color: #fff;
+  background: var(--cr);
+  border-radius: 2px;
+  padding: 2px 5px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background .15s;
+  line-height: 1.4;
+}
+.ev-cal-event-label:hover    { background: var(--cr-dk); }
+.ev-cal-event-label.is-allday { background: var(--go); color: var(--td); }
+.ev-cal-more {
+  display: block;
+  font-size: .58rem;
+  color: var(--tl);
+  margin-top: 3px;
+  cursor: pointer;
+}
+.ev-cal-more:hover { color: var(--cr); }
+
+/* ── List view ─────────────────────────────────────────────────── */
+#ev-list-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 44px;
+}
+.ev-list-card {
+  display: flex;
+  background: var(--ww);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .22s, box-shadow .22s;
+}
+.ev-list-card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(123,24,24,.11); }
+.ev-list-date {
+  background: var(--cr);
+  color: #fff;
+  min-width: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 8px;
+  flex-shrink: 0;
+  text-align: center;
+}
+.ev-list-date .ev-mon { font-size: .56rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--go-lt); display: block; margin-bottom: 2px; }
+.ev-list-date .ev-day { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; line-height: 1; display: block; }
+.ev-list-date .ev-yr  { font-size: .58rem; color: rgba(255,255,255,.5); display: block; margin-top: 3px; }
+.ev-list-body { padding: 18px 22px; flex: 1; min-width: 0; }
+.ev-list-body h4 { font-family: 'Playfair Display', serif; color: var(--cr); font-size: 1.05rem; margin-bottom: 6px; }
+.ev-list-meta { font-size: .78rem; color: var(--tl); display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+.ev-list-body p { font-size: .85rem; color: var(--tl); line-height: 1.6; margin: 0; }
+
+/* ── Subscribe bar ─────────────────────────────────────────────── */
+.ev-subscribe {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 22px 28px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  margin-top: 52px;
+}
+.ev-subscribe > span { font-size: .82rem; font-weight: 700; letter-spacing: .04em; color: var(--tm); }
+.btn-sm { padding: 6px 14px !important; font-size: .75rem !important; }
+
+/* ── Event modal ───────────────────────────────────────────────── */
+.ev-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(26,12,8,.65);
+  z-index: 1100;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.ev-modal.is-open { display: flex; }
+.ev-modal-inner {
+  background: var(--ww);
+  max-width: 540px;
+  width: 100%;
+  padding: 42px 38px 36px;
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.ev-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  font-size: 1.7rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--tl);
+  line-height: 1;
+  padding: 0;
+}
+.ev-modal-close:hover { color: var(--cr); }
+.ev-modal-date-box {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--cr);
+  color: #fff;
+  padding: 10px 18px;
+  margin-bottom: 20px;
+  text-align: center;
+  min-width: 62px;
+}
+.ev-modal-date-box .ev-mon { font-size: .56rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--go-lt); display: block; margin-bottom: 2px; }
+.ev-modal-date-box .ev-day { font-family: 'Playfair Display', serif; font-size: 2.1rem; font-weight: 700; line-height: 1; display: block; }
+#em-title { font-family: 'Playfair Display', serif; color: var(--cr); font-size: 1.42rem; margin-bottom: 14px; line-height: 1.3; }
+.ev-modal-meta { font-size: .82rem; color: var(--tl); margin-bottom: 6px; }
+#em-desc { font-size: .88rem; color: var(--tm); line-height: 1.74; margin: 14px 0 22px; }
+
+/* ── Responsive ────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .ev-cal-day           { min-height: 56px; }
+  .ev-cal-event-label   { display: none; }
+  .ev-cal-day.has-events::after {
+    content: '';
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cr);
+    margin: 4px auto 0;
+  }
+  .ev-list-date .ev-yr  { display: none; }
+  .ev-modal-inner       { padding: 30px 20px 26px; }
+  #em-title             { font-size: 1.18rem; }
+  .ev-subscribe         { padding: 18px; }
+}
+@media (max-width: 480px) {
+  .ev-view-bar          { justify-content: flex-start; }
+  .ev-cal-nav h3        { font-size: 1.1rem; min-width: 0; }
+}

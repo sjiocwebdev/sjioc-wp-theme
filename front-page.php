@@ -395,46 +395,15 @@ if ($announcements):
         <span class="stag">What's Coming</span>
         <h2 class="stitle">Upcoming Events</h2>
         <div class="divider divider-l"></div>
-        <?php
-        $events = new WP_Query([
-          'post_type'      => 'sjioc_event',
-          'posts_per_page' => 3,
-          'orderby'        => 'meta_value',
-          'meta_key'       => 'event_date',
-          'order'          => 'ASC',
-          'meta_query'     => [[
-            'key'     => 'event_date',
-            'value'   => date('Y-m-d'),
-            'compare' => '>=',
-            'type'    => 'DATE',
-          ]],
-        ]);
-        if ($events->have_posts()) :
-          while ($events->have_posts()) : $events->the_post();
-            $date  = get_post_meta(get_the_ID(),'event_date',true);
-            $mon   = $date ? date('M',strtotime($date)) : 'TBD';
-            $day   = $date ? date('j',strtotime($date)) : '—';
-        ?>
+        <?php foreach (sjioc_front_page_events() as $e) : ?>
         <div class="ev-item">
-          <div class="ev-date-box"><span class="ev-mon"><?php echo esc_html($mon); ?></span><span class="ev-day"><?php echo esc_html($day); ?></span></div>
-          <div class="ev-info"><h4><?php the_title(); ?></h4><p><?php echo wp_trim_words(get_the_excerpt(),14); ?></p></div>
+          <div class="ev-date-box"><span class="ev-mon"><?php echo esc_html($e['mon']); ?></span><span class="ev-day"><?php echo esc_html($e['day']); ?></span></div>
+          <div class="ev-info"><h4><?php echo esc_html($e['title']); ?></h4><p><?php echo esc_html($e['excerpt']); ?></p></div>
         </div>
-        <?php endwhile; wp_reset_postdata();
-        else:
-          $sample = [
-            ['May','15','Parish Picnic','Annual outdoor gathering — food, games, and fellowship at the church grounds.'],
-            ['May','20','Bible Study','Weekly adult Bible study exploring the Epistles of St. Paul. All welcome.'],
-            ['Jun','5', 'Family Retreat','Annual parish spiritual retreat. Limited spots — register early!'],
-          ];
-          foreach ($sample as $e): ?>
-        <div class="ev-item">
-          <div class="ev-date-box"><span class="ev-mon"><?php echo esc_html($e[0]); ?></span><span class="ev-day"><?php echo esc_html($e[1]); ?></span></div>
-          <div class="ev-info"><h4><?php echo esc_html($e[2]); ?></h4><p><?php echo esc_html($e[3]); ?></p></div>
-        </div>
-        <?php endforeach; endif; ?>
+        <?php endforeach; ?>
         <br>
         <a href="<?php echo esc_url(home_url('/events/')); ?>" class="btn btn-cr">View All Events</a>
-        <a href="<?php echo esc_url(home_url('/events/')); ?>#calendar" class="btn btn-ol" style="margin-left:10px">📅 Calendar</a>
+        <a href="<?php echo esc_url(home_url('/events/')); ?>#calendar" class="btn btn-ol" style="margin-left:10px">&#128197; Calendar</a>
       </div>
 
       <!-- Fellowship CTA -->

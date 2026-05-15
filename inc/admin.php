@@ -27,12 +27,8 @@ function sjioc_admin_menu() {
         'manage_options', 'sjioc-import', 'sjioc_import_page'
     );
     add_submenu_page(
-        'sjioc', 'Events Calendar', 'Events',
-        'manage_options', 'sjioc-events', 'sjioc_events_admin_page'
-    );
-    add_submenu_page(
-        'sjioc', 'Import Events', 'Import Events',
-        'manage_options', 'sjioc-import-events', 'sjioc_import_events_page'
+        'sjioc', 'Google Calendar Events', 'Events',
+        'manage_options', 'sjioc-events', 'sjioc_events_settings_page'
     );
     add_submenu_page(
         'sjioc', 'Vehicle Registry', 'Vehicles',

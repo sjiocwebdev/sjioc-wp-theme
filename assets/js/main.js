@@ -35,7 +35,7 @@
 
   /* ─── Scroll Reveal ─── */
   if ('IntersectionObserver' in window) {
-    var revealSels = ['.mcard', '.ev-card', '.leader-card', '.vcard', '.gallery-item', '.ev-item', '.mdcard'];
+    var revealSels = ['.mcard', '.leader-card', '.vcard', '.gallery-item', '.ev-item', '.ev-list-card', '.mdcard'];
     var allReveal = [];
     revealSels.forEach(function (sel) {
       document.querySelectorAll(sel).forEach(function (el) { allReveal.push(el); });
@@ -334,13 +334,6 @@
     btn.classList.add('is-active');
 
     var cat = btn.dataset.cat || btn.dataset.filter;
-    // Events grid
-    var evGrid = document.getElementById('ev-grid');
-    if (evGrid) {
-      evGrid.querySelectorAll('.ev-card').forEach(function (c) {
-        c.style.display = (cat === 'all' || c.dataset.cat === cat) ? 'flex' : 'none';
-      });
-    }
     // Gallery grid
     var galGrid = document.getElementById('gallery-grid');
     if (galGrid) {

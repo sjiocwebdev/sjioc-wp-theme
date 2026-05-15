@@ -2,28 +2,6 @@
 defined('ABSPATH') || exit;
 
 /* ─────────────────────────────────────
-   CPT: Events
-───────────────────────────────────── */
-function sjioc_register_events() {
-    register_post_type('sjioc_event', [
-        'labels'        => [
-            'name'          => __('Events',        'sjioc'),
-            'singular_name' => __('Event',         'sjioc'),
-            'add_new_item'  => __('Add New Event', 'sjioc'),
-            'menu_name'     => __('Events',        'sjioc'),
-        ],
-        'public'        => true,
-        'has_archive'   => false,
-        'menu_icon'     => 'dashicons-calendar-alt',
-        'menu_position' => 5,
-        'supports'      => ['title','editor','thumbnail','excerpt','custom-fields'],
-        'rewrite'       => ['slug' => 'event', 'with_front' => false],
-        'show_in_rest'  => true,
-    ]);
-}
-add_action('init', 'sjioc_register_events');
-
-/* ─────────────────────────────────────
    CPT: Gallery
 ───────────────────────────────────── */
 function sjioc_register_gallery() {
