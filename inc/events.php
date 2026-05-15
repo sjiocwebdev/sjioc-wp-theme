@@ -17,6 +17,13 @@ function sjioc_events_table(): string {
 }
 
 add_action('after_switch_theme', 'sjioc_create_events_table');
+add_action('admin_init', function () {
+    if (get_option('sjioc_events_db_ver') !== '1') {
+        sjioc_create_events_table();
+        update_option('sjioc_events_db_ver', '1');
+    }
+});
+
 function sjioc_create_events_table(): void {
     global $wpdb;
     $t   = sjioc_events_table();
@@ -82,6 +89,8 @@ function sjioc_get_db_events(int $months = 6): array {
         "SELECT * FROM {$t} WHERE start_date >= %s AND start_date <= %s ORDER BY start_date, start_time",
         $today, $max_date
     ));
+
+    if (!$rows) return [];
 
     return array_map(function ($r) use ($mshort) {
         $ts    = strtotime($r->start_date);
