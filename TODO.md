@@ -244,48 +244,35 @@ are already in the app — no new secrets needed.
 
 ---
 
-### Task 5b — Hardening: restrict app to noreply mailbox only (optional but recommended)
+### Task 5b — Hardening: separate app registration for mail ✅ Done
 
-**Why:** Without this, the Azure AD app with `Mail.Send` can send as any user in the tenant.
-If credentials are ever leaked, an attacker could impersonate any church member.
+Instead of `ApplicationAccessPolicy` (requires Exchange Plan 2 license — likely not available on a
+basic M365 plan, and silently does nothing if unsupported), a dedicated **SJIOCMail** app registration
+has been created in Azure AD.
 
-**How:** Run these PowerShell commands (works on Mac via `pwsh`):
+**Why this is better:**
+- SJIOCMail credentials only have `Mail.Send` — no OneDrive, no other Graph permissions
+- If mail credentials are ever compromised, attacker gets no OneDrive access and vice versa
+- Works on any M365 license tier — no Exchange Plan 2 needed
+- Clean separation of concerns: one app per purpose
 
-```bash
-# Install PowerShell on Mac (once)
-brew install --cask powershell
-pwsh
-```
+**New env vars needed** (add to Azure App Service Application Settings):
 
-```powershell
-# Inside pwsh:
+| Env var | Value |
+|---|---|
+| `SJIOC_MAIL_CLIENT_ID` | SJIOCMail app's Application (client) ID |
+| `SJIOC_MAIL_CLIENT_SECRET` | SJIOCMail app's client secret value |
+| `SJIOC_MAIL_FROM` | `noreply@yourdomain.com` |
 
-# Install Exchange Online module (once)
-Install-Module -Name ExchangeOnlineManagement
+`SJIOC_AZURE_TENANT_ID` is shared — already in env vars from OneDrive setup.
 
-# Connect (requires Microsoft 365 admin account)
-Connect-ExchangeOnline -UserPrincipalName admin@yourdomain.com
-
-# Lock the app to only send as noreply@yourdomain.com
-New-ApplicationAccessPolicy `
-  -AppId "your-azure-client-id" `
-  -PolicyScopeGroupId "noreply@yourdomain.com" `
-  -AccessRight RestrictAccess `
-  -Description "Restrict SJIOC app to send only as noreply"
-
-# Verify it worked
-Test-ApplicationAccessPolicy `
-  -Identity "noreply@yourdomain.com" `
-  -AppId "your-azure-client-id"
-# Expected: AccessCheckResult = Granted
-
-Test-ApplicationAccessPolicy `
-  -Identity "vicar@yourdomain.com" `
-  -AppId "your-azure-client-id"
-# Expected: AccessCheckResult = Denied
-```
-
-Do this **after** confirming email works (Task 5a), not before.
+**Azure Portal steps remaining for SJIOCMail app:**
+1. API permissions → Add → Microsoft Graph → Application permissions → `Mail.Send` → Grant admin consent
+2. Certificates & secrets → New client secret → copy the Value immediately
+3. Note the Application (client) ID from Overview
+4. Add the three env vars above to Azure App Service Application Settings
+5. Create `noreply@yourdomain.com` as a **shared mailbox** in M365 Admin
+   (no license cost, no MFA, configure auto-decline on incoming mail)
 
 ---
 
@@ -301,4 +288,4 @@ Do this **after** confirming email works (Task 5a), not before.
 | 6 | reCAPTCHA admin status indicator | Small — Customizer notice | 🟡 Medium — admin visibility |
 | 7 | ICS rate limiting | Small — ~6 lines | 🟡 Medium — abuse protection |
 | 8 | Events REST transient cache | Medium — ~15 lines + hooks | 🟢 Low now, high at scale |
-| 9 | Email — hardening (ApplicationAccessPolicy) | Small — 3 PowerShell commands | 🟡 Medium — security hardening |
+| 9 | Email — hardening (separate SJIOCMail app reg) | ✅ Done — app created | 🟡 Medium — security hardening |
