@@ -126,11 +126,82 @@ Caching the REST response eliminates the DB hit on the second call for 30 minute
 
 ---
 
+## 4. Bot Protection — Gaps & Improvements
+
+**Current protection stack (per form):**
+
+| Form | Nonce | Honeypot | reCAPTCHA v3 |
+|---|---|---|---|
+| Contact | ✅ | ✅ `cf_hp` | ✅ |
+| Hall Rental | ✅ | ✅ `rf_hp` | ✅ |
+| New-to-church | ✅ | ❌ Missing | ✅ |
+
+### Task 4a — Add honeypot to new-to-church form
+
+**Files:** `front-page.php` (HTML field) + `inc/new-to-church.php` (server-side check)
+
+Add a hidden input (same pattern as contact/hall rental):
+```html
+<!-- front-page.php — inside the NTC form -->
+<div style="display:none" aria-hidden="true">
+  <input type="text" name="ntc_hp" id="ntc_hp" tabindex="-1" autocomplete="off">
+</div>
+```
+```php
+// inc/new-to-church.php — first check after nonce
+if (!empty($_POST['ntc_hp'])) wp_send_json_error('invalid');
+```
+
+---
+
+### Task 4b — reCAPTCHA: add `defined()` fallback in `inc/recaptcha.php`
+
+Keys currently read from Customizer (`wp_options`) only. No constant support.
+Needed before moving keys to Azure App Service env vars (TODO item 1).
+
+```php
+// Before:
+function sjioc_recaptcha_site_key(): string {
+    return (string) sjioc_get('sjioc_recaptcha_site_key', '');
+}
+function sjioc_recaptcha_secret_key(): string {
+    return (string) sjioc_get('sjioc_recaptcha_secret_key', '');
+}
+
+// After:
+function sjioc_recaptcha_site_key(): string {
+    return defined('SJIOC_RECAPTCHA_SITE_KEY') ? SJIOC_RECAPTCHA_SITE_KEY
+        : (string) sjioc_get('sjioc_recaptcha_site_key', '');
+}
+function sjioc_recaptcha_secret_key(): string {
+    return defined('SJIOC_RECAPTCHA_SECRET_KEY') ? SJIOC_RECAPTCHA_SECRET_KEY
+        : (string) sjioc_get('sjioc_recaptcha_secret_key', '');
+}
+```
+
+---
+
+### Task 4c — reCAPTCHA: admin status indicator
+
+Keys live in **Customizer → reCAPTCHA section** (`inc/setup.php:94`).
+No admin-facing indicator that reCAPTCHA is active or not.
+
+Add a status notice at the top of the Customizer reCAPTCHA section (or as a WP Admin Dashboard widget) showing:
+- 🟢 **Active** — both keys configured, reCAPTCHA is protecting forms
+- 🔴 **Not configured** — forms are unprotected (reCAPTCHA fails open — bots can submit)
+- ⚙️ **Via environment variable** — keys set via constant, Customizer fields ignored
+
+**File:** `inc/setup.php` — add a `customize_controls_print_styles` or `customize_controls_enqueue_scripts` hook, or add a static notice in the Customizer section description.
+
+---
+
 ## Priority Order
 
 | # | Task | Effort | Impact |
 |---|---|---|---|
-| 1 | Move secrets to Azure App Service env vars | Low (no deploy, Azure Portal only) + small code fix | 🔴 High — security |
-| 2 | reCAPTCHA `defined()` fallback in `inc/recaptcha.php` | Tiny — 4 lines | 🔴 High — completes item 1 |
-| 3 | ICS rate limiting | Small — ~6 lines | 🟡 Medium — abuse protection |
-| 4 | Events REST transient cache | Medium — ~15 lines + invalidation hooks | 🟢 Low now, high at scale |
+| 1 | Move secrets to Azure App Service env vars | Low (Azure Portal only) | 🔴 High — security |
+| 2 | reCAPTCHA `defined()` fallback (`inc/recaptcha.php`) | Tiny — 4 lines | 🔴 High — completes item 1 |
+| 3 | Honeypot on new-to-church form | Tiny — 2 lines each file | 🔴 High — CLAUDE.md requirement |
+| 4 | reCAPTCHA admin status indicator | Small — Customizer notice | 🟡 Medium — admin visibility |
+| 5 | ICS rate limiting | Small — ~6 lines | 🟡 Medium — abuse protection |
+| 6 | Events REST transient cache | Medium — ~15 lines + hooks | 🟢 Low now, high at scale |
