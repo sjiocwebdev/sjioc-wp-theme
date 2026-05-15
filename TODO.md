@@ -195,6 +195,100 @@ Add a status notice at the top of the Customizer reCAPTCHA section (or as a WP A
 
 ---
 
+---
+
+## 5. Email — Replace SMTP with Microsoft Graph API
+
+**Problem:** noreply Microsoft 365 user requires MFA and app passwords — cannot be configured cleanly.
+
+**Solution:** Use the existing Azure AD app registration (already used for OneDrive) to send mail via
+the Microsoft Graph API. No SMTP, no user account, no MFA, no app passwords.
+
+### Prerequisites (Azure Portal — one-time)
+
+1. Go to **Azure Portal → Azure Active Directory → App registrations → your existing SJIOC app**
+2. Go to **API permissions → Add a permission → Microsoft Graph → Application permissions**
+3. Add `Mail.Send` → click **Grant admin consent**
+4. Create a **shared mailbox** in Microsoft 365 admin: `noreply@yourdomain.com`
+   - Shared mailboxes have no license cost and no sign-in account
+   - Set auto-decline on incoming mail so nothing lands in the inbox
+
+### Task 5a — Code change: replace SMTP with Graph API in `inc/setup.php`
+
+**File:** `inc/setup.php` — replace the `phpmailer_init` / SMTP hook with a `wp_mail` filter
+that posts to the Graph API endpoint.
+
+Graph API call:
+```
+POST https://graph.microsoft.com/v1.0/users/noreply@yourdomain.com/sendMail
+Authorization: Bearer {access_token}
+Content-Type: application/json
+```
+
+Access token is fetched via client credentials flow (same tenant/client/secret already in env vars):
+```
+POST https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token
+grant_type=client_credentials
+scope=https://graph.microsoft.com/.default
+```
+
+Token should be cached in a WP transient (expires in ~60 minutes) to avoid fetching on every email.
+
+**New constant needed in `wp-config.php` / Azure App Settings:**
+```php
+define('SJIOC_MAIL_FROM', getenv('SJIOC_MAIL_FROM')); // noreply@yourdomain.com
+```
+
+All other credentials (`SJIOC_AZURE_TENANT_ID`, `SJIOC_AZURE_CLIENT_ID`, `SJIOC_AZURE_CLIENT_SECRET`)
+are already in the app — no new secrets needed.
+
+---
+
+### Task 5b — Hardening: restrict app to noreply mailbox only (optional but recommended)
+
+**Why:** Without this, the Azure AD app with `Mail.Send` can send as any user in the tenant.
+If credentials are ever leaked, an attacker could impersonate any church member.
+
+**How:** Run these PowerShell commands (works on Mac via `pwsh`):
+
+```bash
+# Install PowerShell on Mac (once)
+brew install --cask powershell
+pwsh
+```
+
+```powershell
+# Inside pwsh:
+
+# Install Exchange Online module (once)
+Install-Module -Name ExchangeOnlineManagement
+
+# Connect (requires Microsoft 365 admin account)
+Connect-ExchangeOnline -UserPrincipalName admin@yourdomain.com
+
+# Lock the app to only send as noreply@yourdomain.com
+New-ApplicationAccessPolicy `
+  -AppId "your-azure-client-id" `
+  -PolicyScopeGroupId "noreply@yourdomain.com" `
+  -AccessRight RestrictAccess `
+  -Description "Restrict SJIOC app to send only as noreply"
+
+# Verify it worked
+Test-ApplicationAccessPolicy `
+  -Identity "noreply@yourdomain.com" `
+  -AppId "your-azure-client-id"
+# Expected: AccessCheckResult = Granted
+
+Test-ApplicationAccessPolicy `
+  -Identity "vicar@yourdomain.com" `
+  -AppId "your-azure-client-id"
+# Expected: AccessCheckResult = Denied
+```
+
+Do this **after** confirming email works (Task 5a), not before.
+
+---
+
 ## Priority Order
 
 | # | Task | Effort | Impact |
@@ -202,6 +296,9 @@ Add a status notice at the top of the Customizer reCAPTCHA section (or as a WP A
 | 1 | Move secrets to Azure App Service env vars | Low (Azure Portal only) | 🔴 High — security |
 | 2 | reCAPTCHA `defined()` fallback (`inc/recaptcha.php`) | Tiny — 4 lines | 🔴 High — completes item 1 |
 | 3 | Honeypot on new-to-church form | Tiny — 2 lines each file | 🔴 High — CLAUDE.md requirement |
-| 4 | reCAPTCHA admin status indicator | Small — Customizer notice | 🟡 Medium — admin visibility |
-| 5 | ICS rate limiting | Small — ~6 lines | 🟡 Medium — abuse protection |
-| 6 | Events REST transient cache | Medium — ~15 lines + hooks | 🟢 Low now, high at scale |
+| 4 | Email — Graph API setup (Azure Portal config) | Low — Azure Portal only | 🔴 High — unblock email |
+| 5 | Email — Graph API code change (`inc/setup.php`) | Medium — replace SMTP hook | 🔴 High — unblock email |
+| 6 | reCAPTCHA admin status indicator | Small — Customizer notice | 🟡 Medium — admin visibility |
+| 7 | ICS rate limiting | Small — ~6 lines | 🟡 Medium — abuse protection |
+| 8 | Events REST transient cache | Medium — ~15 lines + hooks | 🟢 Low now, high at scale |
+| 9 | Email — hardening (ApplicationAccessPolicy) | Small — 3 PowerShell commands | 🟡 Medium — security hardening |
