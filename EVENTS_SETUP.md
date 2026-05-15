@@ -10,8 +10,8 @@
 | Import from spreadsheet (CSV) | ✅ Yes |
 | Events page (calendar + list view) | ✅ Yes — after Step 1 below |
 | Download ICS button on events page | ✅ Yes |
+| Outlook ICS sync (Sync from Outlook button) | ✅ Yes — paste ICS URL in admin |
 | Google Calendar API sync | ❌ Needs API key |
-| Outlook ICS URL subscribe link | ❌ Needs ICS URL pasted in admin |
 
 The database table (`sjioc_events`) is created automatically the first time **any admin** logs into WordPress after the theme is active. No manual SQL needed.
 
@@ -130,13 +130,13 @@ Until the automated Outlook sync is built, here's how to get Outlook events onto
 
 For recurring events (Sunday services, Bible study, etc.) it's often faster to just add them directly in **SJIOC → Events → Add Event** since the website only needs upcoming events.
 
-### Future: automated Outlook ICS sync
+### Sync from Outlook (ICS sync)
 
-When implemented, the workflow will be:
-1. Paste Outlook ICS URL in **SJIOC → Events → ICS Feed URL**
-2. Click **Sync from Outlook** — events from the live Outlook calendar are pulled into the DB
+1. Paste Outlook ICS URL in **WP Admin → SJIOC → Events → ICS Feed URL** and click **Save Settings**
+2. Click **Sync from Outlook** — events are fetched from the Outlook calendar and imported into the website DB
 3. Re-sync any time new events are added to Outlook
-4. Manually-added events in WP Admin are unaffected
+4. Synced events appear with an **Outlook** source tag in the events list and cannot be edited via WP Admin
+5. Manually-added events in WP Admin are unaffected
 
 ---
 

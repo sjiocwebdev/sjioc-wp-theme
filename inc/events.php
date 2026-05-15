@@ -199,6 +199,51 @@ function sjioc_gcal_sync_ajax(): void {
     wp_send_json_success(['count' => $synced]);
 }
 
+// ── AJAX: ICS / Outlook sync ───────────────────────────────────────────────
+add_action('wp_ajax_sjioc_ics_sync', 'sjioc_ics_sync_ajax');
+function sjioc_ics_sync_ajax(): void {
+    check_ajax_referer('sjioc_events_admin', 'nonce');
+    if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+
+    $url = get_option('sjioc_gcal_ics', '');
+    if (!$url) wp_send_json_error('No ICS URL configured. Paste an Outlook ICS URL and save settings first.');
+
+    $events = sjioc_parse_ics_feed($url);
+    if (empty($events)) {
+        wp_send_json_error('No events returned — check the ICS URL is correct and the calendar is public.');
+    }
+
+    global $wpdb;
+    $t      = sjioc_events_table();
+    $synced = 0;
+
+    foreach ($events as $e) {
+        if (!$e['start_date']) continue;
+
+        // For all-day events ICS DTEND is exclusive (day after last day) — convert to inclusive
+        $end_date = $e['end_date'];
+        if ($e['all_day'] && $end_date) {
+            $end_date = date('Y-m-d', strtotime($end_date . ' -1 day'));
+            if ($end_date === $e['start_date']) $end_date = null;
+        }
+
+        $wpdb->query($wpdb->prepare(
+            "INSERT INTO {$t} (gcal_id, title, description, location, start_date, start_time, end_date, end_time, all_day, url, source)
+             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %d, %s, 'outlook')
+             ON DUPLICATE KEY UPDATE
+               title=%s, description=%s, location=%s, start_date=%s, start_time=%s, end_date=%s, end_time=%s, all_day=%d, url=%s",
+            'ics:' . $e['uid'], $e['title'], $e['description'], $e['location'],
+            $e['start_date'], $e['start_time'], $end_date, $e['end_time'], (int)$e['all_day'], $e['url'],
+            $e['title'], $e['description'], $e['location'],
+            $e['start_date'], $e['start_time'], $end_date, $e['end_time'], (int)$e['all_day'], $e['url']
+        ));
+        $synced++;
+    }
+
+    update_option('sjioc_ics_last_sync', current_time('mysql'));
+    wp_send_json_success(['count' => $synced]);
+}
+
 // ── Admin page ─────────────────────────────────────────────────────────────
 function sjioc_events_settings_page(): void {
     if (!current_user_can('manage_options')) return;
@@ -282,8 +327,9 @@ function sjioc_events_settings_page(): void {
     $gcal_key  = esc_attr(get_option('sjioc_gcal_key', ''));
     $gcal_id   = esc_attr(get_option('sjioc_gcal_id',  ''));
     $gcal_ics  = esc_attr(get_option('sjioc_gcal_ics', ''));
-    $last_sync = get_option('sjioc_gcal_last_sync', '');
-    $base_url  = admin_url('admin.php?page=sjioc-events');
+    $last_sync     = get_option('sjioc_gcal_last_sync', '');
+    $ics_last_sync = get_option('sjioc_ics_last_sync',  '');
+    $base_url      = admin_url('admin.php?page=sjioc-events');
     $nonce_val = wp_create_nonce('sjioc_events_admin');
 
     $today      = current_time('Y-m-d');
@@ -295,10 +341,33 @@ function sjioc_events_settings_page(): void {
     <h1>Events</h1>
     <?php echo $notice; ?>
 
-    <!-- ── Google Calendar Sync ── -->
-    <h2 class="title">Google Calendar Sync</h2>
+    <!-- ── Calendar Sync ── -->
+    <h2 class="title">Calendar Sync</h2>
     <form method="post">
     <?php wp_nonce_field('sjioc_events_admin'); ?>
+
+    <h3 style="margin:16px 0 6px">Outlook / ICS Calendar</h3>
+    <p style="color:#555;margin:0 0 12px;font-size:13px">Paste your Outlook published ICS URL. Used to sync events to the website and as the subscribe link on the Events page.</p>
+    <table class="form-table" style="max-width:640px"><tbody>
+      <tr>
+        <th><label for="gcal_ics">ICS Feed URL</label></th>
+        <td><input type="url" id="gcal_ics" name="sjioc_gcal_ics" value="<?php echo $gcal_ics; ?>" class="regular-text" placeholder="https://outlook.live.com/owa/calendar/..."></td>
+      </tr>
+    </tbody></table>
+    <p style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 0 200px">
+      <button type="button" id="ics-sync-btn" class="button button-primary"
+              <?php echo $gcal_ics ? '' : 'disabled title="Save an ICS URL first"'; ?>>
+        &#8635; Sync from Outlook
+      </button>
+      <span id="ics-sync-status" style="color:#666;font-size:13px">
+        <?php if ($ics_last_sync) echo 'Last synced: ' . esc_html(date('M j, Y g:i a', strtotime($ics_last_sync))); ?>
+      </span>
+    </p>
+
+    <hr style="margin:24px 0">
+
+    <h3 style="margin:0 0 6px">Google Calendar <span style="font-weight:400;color:#888;font-size:13px">(optional)</span></h3>
+    <p style="color:#555;margin:0 0 12px;font-size:13px">Only needed if syncing from a public Google Calendar via API key.</p>
     <table class="form-table" style="max-width:640px"><tbody>
       <tr>
         <th><label for="gcal_key">API Key</label></th>
@@ -308,13 +377,8 @@ function sjioc_events_settings_page(): void {
         <th><label for="gcal_id">Calendar ID</label></th>
         <td><input type="text" id="gcal_id" name="sjioc_gcal_id" value="<?php echo $gcal_id; ?>" class="regular-text" placeholder="abc123@group.calendar.google.com"></td>
       </tr>
-      <tr>
-        <th><label for="gcal_ics">ICS Feed URL</label></th>
-        <td><input type="url" id="gcal_ics" name="sjioc_gcal_ics" value="<?php echo $gcal_ics; ?>" class="regular-text"></td>
-      </tr>
     </tbody></table>
-    <p class="submit" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-      <?php submit_button('Save Settings', 'secondary', 'sjioc_save_gcal', false); ?>
+    <p style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 0 200px">
       <button type="button" id="gcal-sync-btn" class="button button-primary"
               <?php echo SJIOC_GCAL_KEY ? '' : 'disabled title="Save an API key first"'; ?>>
         &#8635; Sync from Google Calendar
@@ -322,6 +386,10 @@ function sjioc_events_settings_page(): void {
       <span id="gcal-sync-status" style="color:#666;font-size:13px">
         <?php if ($last_sync) echo 'Last synced: ' . esc_html(date('M j, Y g:i a', strtotime($last_sync))); ?>
       </span>
+    </p>
+
+    <p class="submit">
+      <?php submit_button('Save Settings', 'secondary', 'sjioc_save_gcal', false); ?>
     </p>
     </form>
 
@@ -416,33 +484,36 @@ function sjioc_events_settings_page(): void {
       <th style="width:120px">Actions</th>
     </tr></thead><tbody>
     <?php foreach ($all_events as $ev) :
-        $del_url  = wp_nonce_url($base_url . '&del_ev=' . $ev->id, 'sjioc_del_ev_' . $ev->id);
-        $edit_url = $base_url . '&edit_ev=' . $ev->id . '#ev-form-heading';
-        $is_gcal  = ($ev->source === 'gcal');
+        $del_url     = wp_nonce_url($base_url . '&del_ev=' . $ev->id, 'sjioc_del_ev_' . $ev->id);
+        $edit_url    = $base_url . '&edit_ev=' . $ev->id . '#ev-form-heading';
+        $is_external = $ev->source !== 'manual';
+        $src_label   = match($ev->source) { 'gcal' => 'GCal', 'outlook' => 'Outlook', default => 'Manual' };
+        $src_color   = match($ev->source) { 'gcal' => '#2271b1', 'outlook' => '#0078d4', default => '#888' };
+        $mgd_label   = match($ev->source) { 'outlook' => 'Managed in Outlook', default => 'Managed in GCal' };
     ?>
     <tr>
       <td><?php echo esc_html(date('M j, Y', strtotime($ev->start_date))); ?></td>
       <td><?php echo esc_html($ev->title); ?></td>
       <td><?php echo esc_html($ev->location ?: '—'); ?></td>
-      <td><span style="font-size:11px;color:<?php echo $is_gcal ? '#2271b1' : '#888'; ?>">
-        <?php echo $is_gcal ? 'GCal' : 'Manual'; ?>
+      <td><span style="font-size:11px;color:<?php echo $src_color; ?>">
+        <?php echo $src_label; ?>
       </span></td>
       <td>
-        <?php if (!$is_gcal) : ?>
+        <?php if (!$is_external) : ?>
           <a href="<?php echo esc_url($edit_url); ?>">Edit</a>
           &nbsp;|&nbsp;
           <a href="<?php echo esc_url($del_url); ?>"
              onclick="return confirm('Delete \'<?php echo esc_js($ev->title); ?>\'?')"
              style="color:#b32d2e">Delete</a>
         <?php else : ?>
-          <span style="color:#aaa;font-size:11px">Managed in GCal</span>
+          <span style="color:#aaa;font-size:11px"><?php echo $mgd_label; ?></span>
         <?php endif; ?>
       </td>
     </tr>
     <?php endforeach; ?>
     </tbody></table>
     <?php else : ?>
-    <p style="color:#666">No upcoming events. Add one above or sync from Google Calendar.</p>
+    <p style="color:#666">No upcoming events. Add one above or sync from Outlook / Google Calendar.</p>
     <?php endif; ?>
     </div>
 
@@ -458,6 +529,38 @@ function sjioc_events_settings_page(): void {
         endT.style.display   = hide ? 'none' : '';
       }
       allDay.addEventListener('change', toggleTime);
+
+      // Outlook / ICS sync button
+      var icsSyncBtn = document.getElementById('ics-sync-btn');
+      var icsSyncSt  = document.getElementById('ics-sync-status');
+      if (icsSyncBtn && !icsSyncBtn.disabled) {
+        icsSyncBtn.addEventListener('click', function () {
+          icsSyncBtn.disabled   = true;
+          icsSyncSt.style.color = '#666';
+          icsSyncSt.textContent = 'Syncing…';
+          fetch(ajaxurl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'action=sjioc_ics_sync&nonce=<?php echo esc_js($nonce_val); ?>'
+          })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (d.success) {
+              icsSyncSt.textContent = 'Synced ' + d.data.count + ' event(s). Reloading…';
+              setTimeout(function () { location.reload(); }, 900);
+            } else {
+              icsSyncSt.style.color = 'red';
+              icsSyncSt.textContent = d.data || 'Sync failed.';
+              icsSyncBtn.disabled   = false;
+            }
+          })
+          .catch(function () {
+            icsSyncSt.style.color = 'red';
+            icsSyncSt.textContent = 'Request failed — check your connection.';
+            icsSyncBtn.disabled   = false;
+          });
+        });
+      }
 
       // GCal sync button
       var syncBtn = document.getElementById('gcal-sync-btn');
@@ -631,6 +734,87 @@ function sjioc_parse_import_csv(string $file): array {
 
     fclose($handle);
     return ['imported' => $imported, 'errors' => $errors];
+}
+
+// ── ICS feed parser (Outlook / any iCal) ──────────────────────────────────
+function sjioc_ics_unescape(string $s): string {
+    return str_replace(['\\n', '\\N', '\\,', '\\;', '\\\\'], ["\n", "\n", ',', ';', '\\'], $s);
+}
+
+function sjioc_parse_ics_dt(string $value, string $params): array {
+    if (str_contains($params, 'VALUE=DATE')) {
+        return [
+            'all_day' => true,
+            'date'    => substr($value, 0, 4) . '-' . substr($value, 4, 2) . '-' . substr($value, 6, 2),
+            'time'    => null,
+        ];
+    }
+    $is_utc = str_ends_with($value, 'Z');
+    $tz     = new DateTimeZone($is_utc ? 'UTC' : wp_timezone_string());
+    $dt     = DateTimeImmutable::createFromFormat('Ymd\THis', rtrim($value, 'Zz'), $tz);
+    if (!$dt) return ['all_day' => false, 'date' => null, 'time' => null];
+    if ($is_utc) $dt = $dt->setTimezone(wp_timezone());
+    return ['all_day' => false, 'date' => $dt->format('Y-m-d'), 'time' => $dt->format('H:i:s')];
+}
+
+function sjioc_parse_ics_feed(string $url): array {
+    $res = wp_remote_get($url, ['timeout' => 20]);
+    if (is_wp_error($res)) return [];
+    $body = wp_remote_retrieve_body($res);
+    if (!$body) return [];
+
+    // Unfold continuation lines per RFC 5545 §3.1
+    $body  = preg_replace('/\r?\n[ \t]/', '', $body);
+    $lines = preg_split('/\r?\n/', $body);
+
+    $events  = [];
+    $current = null;
+
+    foreach ($lines as $raw) {
+        $line = rtrim($raw);
+        if ($line === 'BEGIN:VEVENT') { $current = []; continue; }
+        if ($line === 'END:VEVENT')   { if ($current !== null) $events[] = $current; $current = null; continue; }
+        if ($current === null) continue;
+
+        $colon     = strpos($line, ':');
+        if ($colon === false) continue;
+        $prop_full = substr($line, 0, $colon);
+        $value     = substr($line, $colon + 1);
+        $semi      = strpos($prop_full, ';');
+        $prop_name = $semi !== false ? substr($prop_full, 0, $semi) : $prop_full;
+        $params    = $semi !== false ? substr($prop_full, $semi + 1) : '';
+
+        $current[$prop_name] = ['value' => $value, 'params' => $params];
+    }
+
+    $result = [];
+    foreach ($events as $ev) {
+        $uid = $ev['UID']['value'] ?? '';
+        $sum = sjioc_ics_unescape($ev['SUMMARY']['value'] ?? '');
+        if (!$uid || !$sum) continue;
+        if (!isset($ev['DTSTART'])) continue;
+
+        $dtstart = sjioc_parse_ics_dt($ev['DTSTART']['value'], $ev['DTSTART']['params'] ?? '');
+        if (!$dtstart['date']) continue;
+
+        $dtend = isset($ev['DTEND'])
+            ? sjioc_parse_ics_dt($ev['DTEND']['value'], $ev['DTEND']['params'] ?? '')
+            : null;
+
+        $result[] = [
+            'uid'         => $uid,
+            'title'       => $sum,
+            'description' => sjioc_ics_unescape($ev['DESCRIPTION']['value'] ?? ''),
+            'location'    => sjioc_ics_unescape($ev['LOCATION']['value']    ?? ''),
+            'url'         => $ev['URL']['value'] ?? '',
+            'all_day'     => $dtstart['all_day'],
+            'start_date'  => $dtstart['date'],
+            'start_time'  => $dtstart['time'],
+            'end_date'    => $dtend ? $dtend['date'] : null,
+            'end_time'    => ($dtend && !$dtend['all_day']) ? $dtend['time'] : null,
+        ];
+    }
+    return $result;
 }
 
 // ── Google Calendar API fetch ──────────────────────────────────────────────
