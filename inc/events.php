@@ -2,19 +2,51 @@
 defined('ABSPATH') || exit;
 
 /* ─────────────────────────────────────
-   EVENTS — Google Calendar integration
+   EVENTS — DB-backed, GCal sync + manual
 ───────────────────────────────────── */
 
-// ── Constants (wp-config.php preferred; fallback to DB options) ────────────
-if (!defined('SJIOC_GCAL_KEY'))      define('SJIOC_GCAL_KEY',      get_option('sjioc_gcal_key',      ''));
-if (!defined('SJIOC_GCAL_ID'))       define('SJIOC_GCAL_ID',       get_option('sjioc_gcal_id',       ''));
-if (!defined('SJIOC_GCAL_ICS'))      define('SJIOC_GCAL_ICS',      get_option('sjioc_gcal_ics',      ''));
+// ── Constants (wp-config preferred; fallback to DB options) ────────────────
+if (!defined('SJIOC_GCAL_KEY')) define('SJIOC_GCAL_KEY', get_option('sjioc_gcal_key', ''));
+if (!defined('SJIOC_GCAL_ID'))  define('SJIOC_GCAL_ID',  get_option('sjioc_gcal_id',  ''));
+if (!defined('SJIOC_GCAL_ICS')) define('SJIOC_GCAL_ICS', get_option('sjioc_gcal_ics', ''));
 
-// ── Enqueue events assets ──────────────────────────────────────────────────
+// ── DB table ───────────────────────────────────────────────────────────────
+function sjioc_events_table(): string {
+    global $wpdb;
+    return $wpdb->prefix . 'sjioc_events';
+}
+
+add_action('after_switch_theme', 'sjioc_create_events_table');
+function sjioc_create_events_table(): void {
+    global $wpdb;
+    $t   = sjioc_events_table();
+    $col = $wpdb->get_charset_collate();
+    $sql = "CREATE TABLE {$t} (
+        id          int(11)      NOT NULL AUTO_INCREMENT,
+        title       varchar(255) NOT NULL DEFAULT '',
+        description longtext,
+        location    varchar(255) DEFAULT '',
+        start_date  date         NOT NULL,
+        start_time  time         DEFAULT NULL,
+        end_date    date         DEFAULT NULL,
+        end_time    time         DEFAULT NULL,
+        all_day     tinyint(1)   DEFAULT 1,
+        url         varchar(500) DEFAULT '',
+        source      varchar(20)  DEFAULT 'manual',
+        gcal_id     varchar(255) DEFAULT NULL,
+        PRIMARY KEY  (id),
+        KEY          idx_start (start_date),
+        UNIQUE KEY   uq_gcal (gcal_id)
+    ) {$col};";
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta($sql);
+}
+
+// ── Enqueue ────────────────────────────────────────────────────────────────
 add_action('wp_enqueue_scripts', function () {
     if (!is_page_template('page-events.php')) return;
-    wp_enqueue_style('sjioc-events', SJIOC_URI . '/assets/css/events.css', [], SJIOC_VER);
-    wp_enqueue_script('sjioc-events', SJIOC_URI . '/assets/js/events.js', [], SJIOC_VER, true);
+    wp_enqueue_style('sjioc-events',  SJIOC_URI . '/assets/css/events.css', [], SJIOC_VER);
+    wp_enqueue_script('sjioc-events', SJIOC_URI . '/assets/js/events.js',   [], SJIOC_VER, true);
     wp_localize_script('sjioc-events', 'SJIOC_EVENTS', [
         'restUrl' => rest_url('sjioc/v1/events'),
         'icsUrl'  => SJIOC_GCAL_ICS,
@@ -30,69 +62,55 @@ add_action('rest_api_init', function () {
         'callback'            => 'sjioc_events_rest',
         'permission_callback' => '__return_true',
         'args'                => [
-            'months' => ['default' => 3, 'sanitize_callback' => fn($v) => max(1, min(12, (int) $v))],
+            'months' => ['default' => 6, 'sanitize_callback' => fn($v) => max(1, min(12, (int)$v))],
         ],
     ]);
 });
 
-function sjioc_events_rest(WP_REST_Request $req) {
-    $months  = (int) $req->get_param('months');
-    $cache   = get_transient('sjioc_gcal_events_' . $months);
-    if ($cache !== false) return rest_ensure_response($cache);
-
-    $events = sjioc_fetch_gcal_events($months);
-    set_transient('sjioc_gcal_events_' . $months, $events, HOUR_IN_SECONDS);
-    return rest_ensure_response($events);
+function sjioc_events_rest(WP_REST_Request $req): WP_REST_Response {
+    return rest_ensure_response(sjioc_get_db_events((int)$req->get_param('months')));
 }
 
-function sjioc_fetch_gcal_events(int $months = 3): array {
-    $key = SJIOC_GCAL_KEY;
-    $id  = SJIOC_GCAL_ID;
+function sjioc_get_db_events(int $months = 6): array {
+    global $wpdb;
+    $t        = sjioc_events_table();
+    $today    = current_time('Y-m-d');
+    $max_date = date('Y-m-d', strtotime("+{$months} months", current_time('timestamp')));
+    $mshort   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-    if (!$key || !$id) return [];
+    $rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM {$t} WHERE start_date >= %s AND start_date <= %s ORDER BY start_date, start_time",
+        $today, $max_date
+    ));
 
-    $time_min = gmdate('Y-m-d\TH:i:s\Z');
-    $time_max = gmdate('Y-m-d\TH:i:s\Z', strtotime("+{$months} months"));
-    $url      = 'https://www.googleapis.com/calendar/v3/calendars/' . rawurlencode($id)
-              . '/events?key=' . rawurlencode($key)
-              . '&timeMin=' . rawurlencode($time_min)
-              . '&timeMax=' . rawurlencode($time_max)
-              . '&singleEvents=true&orderBy=startTime&maxResults=50';
-
-    $res = wp_remote_get($url, ['timeout' => 15]);
-    if (is_wp_error($res)) return [];
-
-    $data  = json_decode(wp_remote_retrieve_body($res), true);
-    $items = $data['items'] ?? [];
-
-    return array_values(array_map(function ($item) {
-        $start     = $item['start']['dateTime'] ?? $item['start']['date'] ?? '';
-        $end       = $item['end']['dateTime']   ?? $item['end']['date']   ?? '';
-        $all_day   = !isset($item['start']['dateTime']);
-        $ts        = $start ? strtotime($start) : 0;
+    return array_map(function ($r) use ($mshort) {
+        $ts    = strtotime($r->start_date);
+        $all   = (bool)(int)$r->all_day;
+        $start = $all ? $r->start_date : ($r->start_date . 'T' . ($r->start_time ?: '00:00:00'));
+        $end   = '';
+        if ($r->end_date) {
+            $end = $all
+                ? date('Y-m-d', strtotime($r->end_date . ' +1 day'))  // exclusive end, GCal convention
+                : ($r->end_date . 'T' . ($r->end_time ?: '00:00:00'));
+        }
         return [
-            'id'          => $item['id']              ?? '',
-            'title'       => $item['summary']         ?? '',
-            'description' => $item['description']     ?? '',
-            'location'    => $item['location']        ?? '',
+            'id'          => (string) $r->id,
+            'title'       => $r->title,
+            'description' => $r->description ?: '',
+            'location'    => $r->location    ?: '',
             'start'       => $start,
             'end'         => $end,
-            'all_day'     => $all_day,
-            'mon'         => $ts ? gmdate('M', $ts) : '',
-            'day'         => $ts ? (int) gmdate('j', $ts) : '',
-            'url'         => $item['htmlLink']        ?? '',
+            'all_day'     => $all,
+            'mon'         => $mshort[(int)date('n', $ts) - 1],
+            'day'         => (int)date('j', $ts),
+            'url'         => $r->url ?: '',
         ];
-    }, $items));
+    }, $rows);
 }
 
-// ── Front-page teaser: 3 upcoming events ──────────────────────────────────
+// ── Front-page teaser ──────────────────────────────────────────────────────
 function sjioc_front_page_events(): array {
-    $cached = get_transient('sjioc_gcal_events_1');
-    $items  = ($cached !== false) ? $cached : sjioc_fetch_gcal_events(1);
-    if ($cached === false && $items) {
-        set_transient('sjioc_gcal_events_1', $items, HOUR_IN_SECONDS);
-    }
-
+    $items = sjioc_get_db_events(1);
     if ($items) {
         return array_slice(array_map(fn($e) => [
             'mon'     => $e['mon'],
@@ -101,61 +119,357 @@ function sjioc_front_page_events(): array {
             'excerpt' => wp_trim_words($e['description'], 14, '…'),
         ], $items), 0, 3);
     }
-
-    // Static fallback when calendar not configured
     return [
-        ['mon' => 'Upcoming', 'day' => '',  'title' => 'Holy Qurbana',    'excerpt' => 'Every Sunday. Feast day celebrations and special services posted on our calendar.'],
-        ['mon' => 'Upcoming', 'day' => '',  'title' => 'Sunday School',   'excerpt' => 'Classes for all ages following Holy Qurbana. New students always welcome.'],
-        ['mon' => 'Upcoming', 'day' => '',  'title' => 'Parish Fellowship','excerpt' => 'Monthly fellowship gathering after service. Food, community, and good company.'],
+        ['mon' => 'Upcoming', 'day' => '', 'title' => 'Holy Qurbana',     'excerpt' => 'Every Sunday. Feast day celebrations posted on our calendar.'],
+        ['mon' => 'Upcoming', 'day' => '', 'title' => 'Sunday School',    'excerpt' => 'Classes for all ages following Holy Qurbana. New students welcome.'],
+        ['mon' => 'Upcoming', 'day' => '', 'title' => 'Parish Fellowship', 'excerpt' => 'Monthly fellowship gathering after service. All welcome.'],
     ];
 }
 
-// ── Admin settings page ────────────────────────────────────────────────────
-function sjioc_events_settings_page() {
+// ── AJAX: GCal sync ────────────────────────────────────────────────────────
+add_action('wp_ajax_sjioc_gcal_sync', 'sjioc_gcal_sync_ajax');
+function sjioc_gcal_sync_ajax(): void {
+    check_ajax_referer('sjioc_events_admin', 'nonce');
+    if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+
+    $events = sjioc_fetch_gcal_events(6);
+    if (empty($events)) {
+        wp_send_json_error(SJIOC_GCAL_KEY ? 'No events returned — check Calendar ID and that it is public.' : 'API key not configured.');
+    }
+
+    global $wpdb;
+    $t      = sjioc_events_table();
+    $synced = 0;
+
+    foreach ($events as $e) {
+        if (!$e['id'] || !$e['start']) continue;
+        $ts      = strtotime($e['start']);
+        $start_d = date('Y-m-d', $ts);
+        $start_t = $e['all_day'] ? null : date('H:i:s', $ts);
+        $end_d   = null;
+        $end_t   = null;
+        if ($e['end']) {
+            $te    = strtotime($e['end']);
+            $end_d = $e['all_day'] ? date('Y-m-d', $te - 86400) : date('Y-m-d', $te); // convert exclusive → inclusive
+            $end_t = $e['all_day'] ? null : date('H:i:s', $te);
+        }
+
+        // INSERT … ON DUPLICATE KEY UPDATE — preserves existing DB id
+        $wpdb->query($wpdb->prepare(
+            "INSERT INTO {$t} (gcal_id, title, description, location, start_date, start_time, end_date, end_time, all_day, url, source)
+             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %d, %s, 'gcal')
+             ON DUPLICATE KEY UPDATE
+               title=%s, description=%s, location=%s, start_date=%s, start_time=%s, end_date=%s, end_time=%s, all_day=%d, url=%s",
+            $e['id'], $e['title'], $e['description'], $e['location'], $start_d, $start_t, $end_d, $end_t, (int)$e['all_day'], $e['url'],
+            $e['title'], $e['description'], $e['location'], $start_d, $start_t, $end_d, $end_t, (int)$e['all_day'], $e['url']
+        ));
+        $synced++;
+    }
+
+    update_option('sjioc_gcal_last_sync', current_time('mysql'));
+    wp_send_json_success(['count' => $synced]);
+}
+
+// ── Admin page ─────────────────────────────────────────────────────────────
+function sjioc_events_settings_page(): void {
     if (!current_user_can('manage_options')) return;
 
-    if (isset($_POST['sjioc_events_save'])) {
-        check_admin_referer('sjioc_events_settings');
+    global $wpdb;
+    $t = sjioc_events_table();
+    sjioc_create_events_table(); // ensure table exists after updates
+
+    $notice  = '';
+    $editing = null;
+
+    // ── Save GCal credentials ────────────────────────────────────────────
+    if (isset($_POST['sjioc_save_gcal'])) {
+        check_admin_referer('sjioc_events_admin');
         update_option('sjioc_gcal_key', sanitize_text_field($_POST['sjioc_gcal_key'] ?? ''));
         update_option('sjioc_gcal_id',  sanitize_text_field($_POST['sjioc_gcal_id']  ?? ''));
         update_option('sjioc_gcal_ics', esc_url_raw($_POST['sjioc_gcal_ics'] ?? ''));
-        // Bust cached events
-        for ($m = 1; $m <= 12; $m++) delete_transient('sjioc_gcal_events_' . $m);
-        echo '<div class="notice notice-success"><p>Settings saved.</p></div>';
+        $notice = '<div class="notice notice-success is-dismissible"><p>Settings saved.</p></div>';
     }
 
-    $key = defined('SJIOC_GCAL_KEY') && constant('SJIOC_GCAL_KEY') !== get_option('sjioc_gcal_key', '')
-         ? '(set in wp-config.php)' : esc_attr(get_option('sjioc_gcal_key', ''));
-    $id  = esc_attr(get_option('sjioc_gcal_id',  ''));
-    $ics = esc_attr(get_option('sjioc_gcal_ics', ''));
+    // ── Add / update manual event ────────────────────────────────────────
+    if (isset($_POST['sjioc_save_event'])) {
+        check_admin_referer('sjioc_events_admin');
+        $ev_id   = (int)($_POST['ev_id'] ?? 0);
+        $all_day = !empty($_POST['ev_all_day']) ? 1 : 0;
+        $data    = [
+            'title'       => sanitize_text_field($_POST['ev_title']      ?? ''),
+            'description' => sanitize_textarea_field($_POST['ev_desc']   ?? ''),
+            'location'    => sanitize_text_field($_POST['ev_location']    ?? ''),
+            'start_date'  => sanitize_text_field($_POST['ev_start_d']    ?? ''),
+            'start_time'  => $all_day ? null : (sanitize_text_field($_POST['ev_start_t'] ?? '') ?: null),
+            'end_date'    => sanitize_text_field($_POST['ev_end_d']      ?? '') ?: null,
+            'end_time'    => $all_day ? null : (sanitize_text_field($_POST['ev_end_t'] ?? '') ?: null),
+            'all_day'     => $all_day,
+            'url'         => esc_url_raw($_POST['ev_url'] ?? ''),
+            'source'      => 'manual',
+        ];
+        $fmt = ['%s','%s','%s','%s','%s','%s','%s','%d','%s','%s'];
+
+        if (!$data['title'] || !$data['start_date']) {
+            $notice = '<div class="notice notice-error"><p>Title and start date are required.</p></div>';
+        } elseif ($ev_id) {
+            $wpdb->update($t, $data, ['id' => $ev_id, 'source' => 'manual'], $fmt, ['%d','%s']);
+            $notice = '<div class="notice notice-success is-dismissible"><p>Event updated.</p></div>';
+        } else {
+            $wpdb->insert($t, $data, $fmt);
+            $notice = '<div class="notice notice-success is-dismissible"><p>Event added.</p></div>';
+        }
+    }
+
+    // ── Delete manual event ──────────────────────────────────────────────
+    if (isset($_GET['del_ev'], $_GET['_wpnonce'])) {
+        $del_id = (int)$_GET['del_ev'];
+        if (wp_verify_nonce(sanitize_key($_GET['_wpnonce']), 'sjioc_del_ev_' . $del_id)) {
+            $wpdb->delete($t, ['id' => $del_id, 'source' => 'manual'], ['%d','%s']);
+            $notice = '<div class="notice notice-success is-dismissible"><p>Event deleted.</p></div>';
+        }
+    }
+
+    // ── Load event for editing ───────────────────────────────────────────
+    if (isset($_GET['edit_ev'])) {
+        $editing = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$t} WHERE id=%d AND source='manual'", (int)$_GET['edit_ev']
+        ));
+    }
+
+    // ── Data for display ─────────────────────────────────────────────────
+    $gcal_key  = esc_attr(get_option('sjioc_gcal_key', ''));
+    $gcal_id   = esc_attr(get_option('sjioc_gcal_id',  ''));
+    $gcal_ics  = esc_attr(get_option('sjioc_gcal_ics', ''));
+    $last_sync = get_option('sjioc_gcal_last_sync', '');
+    $base_url  = admin_url('admin.php?page=sjioc-events');
+    $nonce_val = wp_create_nonce('sjioc_events_admin');
+
+    $today      = current_time('Y-m-d');
+    $all_events = $wpdb->get_results(
+        "SELECT * FROM {$t} WHERE start_date >= '{$today}' ORDER BY start_date, start_time"
+    );
     ?>
     <div class="wrap">
-    <h1>Events — Google Calendar</h1>
-    <p>Enter your Google Calendar credentials below. Alternatively, define constants in <code>wp-config.php</code> — constants take precedence over saved options.</p>
-    <table class="widefat" style="max-width:620px;margin-bottom:18px"><thead><tr><th>wp-config.php constant</th><th>Purpose</th></tr></thead><tbody>
-    <tr><td><code>SJIOC_GCAL_KEY</code></td><td>Google Calendar API key (server-side, never exposed to browser)</td></tr>
-    <tr><td><code>SJIOC_GCAL_ID</code></td><td>Calendar ID (e.g. <code>abc123@group.calendar.google.com</code>)</td></tr>
-    <tr><td><code>SJIOC_GCAL_ICS</code></td><td>Public ICS feed URL (for subscribe links)</td></tr>
-    </tbody></table>
+    <h1>Events</h1>
+    <?php echo $notice; ?>
+
+    <!-- ── Google Calendar Sync ── -->
+    <h2 class="title">Google Calendar Sync</h2>
     <form method="post">
-    <?php wp_nonce_field('sjioc_events_settings'); ?>
-    <table class="form-table"><tbody>
-    <tr>
-        <th><label for="sjioc_gcal_key">API Key</label></th>
-        <td><input type="password" id="sjioc_gcal_key" name="sjioc_gcal_key" value="<?php echo $key; ?>" class="regular-text"></td>
-    </tr>
-    <tr>
-        <th><label for="sjioc_gcal_id">Calendar ID</label></th>
-        <td><input type="text" id="sjioc_gcal_id" name="sjioc_gcal_id" value="<?php echo $id; ?>" class="regular-text"></td>
-    </tr>
-    <tr>
-        <th><label for="sjioc_gcal_ics">ICS Feed URL</label></th>
-        <td><input type="url" id="sjioc_gcal_ics" name="sjioc_gcal_ics" value="<?php echo $ics; ?>" class="regular-text"></td>
-    </tr>
+    <?php wp_nonce_field('sjioc_events_admin'); ?>
+    <table class="form-table" style="max-width:640px"><tbody>
+      <tr>
+        <th><label for="gcal_key">API Key</label></th>
+        <td><input type="password" id="gcal_key" name="sjioc_gcal_key" value="<?php echo $gcal_key; ?>" class="regular-text" autocomplete="off"></td>
+      </tr>
+      <tr>
+        <th><label for="gcal_id">Calendar ID</label></th>
+        <td><input type="text" id="gcal_id" name="sjioc_gcal_id" value="<?php echo $gcal_id; ?>" class="regular-text" placeholder="abc123@group.calendar.google.com"></td>
+      </tr>
+      <tr>
+        <th><label for="gcal_ics">ICS Feed URL</label></th>
+        <td><input type="url" id="gcal_ics" name="sjioc_gcal_ics" value="<?php echo $gcal_ics; ?>" class="regular-text"></td>
+      </tr>
     </tbody></table>
-    <?php submit_button('Save Settings', 'primary', 'sjioc_events_save'); ?>
+    <p class="submit" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <?php submit_button('Save Settings', 'secondary', 'sjioc_save_gcal', false); ?>
+      <button type="button" id="gcal-sync-btn" class="button button-primary"
+              <?php echo SJIOC_GCAL_KEY ? '' : 'disabled title="Save an API key first"'; ?>>
+        &#8635; Sync from Google Calendar
+      </button>
+      <span id="gcal-sync-status" style="color:#666;font-size:13px">
+        <?php if ($last_sync) echo 'Last synced: ' . esc_html(date('M j, Y g:i a', strtotime($last_sync))); ?>
+      </span>
+    </p>
     </form>
-    <p class="description">Saving settings automatically clears the events cache.</p>
+
+    <hr style="margin:28px 0">
+
+    <!-- ── Add / Edit Event ── -->
+    <h2 class="title" id="ev-form-heading"><?php echo $editing ? 'Edit Event' : 'Add Event'; ?></h2>
+    <form method="post" id="ev-form">
+    <?php wp_nonce_field('sjioc_events_admin'); ?>
+    <input type="hidden" name="ev_id" value="<?php echo $editing ? (int)$editing->id : 0; ?>">
+    <table class="form-table" style="max-width:700px"><tbody>
+      <tr>
+        <th><label for="ev_title">Title <span style="color:red">*</span></label></th>
+        <td><input type="text" id="ev_title" name="ev_title" value="<?php echo esc_attr($editing->title ?? ''); ?>" class="regular-text" required></td>
+      </tr>
+      <tr>
+        <th>All Day</th>
+        <td><label><input type="checkbox" id="ev_all_day" name="ev_all_day" value="1"
+              <?php checked(!$editing || $editing->all_day); ?>> All-day event</label></td>
+      </tr>
+      <tr>
+        <th><label for="ev_start_d">Start Date <span style="color:red">*</span></label></th>
+        <td>
+          <input type="date" id="ev_start_d" name="ev_start_d" value="<?php echo esc_attr($editing->start_date ?? ''); ?>" required>
+          <input type="time" id="ev_start_t" name="ev_start_t" value="<?php echo esc_attr($editing->start_time ?? ''); ?>"
+                 style="<?php echo (!$editing || $editing->all_day) ? 'display:none' : ''; ?>">
+        </td>
+      </tr>
+      <tr>
+        <th><label for="ev_end_d">End Date</label></th>
+        <td>
+          <input type="date" id="ev_end_d" name="ev_end_d" value="<?php echo esc_attr($editing->end_date ?? ''); ?>">
+          <input type="time" id="ev_end_t" name="ev_end_t" value="<?php echo esc_attr($editing->end_time ?? ''); ?>"
+                 style="<?php echo (!$editing || $editing->all_day) ? 'display:none' : ''; ?>">
+        </td>
+      </tr>
+      <tr>
+        <th><label for="ev_location">Location</label></th>
+        <td><input type="text" id="ev_location" name="ev_location" value="<?php echo esc_attr($editing->location ?? ''); ?>" class="regular-text" placeholder="e.g. Church Hall"></td>
+      </tr>
+      <tr>
+        <th><label for="ev_desc">Description</label></th>
+        <td><textarea id="ev_desc" name="ev_desc" class="large-text" rows="4"><?php echo esc_textarea($editing->description ?? ''); ?></textarea></td>
+      </tr>
+      <tr>
+        <th><label for="ev_url">Link / URL</label></th>
+        <td><input type="url" id="ev_url" name="ev_url" value="<?php echo esc_attr($editing->url ?? ''); ?>" class="regular-text" placeholder="https://"></td>
+      </tr>
+    </tbody></table>
+    <p class="submit">
+      <?php submit_button($editing ? 'Update Event' : 'Add Event', 'primary', 'sjioc_save_event', false); ?>
+      <?php if ($editing) : ?>
+      &nbsp;<a href="<?php echo esc_url($base_url); ?>" class="button">Cancel</a>
+      <?php endif; ?>
+    </p>
+    </form>
+
+    <hr style="margin:28px 0">
+
+    <!-- ── Events List ── -->
+    <h2 class="title">
+      Upcoming Events
+      <span style="font-size:13px;font-weight:400;color:#666;margin-left:8px">(<?php echo count($all_events); ?>)</span>
+    </h2>
+    <?php if ($all_events) : ?>
+    <table class="wp-list-table widefat fixed striped" style="max-width:900px">
+    <thead><tr>
+      <th style="width:110px">Date</th>
+      <th>Title</th>
+      <th style="width:170px">Location</th>
+      <th style="width:64px">Source</th>
+      <th style="width:120px">Actions</th>
+    </tr></thead><tbody>
+    <?php foreach ($all_events as $ev) :
+        $del_url  = wp_nonce_url($base_url . '&del_ev=' . $ev->id, 'sjioc_del_ev_' . $ev->id);
+        $edit_url = $base_url . '&edit_ev=' . $ev->id . '#ev-form-heading';
+        $is_gcal  = ($ev->source === 'gcal');
+    ?>
+    <tr>
+      <td><?php echo esc_html(date('M j, Y', strtotime($ev->start_date))); ?></td>
+      <td><?php echo esc_html($ev->title); ?></td>
+      <td><?php echo esc_html($ev->location ?: '—'); ?></td>
+      <td><span style="font-size:11px;color:<?php echo $is_gcal ? '#2271b1' : '#888'; ?>">
+        <?php echo $is_gcal ? 'GCal' : 'Manual'; ?>
+      </span></td>
+      <td>
+        <?php if (!$is_gcal) : ?>
+          <a href="<?php echo esc_url($edit_url); ?>">Edit</a>
+          &nbsp;|&nbsp;
+          <a href="<?php echo esc_url($del_url); ?>"
+             onclick="return confirm('Delete \'<?php echo esc_js($ev->title); ?>\'?')"
+             style="color:#b32d2e">Delete</a>
+        <?php else : ?>
+          <span style="color:#aaa;font-size:11px">Managed in GCal</span>
+        <?php endif; ?>
+      </td>
+    </tr>
+    <?php endforeach; ?>
+    </tbody></table>
+    <?php else : ?>
+    <p style="color:#666">No upcoming events. Add one above or sync from Google Calendar.</p>
+    <?php endif; ?>
     </div>
+
+    <script>
+    (function () {
+      // All-day checkbox toggles time fields
+      var allDay  = document.getElementById('ev_all_day');
+      var startT  = document.getElementById('ev_start_t');
+      var endT    = document.getElementById('ev_end_t');
+      function toggleTime() {
+        var hide = allDay.checked;
+        startT.style.display = hide ? 'none' : '';
+        endT.style.display   = hide ? 'none' : '';
+      }
+      allDay.addEventListener('change', toggleTime);
+
+      // GCal sync button
+      var syncBtn = document.getElementById('gcal-sync-btn');
+      var syncSt  = document.getElementById('gcal-sync-status');
+      if (syncBtn && !syncBtn.disabled) {
+        syncBtn.addEventListener('click', function () {
+          syncBtn.disabled    = true;
+          syncSt.style.color  = '#666';
+          syncSt.textContent  = 'Syncing…';
+          fetch(ajaxurl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'action=sjioc_gcal_sync&nonce=<?php echo esc_js($nonce_val); ?>'
+          })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (d.success) {
+              syncSt.textContent = 'Synced ' + d.data.count + ' event(s). Reloading…';
+              setTimeout(function () { location.reload(); }, 900);
+            } else {
+              syncSt.style.color = 'red';
+              syncSt.textContent = d.data || 'Sync failed.';
+              syncBtn.disabled   = false;
+            }
+          })
+          .catch(function () {
+            syncSt.style.color = 'red';
+            syncSt.textContent = 'Request failed — check your connection.';
+            syncBtn.disabled   = false;
+          });
+        });
+      }
+    })();
+    </script>
     <?php
+}
+
+// ── Google Calendar API fetch ──────────────────────────────────────────────
+function sjioc_fetch_gcal_events(int $months = 6): array {
+    $key = SJIOC_GCAL_KEY;
+    $id  = SJIOC_GCAL_ID;
+    if (!$key || !$id) return [];
+
+    $time_min = gmdate('Y-m-d\TH:i:s\Z');
+    $time_max = gmdate('Y-m-d\TH:i:s\Z', strtotime("+{$months} months"));
+    $url      = 'https://www.googleapis.com/calendar/v3/calendars/' . rawurlencode($id)
+              . '/events?key=' . rawurlencode($key)
+              . '&timeMin=' . rawurlencode($time_min)
+              . '&timeMax=' . rawurlencode($time_max)
+              . '&singleEvents=true&orderBy=startTime&maxResults=100';
+
+    $res = wp_remote_get($url, ['timeout' => 15]);
+    if (is_wp_error($res)) return [];
+
+    $data  = json_decode(wp_remote_retrieve_body($res), true);
+    $items = $data['items'] ?? [];
+    $ms    = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    return array_values(array_map(function ($item) use ($ms) {
+        $start   = $item['start']['dateTime'] ?? $item['start']['date'] ?? '';
+        $end     = $item['end']['dateTime']   ?? $item['end']['date']   ?? '';
+        $all_day = !isset($item['start']['dateTime']);
+        $ts      = $start ? strtotime($start) : 0;
+        return [
+            'id'          => $item['id']          ?? '',
+            'title'       => $item['summary']     ?? '',
+            'description' => $item['description'] ?? '',
+            'location'    => $item['location']    ?? '',
+            'start'       => $start,
+            'end'         => $end,
+            'all_day'     => $all_day,
+            'mon'         => $ts ? $ms[(int)date('n', $ts) - 1] : '',
+            'day'         => $ts ? (int)date('j', $ts) : '',
+            'url'         => $item['htmlLink']    ?? '',
+        ];
+    }, $items));
 }
