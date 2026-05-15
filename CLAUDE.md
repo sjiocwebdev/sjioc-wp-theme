@@ -48,6 +48,17 @@ This is a church website. Always:
 
 ---
 
+## Performance — Azure Cost (Non-Negotiable)
+
+Every new feature must be evaluated against request count and DB hits. See `AZURE_PERF.md` for the full per-page baseline.
+
+- **No new DB queries on page load without a transient cache** — cache anything that doesn't need to be real-time
+- **No new external HTTP calls on the frontend** — external calls belong in admin/AJAX only, never on public page render
+- **Each page must add at most 1 extra DB query** — combine queries rather than adding new ones
+- **No polling or scheduled fetches** — sync operations must be manual/admin-triggered only
+
+---
+
 ## Code Standards
 - PHP 8.1+, `sjioc_` prefix on all custom functions/options/tables
 - CSS → `style.css`, JS → `assets/js/main.js`
