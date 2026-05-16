@@ -43,7 +43,7 @@ get_header();
 
     <div class="ev-subscribe" id="calendar">
       <span>Subscribe to our calendar:</span>
-      <a href="<?php echo esc_url(rest_url('sjioc/v1/calendar.ics')); ?>" class="btn btn-ol btn-sm">&#128462; Download ICS</a>
+      <a href="<?php echo esc_url(rest_url('sjioc/v1/calendar.ics')); ?>" class="btn btn-ol btn-sm">&#8659; Download ICS</a>
     </div>
 
   </div>
