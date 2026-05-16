@@ -71,7 +71,7 @@ add_action('wp_enqueue_scripts', function () {
     wp_enqueue_script('sjioc-events', SJIOC_URI . '/assets/js/events.js',   [], SJIOC_VER, true);
     wp_localize_script('sjioc-events', 'SJIOC_EVENTS', [
         'restUrl' => rest_url('sjioc/v1/events'),
-        'icsUrl'  => SJIOC_GCAL_ICS,
+
         'calId'   => SJIOC_GCAL_ID,
         'nonce'   => wp_create_nonce('wp_rest'),
     ]);

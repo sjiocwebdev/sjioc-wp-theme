@@ -4,7 +4,6 @@
  */
 get_header();
 
-$gcal_ics = SJIOC_GCAL_ICS ?: '';
 ?>
 <div class="page-hero"><div class="container"><h1>Parish Events</h1><p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › Events</p></div></div>
 
@@ -45,9 +44,6 @@ $gcal_ics = SJIOC_GCAL_ICS ?: '';
     <div class="ev-subscribe" id="calendar">
       <span>Subscribe to our calendar:</span>
       <a href="<?php echo esc_url(rest_url('sjioc/v1/calendar.ics')); ?>" class="btn btn-ol btn-sm">&#128462; Download ICS</a>
-      <?php if ($gcal_ics) : ?>
-      <a href="<?php echo esc_url($gcal_ics); ?>" target="_blank" rel="noopener noreferrer" class="btn btn-ol btn-sm">&#128197; Subscribe (Outlook / GCal)</a>
-      <?php endif; ?>
     </div>
 
   </div>
