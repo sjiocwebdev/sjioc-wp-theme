@@ -241,11 +241,9 @@ function sjioc_photo_proxy(WP_REST_Request $request): void {
         exit;
     }
 
-    // Images: stream to temp file — avoids loading full image into PHP memory
-    $tmp = wp_tempnam('sjioc_photo');
-    $media = wp_remote_get($dl_url, ['timeout' => 30, 'stream' => true, 'filename' => $tmp]);
+    // Images: fetch and stream body to browser
+    $media = wp_remote_get($dl_url, ['timeout' => 30]);
     if (is_wp_error($media) || wp_remote_retrieve_response_code($media) !== 200) {
-        @unlink($tmp);
         status_header(502);
         exit;
     }
@@ -255,8 +253,7 @@ function sjioc_photo_proxy(WP_REST_Request $request): void {
     header('Content-Type: ' . $content_type);
     header('Cache-Control: public, max-age=3600');
     header('X-Robots-Tag: noindex');
-    readfile($tmp);
-    @unlink($tmp);
+    echo wp_remote_retrieve_body($media);
     exit;
 }
 
