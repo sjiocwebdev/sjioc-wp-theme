@@ -650,6 +650,7 @@ add_action('wp_ajax_sjioc_test_email', function () {
 ───────────────────────────────────── */
 function sjioc_chat_settings_page() {
     if (!current_user_can('manage_options')) return;
+    global $wpdb;
 
     if (isset($_POST['sjioc_chat_save']) && check_admin_referer('sjioc_chat_nonce')) {
         update_option('sjioc_chat_rules',      sanitize_textarea_field(wp_unslash($_POST['sjioc_chat_rules']      ?? '')));
@@ -719,6 +720,44 @@ function sjioc_chat_settings_page() {
                     <tr style="font-weight:700;background:#e8f4e8"><td>Max tokens per request</td><td align="right">~<?php echo $tok_total; ?> tokens</td></tr>
                 </tbody>
             </table>
+
+            <h2 style="margin-top:28px">Actual Token Usage <small style="font-weight:400;color:#888">(real data from LLM responses — last 30 days)</small></h2>
+            <?php
+            $ut  = $wpdb->prefix . 'sjioc_chat_usage';
+            $rows = $wpdb->get_results("SELECT * FROM `{$ut}` ORDER BY usage_date DESC LIMIT 30");
+            $mon  = $wpdb->get_row($wpdb->prepare(
+                "SELECT SUM(call_count) AS calls, SUM(total_tokens) AS tokens FROM `{$ut}` WHERE usage_date >= %s",
+                gmdate('Y-m-01')
+            ));
+            if ($rows) :
+                $month_label = gmdate('F Y');
+            ?>
+            <p><strong><?php echo esc_html($month_label); ?>:</strong>
+               <?php echo (int) ($mon->calls ?? 0); ?> LLM calls &nbsp;|&nbsp;
+               <?php echo number_format((int) ($mon->tokens ?? 0)); ?> tokens total</p>
+            <table class="widefat" style="max-width:580px">
+                <thead><tr>
+                    <th>Date</th>
+                    <th style="text-align:right">LLM Calls</th>
+                    <th style="text-align:right">Prompt</th>
+                    <th style="text-align:right">Completion</th>
+                    <th style="text-align:right">Total</th>
+                </tr></thead>
+                <tbody>
+                <?php foreach ($rows as $row) : ?>
+                <tr>
+                    <td><?php echo esc_html($row->usage_date); ?></td>
+                    <td style="text-align:right"><?php echo (int) $row->call_count; ?></td>
+                    <td style="text-align:right"><?php echo number_format((int) $row->prompt_tokens); ?></td>
+                    <td style="text-align:right"><?php echo number_format((int) $row->completion_tokens); ?></td>
+                    <td style="text-align:right"><?php echo number_format((int) $row->total_tokens); ?></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php else : ?>
+            <p style="color:#888">No LLM calls recorded yet. Usage is tracked from when this feature was deployed.</p>
+            <?php endif; ?>
 
             <h2 style="margin-top:28px">Knowledge Base</h2>
             <p style="color:#555;max-width:720px">Paste concise parish info below. Use structured key:value lines — this uses far fewer tokens than raw paragraphs and the AI reads it just as well. Keep it under 2000 characters for best results.</p>
