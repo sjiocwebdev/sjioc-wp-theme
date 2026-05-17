@@ -695,7 +695,6 @@ function sjioc_chat_settings_page() {
             </table>
 
             <h2 style="margin-top:28px">Actual Token Usage <small style="font-weight:400;color:#888">(real data from LLM responses — last 30 days)</small></h2>
-            <?php
             <p style="color:#555;font-size:13px;margin-top:4px">
                 Pricing: GPT-4o mini on Azure OpenAI —
                 <strong>$0.15 / 1M input tokens</strong> &nbsp;|&nbsp;
