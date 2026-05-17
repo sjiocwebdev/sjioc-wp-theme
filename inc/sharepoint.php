@@ -192,7 +192,7 @@ function sjioc_photo_proxy(WP_REST_Request $request): void {
     $table = $wpdb->prefix . 'sjioc_photos';
 
     $row = $wpdb->get_row($wpdb->prepare(
-        "SELECT od_drive_id, od_item_id FROM {$table} WHERE id = %d LIMIT 1",
+        "SELECT od_drive_id, od_item_id, media_type FROM {$table} WHERE id = %d LIMIT 1",
         $id
     ));
     if (!$row) {
@@ -233,7 +233,15 @@ function sjioc_photo_proxy(WP_REST_Request $request): void {
         set_transient($cache_key, $dl_url, 50 * MINUTE_IN_SECONDS);
     }
 
-    // Stream directly to output — avoids loading full image into PHP memory
+    // Videos: redirect directly to SharePoint pre-auth URL.
+    // SharePoint handles range requests natively (seek/scrub works).
+    // No memory, no temp file, no proxy overhead.
+    if (($row->media_type ?? 'image') === 'video') {
+        wp_redirect($dl_url, 302);
+        exit;
+    }
+
+    // Images: stream to temp file — avoids loading full image into PHP memory
     $tmp = wp_tempnam('sjioc_photo');
     $media = wp_remote_get($dl_url, ['timeout' => 30, 'stream' => true, 'filename' => $tmp]);
     if (is_wp_error($media) || wp_remote_retrieve_response_code($media) !== 200) {
