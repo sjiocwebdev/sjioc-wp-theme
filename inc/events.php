@@ -282,22 +282,28 @@ function sjioc_events_settings_page(): void {
         check_admin_referer('sjioc_events_admin');
         $ev_id   = (int)($_POST['ev_id'] ?? 0);
         $all_day = !empty($_POST['ev_all_day']) ? 1 : 0;
+        $start_d = sanitize_text_field($_POST['ev_start_d'] ?? '');
+        $start_t = $all_day ? null : (sanitize_text_field($_POST['ev_start_t'] ?? '') ?: null);
+        $end_d   = sanitize_text_field($_POST['ev_end_d'] ?? '') ?: null;
+        $end_t   = $all_day ? null : (sanitize_text_field($_POST['ev_end_t'] ?? '') ?: null);
+        // End time without end date → same day as start
+        if (!$all_day && $end_t && !$end_d) $end_d = $start_d ?: null;
         $data    = [
-            'title'       => sanitize_text_field($_POST['ev_title']      ?? ''),
-            'description' => sanitize_textarea_field($_POST['ev_desc']   ?? ''),
-            'location'    => sanitize_text_field($_POST['ev_location']    ?? ''),
-            'start_date'  => sanitize_text_field($_POST['ev_start_d']    ?? ''),
-            'start_time'  => $all_day ? null : (sanitize_text_field($_POST['ev_start_t'] ?? '') ?: null),
-            'end_date'    => sanitize_text_field($_POST['ev_end_d']      ?? '') ?: null,
-            'end_time'    => $all_day ? null : (sanitize_text_field($_POST['ev_end_t'] ?? '') ?: null),
+            'title'       => sanitize_text_field($_POST['ev_title']   ?? ''),
+            'description' => sanitize_textarea_field($_POST['ev_desc'] ?? ''),
+            'location'    => sanitize_text_field($_POST['ev_location'] ?? ''),
+            'start_date'  => $start_d,
+            'start_time'  => $start_t,
+            'end_date'    => $end_d,
+            'end_time'    => $end_t,
             'all_day'     => $all_day,
             'url'         => esc_url_raw($_POST['ev_url'] ?? ''),
             'source'      => 'manual',
         ];
         $fmt = ['%s','%s','%s','%s','%s','%s','%s','%d','%s','%s'];
 
-        if (!$data['title'] || !$data['start_date']) {
-            $notice = '<div class="notice notice-error"><p>Title and start date are required.</p></div>';
+        if (!$data['title'] || !$data['start_date'] || (!$all_day && !$data['start_time'])) {
+            $notice = '<div class="notice notice-error"><p>Title, start date, and start time are required.</p></div>';
         } elseif ($ev_id) {
             $wpdb->update($t, $data, ['id' => $ev_id, 'source' => 'manual'], $fmt, ['%d','%s']);
             $notice = '<div class="notice notice-success is-dismissible"><p>Event updated.</p></div>';
@@ -435,7 +441,8 @@ function sjioc_events_settings_page(): void {
         <td>
           <input type="date" id="ev_start_d" name="ev_start_d" value="<?php echo esc_attr($editing->start_date ?? ''); ?>" required>
           <input type="time" id="ev_start_t" name="ev_start_t" value="<?php echo esc_attr($editing->start_time ?? ''); ?>"
-                 style="<?php echo (!$editing || $editing->all_day) ? 'display:none' : ''; ?>">
+                 style="<?php echo (!$editing || $editing->all_day) ? 'display:none' : ''; ?>"
+                 <?php echo (!$editing || !$editing->all_day) ? 'required' : ''; ?>>
         </td>
       </tr>
       <tr>
@@ -527,6 +534,7 @@ function sjioc_events_settings_page(): void {
         var hide = allDay.checked;
         startT.style.display = hide ? 'none' : '';
         endT.style.display   = hide ? 'none' : '';
+        startT.required      = !hide;
       }
       allDay.addEventListener('change', toggleTime);
 
