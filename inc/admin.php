@@ -665,18 +665,7 @@ function sjioc_chat_settings_page() {
     $max_tokens  = (int)   get_option('sjioc_chat_max_tokens',  250);
     $temperature = (float) get_option('sjioc_chat_temperature', 0.4);
 
-    // Token estimates (1 token ≈ 4 chars)
-    $header_sample = sprintf(
-        "You are the parish assistant for %s, an Indian Orthodox Christian church.\nAddress: %s | Phone: %s | Email: %s\nServices: Holy Qurbana %s | Sunday School %s | Saturday %s\n\n",
-        sjioc_name(), sjioc_address(), sjioc_phone(), sjioc_email(),
-        sjioc_qurbana(), sjioc_school(), sjioc_get('sjioc_saturday', '5:00–7:30 PM')
-    );
-    $tok_header = (int) ceil(mb_strlen($header_sample) / 4);
-    $tok_rules  = (int) ceil(mb_strlen($rules) / 4);
-    $tok_kb     = $kb ? (int) ceil(mb_strlen(mb_substr($kb, 0, 2000)) / 4) : 0;
-    $tok_system = $tok_header + $tok_rules + $tok_kb;
-    $tok_total  = $tok_system + 50 + $max_tokens;
-    $kb_capped  = $kb && mb_strlen($kb) > 2000;
+    $kb_capped = $kb && mb_strlen($kb) > 2000;
     ?>
     <div class="wrap">
         <h1>SJIOC Chat — Settings</h1>
@@ -703,22 +692,6 @@ function sjioc_chat_settings_page() {
                         <p class="description">0 = strict/factual &nbsp;|&nbsp; 1 = creative. Recommended: 0.3–0.5 for a church assistant.</p>
                     </td>
                 </tr>
-            </table>
-
-            <h2 style="margin-top:28px">Token Estimates <small style="font-weight:400;color:#888">(read-only — 1 token ≈ 4 characters)</small></h2>
-            <table class="widefat" style="max-width:440px">
-                <tbody>
-                    <tr><td>Church info header</td><td align="right">~<?php echo $tok_header; ?> tokens</td></tr>
-                    <tr><td>AI behavior rules</td><td align="right">~<?php echo $tok_rules; ?> tokens</td></tr>
-                    <tr>
-                        <td>Knowledge base<?php if ($kb_capped) echo ' <span style="color:orange;font-size:12px">(capped at 2000 chars)</span>'; ?></td>
-                        <td align="right">~<?php echo $tok_kb; ?> tokens</td>
-                    </tr>
-                    <tr style="font-weight:600;background:#f0f0f0"><td>System prompt total</td><td align="right">~<?php echo $tok_system; ?> tokens</td></tr>
-                    <tr><td>Avg user message</td><td align="right">~50 tokens</td></tr>
-                    <tr><td>Max AI response</td><td align="right"><?php echo $max_tokens; ?> tokens</td></tr>
-                    <tr style="font-weight:700;background:#e8f4e8"><td>Max tokens per request</td><td align="right">~<?php echo $tok_total; ?> tokens</td></tr>
-                </tbody>
             </table>
 
             <h2 style="margin-top:28px">Actual Token Usage <small style="font-weight:400;color:#888">(real data from LLM responses — last 30 days)</small></h2>

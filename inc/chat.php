@@ -45,14 +45,7 @@ function sjioc_chat_ajax(): void {
         return;
     }
 
-    // 2. PHP intent shortcuts — free responses, exempt from rate limit
-    $php_response = sjioc_chat_php_intent($message);
-    if ($php_response) {
-        wp_send_json_success(['html' => $php_response]);
-        return;
-    }
-
-    // 3. Rate limit — only LLM-bound requests count
+    // 2. Rate limit — only LLM-bound requests count
     $ip_key = 'sjioc_rl_chat_' . md5($_SERVER['REMOTE_ADDR'] ?? '');
     $hits   = (int) get_transient($ip_key);
     if ($hits >= 5) {
@@ -64,43 +57,18 @@ function sjioc_chat_ajax(): void {
         wp_send_json_error('Please keep your message under 500 characters.');
     }
 
-    // 4. KB excerpt — only lines relevant to this message (reduces prompt tokens)
-    $kb_full    = get_option('sjioc_kb_text', '');
-    $kb_excerpt = sjioc_chat_kb_excerpt($message, $kb_full);
+    // 4. KB excerpt — only lines relevant to this message (max 10 lines / 500 words)
+    $kb_excerpt = sjioc_chat_kb_excerpt($message, get_option('sjioc_kb_text', ''));
 
-    // 5. If KB is populated but nothing matched, and no church keyword — skip LLM
-    if ($kb_full && !$kb_excerpt && !sjioc_chat_is_church_related($message)) {
-        wp_send_json_success(['html' => sjioc_chat_sorry()]);
-        return;
-    }
-
-    // 6. LLM call with targeted KB excerpt
+    // 5. LLM call with targeted KB excerpt
     $result = sjioc_azure_oai($message, $kb_excerpt);
     sjioc_store_token_usage($result['usage']);
     wp_send_json_success(['html' => $result['html']]);
 }
 
 /* ─────────────────────────────────────
-   PHP Intent Shortcuts
+   KB Excerpt
 ───────────────────────────────────── */
-
-function sjioc_chat_php_intent(string $message): string {
-    // Service timings
-    if (preg_match('/\b(time|timing|when|start|hour|schedule|qurbana|holy.?qurbana|sunday.?school|saturday.?service|mass)\b/i', $message)) {
-        return '&#9203; <strong>Service Times at ' . esc_html(sjioc_abbr()) . ':</strong><br>'
-             . 'Holy Qurbana: <strong>' . esc_html(sjioc_qurbana()) . '</strong><br>'
-             . 'Sunday School: <strong>' . esc_html(sjioc_school()) . '</strong><br>'
-             . 'Saturday: <strong>' . esc_html(sjioc_get('sjioc_saturday', '5:00–7:30 PM')) . '</strong>';
-    }
-    // Contact / location
-    if (preg_match('/\b(phone|call|email|contact|address|location|where|directions|reach)\b/i', $message)) {
-        return '&#128222; <strong>' . esc_html(sjioc_abbr()) . ' Contact:</strong><br>'
-             . 'Phone: <strong>' . esc_html(sjioc_phone()) . '</strong><br>'
-             . 'Email: <strong>' . esc_html(sjioc_email()) . '</strong><br>'
-             . 'Address: <strong>' . esc_html(sjioc_address()) . '</strong>';
-    }
-    return '';
-}
 
 function sjioc_chat_kb_excerpt(string $message, string $kb): string {
     if (!$kb) return '';
@@ -119,21 +87,16 @@ function sjioc_chat_kb_excerpt(string $message, string $kb): string {
             if (str_contains($ll, $word)) { $matched[] = $line; break; }
         }
     }
-    return implode("\n", array_slice($matched, 0, 15));
-}
-
-function sjioc_chat_is_church_related(string $message): bool {
-    return (bool) preg_match(
-        '/\b(church|parish|orthodox|christian|faith|prayer|worship|god|jesus|christ|liturgy|sacrament|vicar|priest|bible|ministry|trustee|secretary|event|qurbana|achen|malankara|baptism|marriage|funeral|lent|easter|christmas|fasting|saint|holy)\b/i',
-        $message
-    );
-}
-
-function sjioc_chat_sorry(): string {
-    return 'I can only help with questions about our parish — services, events, faith, or church life. '
-         . '<em>"I am the way, the truth, and the life." — John 14:6</em><br><br>'
-         . 'For parish matters, feel free to ask again or <strong>contact us: '
-         . esc_html(sjioc_phone()) . '</strong>.';
+    // Cap at 10 lines and 500 words
+    $result = [];
+    $wcount = 0;
+    foreach (array_slice($matched, 0, 10) as $line) {
+        $lw = str_word_count($line);
+        if ($wcount + $lw > 500) break;
+        $result[] = $line;
+        $wcount  += $lw;
+    }
+    return implode("\n", $result);
 }
 
 function sjioc_store_token_usage(array $usage): void {
@@ -258,7 +221,7 @@ function sjioc_chat_system_prompt($kb = '') {
 
 function sjioc_default_chat_rules() {
     return "Only answer questions about this church, its faith, services, events, and parish life.\n" .
-           "If a question is unrelated to the church, reply: \"I can only help with parish questions. Please call us for assistance.\"\n" .
+           "If asked something unrelated to the church, politely decline and include one short relevant Bible verse.\n" .
            "Keep answers to 2-3 sentences. Never invent or guess information.\n" .
            "If unsure, direct the person to contact the Secretary or a Trustee using the contact details above.";
 }
