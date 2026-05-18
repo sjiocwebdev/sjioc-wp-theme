@@ -45,7 +45,7 @@ function sjioc_handle_new_to_church(): void {
 
     $body  = '<html><body style="font-family:Georgia,serif;color:#3d2b1a;background:#faf6f0;margin:0;padding:24px">';
     $body .= '<div style="max-width:560px;margin:0 auto;background:#fff;border-top:4px solid #7B1818;padding:28px 32px;border-radius:4px">';
-    $body .= '<h2 style="color:#5C1010;margin:0 0 4px">&#128139; New to SJIOC — Visitor Inquiry</h2>';
+    $body .= '<h2 style="color:#5C1010;margin:0 0 4px">New to SJIOC — Visitor Inquiry</h2>';
     $body .= '<p style="color:#888;font-size:.82rem;margin:0 0 20px">Received: ' . date('D, F j, Y g:i A') . '</p>';
     $body .= '<table style="width:100%;border-collapse:collapse;font-size:.88rem">';
     foreach ($rows as $label => $value) {
