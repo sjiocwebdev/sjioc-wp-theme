@@ -237,6 +237,104 @@ add_action('phpmailer_init', function ($phpmailer) {
 });
 
 /* ─────────────────────────────────────
+   GRAPH API MAIL HELPERS — wp-config.php → DB fallback
+───────────────────────────────────── */
+function sjioc_mail_tenant_id(): string {
+    return defined('SJIOC_MAIL_TENANT_ID') ? SJIOC_MAIL_TENANT_ID : (string) get_option('sjioc_mail_tenant_id', '');
+}
+function sjioc_mail_client_id(): string {
+    return defined('SJIOC_MAIL_CLIENT_ID') ? SJIOC_MAIL_CLIENT_ID : (string) get_option('sjioc_mail_client_id', '');
+}
+function sjioc_mail_client_secret(): string {
+    return defined('SJIOC_MAIL_CLIENT_SECRET') ? SJIOC_MAIL_CLIENT_SECRET : (string) get_option('sjioc_mail_client_secret', '');
+}
+function sjioc_mail_from(): string {
+    return defined('SJIOC_MAIL_FROM') ? SJIOC_MAIL_FROM : (string) get_option('sjioc_mail_from', '');
+}
+function sjioc_mail_is_configured(): bool {
+    return sjioc_mail_tenant_id() !== '' && sjioc_mail_client_id() !== ''
+        && sjioc_mail_client_secret() !== '' && sjioc_mail_from() !== '';
+}
+
+function sjioc_graph_get_mail_token(): string|false {
+    $cached = get_transient('sjioc_mail_token');
+    if ($cached) return $cached;
+
+    $resp = wp_remote_post(
+        'https://login.microsoftonline.com/' . sjioc_mail_tenant_id() . '/oauth2/v2.0/token',
+        ['body' => [
+            'grant_type'    => 'client_credentials',
+            'client_id'     => sjioc_mail_client_id(),
+            'client_secret' => sjioc_mail_client_secret(),
+            'scope'         => 'https://graph.microsoft.com/.default',
+        ]]
+    );
+
+    if (is_wp_error($resp)) return false;
+    $data = json_decode(wp_remote_retrieve_body($resp), true);
+    if (empty($data['access_token'])) return false;
+
+    $ttl = max(60, (int) ($data['expires_in'] ?? 3600) - 60);
+    set_transient('sjioc_mail_token', $data['access_token'], $ttl);
+    return $data['access_token'];
+}
+
+function sjioc_graph_send_mail(array|string $to, string $subject, string $body_html, array $headers = []): bool {
+    $token = sjioc_graph_get_mail_token();
+    if (!$token) return false;
+
+    $to_list    = is_array($to) ? $to : array_filter(array_map('trim', explode(',', $to)));
+    $recipients = array_map(fn($a) => ['emailAddress' => ['address' => $a]], $to_list);
+
+    $reply_to = '';
+    foreach ($headers as $h) {
+        if (stripos($h, 'Reply-To:') === 0) { $reply_to = trim(substr($h, 9)); break; }
+    }
+
+    $from_addr = sjioc_mail_from();
+    $message   = [
+        'subject'      => $subject,
+        'from'         => ['emailAddress' => ['name' => sjioc_name(), 'address' => $from_addr]],
+        'body'         => ['contentType' => 'HTML', 'content' => $body_html],
+        'toRecipients' => $recipients,
+    ];
+    if ($reply_to) {
+        $message['replyTo'] = [['emailAddress' => ['address' => $reply_to]]];
+    }
+
+    $resp = wp_remote_post(
+        'https://graph.microsoft.com/v1.0/users/' . rawurlencode($from_addr) . '/sendMail',
+        [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $token,
+                'Content-Type'  => 'application/json',
+            ],
+            'body'    => wp_json_encode(['message' => $message, 'saveToSentItems' => false]),
+            'timeout' => 15,
+        ]
+    );
+
+    if (is_wp_error($resp)) return false;
+    $code = (int) wp_remote_retrieve_response_code($resp);
+    if ($code === 401) delete_transient('sjioc_mail_token');
+    return $code === 202;
+}
+
+// Intercept wp_mail() and route through Graph API when configured
+add_filter('pre_wp_mail', function ($result, array $atts) {
+    if ($result !== null || !sjioc_mail_is_configured()) return $result;
+
+    $headers = (array) ($atts['headers'] ?? []);
+    $is_html = false;
+    foreach ($headers as $h) {
+        if (stripos($h, 'text/html') !== false) { $is_html = true; break; }
+    }
+    $body = $is_html ? $atts['message'] : nl2br(esc_html($atts['message']));
+
+    return sjioc_graph_send_mail($atts['to'], $atts['subject'], $body, $headers);
+}, 10, 2);
+
+/* ─────────────────────────────────────
    HELPER FUNCTIONS
 ───────────────────────────────────── */
 function sjioc_get($key, $fallback = '') {

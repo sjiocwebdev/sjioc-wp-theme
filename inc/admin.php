@@ -47,7 +47,7 @@ function sjioc_admin_menu() {
         'manage_options', 'sjioc-rentals', 'sjioc_rentals_admin_page'
     );
     add_submenu_page(
-        'sjioc', 'SMTP Email Settings', 'Email (SMTP)',
+        'sjioc', 'Email Settings', 'Email Settings',
         'manage_options', 'sjioc-smtp', 'sjioc_smtp_settings_page'
     );
     // Hidden page — edit form not shown in sidebar nav
@@ -453,11 +453,38 @@ function sjioc_celebrations_admin_page() {
 }
 
 /* ─────────────────────────────────────
-   SMTP SETTINGS PAGE
+   EMAIL SETTINGS PAGE
 ───────────────────────────────────── */
 function sjioc_smtp_settings_page(): void {
     if (!current_user_can('manage_options')) return;
 
+    if (!empty($_GET['mail_token_cleared'])) {
+        echo '<div class="notice notice-success is-dismissible"><p>Cached OAuth token cleared.</p></div>';
+    }
+
+    // Save Graph API settings
+    if (isset($_POST['sjioc_mail_save']) && check_admin_referer('sjioc_mail_settings')) {
+        $saveable = [
+            'sjioc_mail_tenant_id' => 'SJIOC_MAIL_TENANT_ID',
+            'sjioc_mail_client_id' => 'SJIOC_MAIL_CLIENT_ID',
+            'sjioc_mail_from'      => 'SJIOC_MAIL_FROM',
+        ];
+        foreach ($saveable as $opt => $const) {
+            if (!defined($const)) {
+                update_option($opt, sanitize_text_field($_POST[$opt] ?? ''));
+            }
+        }
+        if (!defined('SJIOC_MAIL_CLIENT_SECRET')) {
+            $secret = wp_unslash($_POST['sjioc_mail_client_secret'] ?? '');
+            if ($secret !== '') {
+                update_option('sjioc_mail_client_secret', sanitize_text_field($secret));
+            }
+        }
+        delete_transient('sjioc_mail_token');
+        echo '<div class="notice notice-success is-dismissible"><p>Graph API email settings saved.</p></div>';
+    }
+
+    // Save SMTP settings
     if (isset($_POST['sjioc_smtp_save']) && check_admin_referer('sjioc_smtp_settings')) {
         $saveable = [
             'sjioc_smtp_host' => 'SJIOC_SMTP_HOST',
@@ -470,7 +497,6 @@ function sjioc_smtp_settings_page(): void {
                 update_option($opt, sanitize_text_field($_POST[$opt] ?? ''));
             }
         }
-        // Only update password if a new value was entered
         if (!defined('SJIOC_SMTP_PASS')) {
             $pass = wp_unslash($_POST['sjioc_smtp_pass'] ?? '');
             if ($pass !== '') {
@@ -480,23 +506,15 @@ function sjioc_smtp_settings_page(): void {
         echo '<div class="notice notice-success is-dismissible"><p>SMTP settings saved.</p></div>';
     }
 
-    // Returns source info for a setting
-    $src = function (string $const, string $opt, mixed $default = '') use (&$src): array {
+    $src = function (string $const, string $opt, mixed $default = ''): array {
         if (defined($const)) {
             return ['locked' => true, 'val' => constant($const), 'label' => 'wp-config.php', 'color' => '#16a34a'];
         }
         $v = get_option($opt, $default);
         return $v !== '' && $v !== $default
-            ? ['locked' => false, 'val' => $v,       'label' => 'Database',  'color' => '#b45309']
-            : ['locked' => false, 'val' => $default, 'label' => 'Not set',   'color' => '#dc2626'];
+            ? ['locked' => false, 'val' => $v,       'label' => 'Database', 'color' => '#b45309']
+            : ['locked' => false, 'val' => $default, 'label' => 'Not set',  'color' => '#dc2626'];
     };
-
-    $host  = $src('SJIOC_SMTP_HOST', 'sjioc_smtp_host', '');
-    $user  = $src('SJIOC_SMTP_USER', 'sjioc_smtp_user', '');
-    $pass  = $src('SJIOC_SMTP_PASS', 'sjioc_smtp_pass', '');
-    $port  = $src('SJIOC_SMTP_PORT', 'sjioc_smtp_port', 587);
-    $from  = $src('SJIOC_SMTP_FROM', 'sjioc_smtp_from', '');
-    $nonce = wp_create_nonce('sjioc_smtp_admin');
 
     $badge = function (array $s): string {
         return '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;'
@@ -507,36 +525,88 @@ function sjioc_smtp_settings_page(): void {
         $dis = $s['locked'] ? ' disabled style="background:#f0f0f1;color:#555"' : '';
         echo '<tr><th scope="row"><label for="' . esc_attr($id) . '">' . esc_html($label) . $badge($s) . '</label></th><td>';
         if ($type === 'password') {
-            $ph2 = $s['locked'] ? '(set in wp-config.php)' : ($s['val'] !== '' ? '••••••• (saved — leave blank to keep)' : 'Enter password');
+            $ph2 = $s['locked'] ? '(set in wp-config.php)' : ($s['val'] !== '' ? '••••••• (saved — leave blank to keep)' : 'Enter value');
             echo '<input type="password" id="' . esc_attr($id) . '" name="' . esc_attr($id) . '" value="" placeholder="' . esc_attr($ph2) . '" class="regular-text"' . $dis . '>';
         } else {
-            $v = $s['locked'] ? '' : esc_attr((string) $s['val']);
+            $v   = $s['locked'] ? '' : esc_attr((string) $s['val']);
             $ph2 = $s['locked'] ? '(set in wp-config.php)' : esc_attr($ph);
             echo '<input type="' . esc_attr($type) . '" id="' . esc_attr($id) . '" name="' . esc_attr($id) . '" value="' . $v . '" placeholder="' . $ph2 . '" class="regular-text"' . $dis . '>';
         }
         echo '</td></tr>';
     };
+
+    // Graph API field values
+    $g_tenant = $src('SJIOC_MAIL_TENANT_ID',     'sjioc_mail_tenant_id',     '');
+    $g_client = $src('SJIOC_MAIL_CLIENT_ID',     'sjioc_mail_client_id',     '');
+    $g_secret = $src('SJIOC_MAIL_CLIENT_SECRET', 'sjioc_mail_client_secret', '');
+    $g_from   = $src('SJIOC_MAIL_FROM',          'sjioc_mail_from',          '');
+
+    // SMTP field values
+    $host = $src('SJIOC_SMTP_HOST', 'sjioc_smtp_host', '');
+    $user = $src('SJIOC_SMTP_USER', 'sjioc_smtp_user', '');
+    $pass = $src('SJIOC_SMTP_PASS', 'sjioc_smtp_pass', '');
+    $port = $src('SJIOC_SMTP_PORT', 'sjioc_smtp_port', 587);
+    $from = $src('SJIOC_SMTP_FROM', 'sjioc_smtp_from', '');
+
+    $nonce       = wp_create_nonce('sjioc_smtp_admin');
+    $graph_ok    = sjioc_mail_is_configured();
+    $smtp_ok     = sjioc_smtp_is_configured();
+    $can_send    = $graph_ok || $smtp_ok;
+    $active_label = $graph_ok ? 'Graph API' : ($smtp_ok ? 'SMTP' : 'Not configured');
+    $active_color = $can_send ? '#16a34a' : '#dc2626';
     ?>
     <div class="wrap" style="max-width:780px">
-    <h1>✉️ SMTP Email Settings</h1>
-    <p>Outgoing email for the contact form, hall rental notifications, and all theme emails. Uses Microsoft 365 / Outlook SMTP by default.</p>
+    <h1>Email Settings</h1>
 
-    <div style="background:#fff3cd;border:1px solid #ffc107;border-left:4px solid #ffc107;border-radius:4px;padding:12px 16px;margin-bottom:20px;font-size:13px">
-        <strong>Microsoft 365 requirement:</strong> SMTP AUTH must be enabled on the sending mailbox.
-        Go to <strong>admin.microsoft.com → Users → [account] → Mail → Manage email apps → tick Authenticated SMTP</strong>.
-        If MFA is on, use an App Password (myaccount.microsoft.com → Security → App passwords).
+    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:14px 20px;margin-bottom:28px">
+        <strong>Active transport:</strong>
+        <span style="background:<?php echo esc_attr($active_color); ?>;color:#fff;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700;margin-left:6px"><?php echo esc_html($active_label); ?></span>
+        <span style="font-size:12px;color:#666;margin-left:10px">Graph API takes priority over SMTP when both are configured. Constants in <code>wp-config.php</code> override database values.</span>
     </div>
 
-    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:14px 20px;margin-bottom:24px">
-        <strong>Status:</strong>
-        <?php if (sjioc_smtp_is_configured()): ?>
-            <span style="background:#16a34a;color:#fff;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700">✓ Configured</span>
-        <?php else: ?>
-            <span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700">✗ Not Configured</span>
-        <?php endif; ?>
-        &nbsp;
-        <span style="font-size:12px;color:#666">Settings in <code>wp-config.php</code> are locked and take priority over anything saved here.</span>
+    <?php /* ── Graph API Section ── */ ?>
+    <h2 style="margin-top:0">Graph API Email <span style="font-size:13px;font-weight:400;color:#555">(recommended — no password required)</span></h2>
+    <p style="color:#555;max-width:680px;margin-bottom:16px">
+        Sends via Microsoft Graph API using an Entra app registration with <strong>Mail.Send</strong> application permission.
+        No SMTP AUTH or app password needed — works with shared mailboxes and MFA-enabled tenants.
+    </p>
+
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-left:4px solid #16a34a;border-radius:4px;padding:12px 16px;margin-bottom:20px;font-size:13px">
+        <strong>wp-config.php constants (recommended):</strong><br>
+        <code>define('SJIOC_MAIL_TENANT_ID',     'your-tenant-id');</code><br>
+        <code>define('SJIOC_MAIL_CLIENT_ID',     'your-client-id');</code><br>
+        <code>define('SJIOC_MAIL_CLIENT_SECRET', 'your-client-secret');</code><br>
+        <code>define('SJIOC_MAIL_FROM',          'noreply@sjioc.org');</code>
     </div>
+
+    <form method="post">
+        <?php wp_nonce_field('sjioc_mail_settings'); ?>
+        <table class="form-table" role="presentation" style="max-width:700px">
+            <?php
+            $field('sjioc_mail_tenant_id',     'Tenant ID',     $g_tenant, 'text',     'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx');
+            $field('sjioc_mail_client_id',     'Client ID',     $g_client, 'text',     'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx');
+            $field('sjioc_mail_client_secret', 'Client Secret', $g_secret, 'password', '');
+            $field('sjioc_mail_from',          'From Address',  $g_from,   'email',    'noreply@sjioc.org');
+            ?>
+        </table>
+        <?php submit_button('Save Graph API Settings', 'primary', 'sjioc_mail_save'); ?>
+    </form>
+
+    <?php if ($graph_ok): ?>
+    <p style="margin-top:-10px">
+        <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-ajax.php?action=sjioc_clear_mail_token'), 'sjioc_clear_mail_token')); ?>"
+           style="color:#b45309;font-size:13px">Clear cached OAuth token</a>
+        <span style="color:#999;font-size:12px"> — forces a fresh token on the next email send</span>
+    </p>
+    <?php endif; ?>
+
+    <hr style="margin:28px 0">
+
+    <?php /* ── SMTP Section ── */ ?>
+    <h2>SMTP Fallback <span style="font-size:13px;font-weight:400;color:#555">(used only if Graph API above is not configured)</span></h2>
+    <p style="color:#555;max-width:680px;margin-bottom:16px">
+        Standard SMTP via Microsoft 365. Requires SMTP AUTH to be enabled on the mailbox and an app password if MFA is active.
+    </p>
 
     <form method="post">
         <?php wp_nonce_field('sjioc_smtp_settings'); ?>
@@ -549,20 +619,15 @@ function sjioc_smtp_settings_page(): void {
             $field('sjioc_smtp_from', 'From Email Address', $from, 'email',    'Leave blank to use SMTP Username above');
             ?>
         </table>
-        <p class="description" style="margin-bottom:20px">
-            <strong>Encryption:</strong> STARTTLS on port 587 (standard for Microsoft 365 / Outlook).<br>
-            <strong>From Email:</strong> For Microsoft 365, the From address must match the authenticated account,
-            or use a shared mailbox with "Send As" permission configured in Exchange.
-        </p>
-        <?php submit_button('Save SMTP Settings', 'primary', 'sjioc_smtp_save'); ?>
+        <?php submit_button('Save SMTP Settings', 'secondary', 'sjioc_smtp_save'); ?>
     </form>
 
     <hr style="margin:28px 0">
     <h2>Send a Test Email</h2>
-    <p>Verify your configuration by sending a live test. The email is sent through your configured SMTP server right now.</p>
+    <p>Sends a live test through whichever transport is active (<?php echo esc_html($active_label); ?>).</p>
 
-    <?php if (!sjioc_smtp_is_configured()): ?>
-        <p style="color:#dc2626;font-weight:600">⚠ SMTP is not configured. Fill in the settings above first.</p>
+    <?php if (!$can_send): ?>
+        <p style="color:#dc2626;font-weight:600">Configure Graph API or SMTP above before sending a test.</p>
     <?php else: ?>
     <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
         <div>
@@ -571,20 +636,20 @@ function sjioc_smtp_settings_page(): void {
                    class="regular-text" placeholder="recipient@example.com">
         </div>
         <div style="padding-top:22px">
-            <button class="button button-primary" onclick="sjiocTestSmtp(this)">Send Test Email →</button>
+            <button class="button button-primary" onclick="sjiocTestEmail(this)">Send Test Email →</button>
         </div>
     </div>
-    <div id="sj-smtp-result" style="margin-top:14px;display:none"></div>
+    <div id="sj-email-result" style="margin-top:14px;display:none"></div>
     <?php endif; ?>
 
     </div>
 
     <script>
-    function sjiocTestSmtp(btn) {
+    function sjiocTestEmail(btn) {
         var email  = document.getElementById('sj-test-email');
-        var result = document.getElementById('sj-smtp-result');
+        var result = document.getElementById('sj-email-result');
         if (!email || !email.value.trim()) { alert('Please enter a recipient email address.'); return; }
-        btn.disabled = true; btn.textContent = '⏳ Sending…';
+        btn.disabled = true; btn.textContent = 'Sending…';
         result.style.display = 'none';
         fetch(ajaxurl, {
             method: 'POST',
@@ -594,17 +659,15 @@ function sjioc_smtp_settings_page(): void {
                 to:     email.value.trim()
             })
         })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-            btn.disabled = false;
-            btn.textContent = 'Send Test Email →';
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            btn.disabled = false; btn.textContent = 'Send Test Email →';
             result.style.display = 'block';
             result.className = d.success ? 'notice notice-success is-dismissible' : 'notice notice-error is-dismissible';
             result.innerHTML = '<p>' + (d.data?.msg || (d.success ? 'Sent!' : 'Failed.')) + '</p>';
         })
-        .catch(function () {
-            btn.disabled = false;
-            btn.textContent = 'Send Test Email →';
+        .catch(function() {
+            btn.disabled = false; btn.textContent = 'Send Test Email →';
             result.style.display = 'block';
             result.className = 'notice notice-error is-dismissible';
             result.innerHTML = '<p>Network error. Please try again.</p>';
@@ -623,26 +686,36 @@ add_action('wp_ajax_sjioc_test_email', function () {
         wp_send_json_error(['msg' => 'Invalid email address.']);
     }
 
-    $error_msg = '';
+    $transport   = sjioc_mail_is_configured() ? 'Graph API' : 'SMTP';
+    $error_msg   = '';
     add_action('wp_mail_failed', function (\WP_Error $e) use (&$error_msg) {
         $error_msg = $e->get_error_message();
     });
 
     $sent = wp_mail(
         $to,
-        'SJIOC WordPress — SMTP Test Email',
+        'SJIOC WordPress — Email Test (' . $transport . ')',
         '<p>This is a test email from your WordPress site (<strong>' . esc_html(home_url()) . '</strong>).</p>'
-        . '<p>If you received this, your SMTP configuration is working correctly.</p>'
+        . '<p>Transport: <strong>' . esc_html($transport) . '</strong></p>'
+        . '<p>If you received this, your email configuration is working correctly.</p>'
         . '<p style="color:#888;font-size:12px">Sent at ' . esc_html(date('D, F j Y g:i A T')) . '</p>',
         ['Content-Type: text/html; charset=UTF-8']
     );
 
     if ($sent) {
-        wp_send_json_success(['msg' => 'Test email sent to <strong>' . esc_html($to) . '</strong>. Check the inbox (and spam folder).']);
+        wp_send_json_success(['msg' => 'Test email sent via <strong>' . esc_html($transport) . '</strong> to <strong>' . esc_html($to) . '</strong>. Check your inbox (and spam folder).']);
     } else {
-        $detail = $error_msg ?: 'wp_mail returned false — check SMTP credentials and that SMTP AUTH is enabled on the mailbox.';
+        $detail = $error_msg ?: 'Send returned false — check your ' . $transport . ' credentials.';
         wp_send_json_error(['msg' => 'Send failed: ' . esc_html($detail)]);
     }
+});
+
+add_action('wp_ajax_sjioc_clear_mail_token', function () {
+    check_admin_referer('sjioc_clear_mail_token');
+    if (!current_user_can('manage_options')) wp_die('Unauthorized');
+    delete_transient('sjioc_mail_token');
+    wp_redirect(add_query_arg(['page' => 'sjioc-smtp', 'mail_token_cleared' => '1'], admin_url('admin.php')));
+    exit;
 });
 
 /* ─────────────────────────────────────
