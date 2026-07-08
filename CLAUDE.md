@@ -63,3 +63,14 @@ Every new feature must be evaluated against request count and DB hits. See `AZUR
 - PHP 8.1+, `sjioc_` prefix on all custom functions/options/tables
 - CSS → `style.css`, JS → `assets/js/main.js`
 - No inline styles, no inline scripts, no `@` error suppression
+
+---
+
+## Codebase orientation rule
+
+- Before broad exploration, read `./codebase.md`.
+- Treat `codebase.md` as an orientation map, not absolute truth.
+- For implementation, verify the specific target files before editing.
+- Avoid full-repo scanning unless `codebase.md` is missing, stale, or clearly incomplete.
+- After every major code update, ask the user whether the change should be added to `codebase.md`.
+- When updating `codebase.md`, keep it compact and only add durable information that will help future sessions.
