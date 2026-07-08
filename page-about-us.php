@@ -60,6 +60,7 @@ get_header();
   <h2 class="stitle">Our Leadership</h2>
   <div class="divider"></div>
   <p class="slead">Dedicated servants of God guiding our parish with wisdom, love, and pastoral care.</p>
+  <?php if (! sjioc_render_office_leadership()): ?>
   <div class="leadership-grid">
     <div class="leader-card">
       <img class="leader-avatar" src="https://sjioc.org/images/TojoBaby-1710825551.png" alt="Rev. Fr. Tojo Baby" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1560250097-0b93528c311a?w=250&q=70'">
@@ -83,6 +84,7 @@ get_header();
     <div class="jt-pill"><span class="jt-role">Jt. Trustee</span><span class="jt-name">Mr. Subin John</span></div>
     <div class="jt-pill"><span class="jt-role">Jt. Secretary</span><span class="jt-name">Mr. Lijo P. Saji</span></div>
   </div>
+  <?php endif; ?>
 
 </div></div>
 
@@ -95,6 +97,7 @@ get_header();
     <p class="slead">The dedicated members who serve our parish community through administration, ministry, and outreach.</p>
   </div>
 
+  <?php if (! sjioc_render_office_committees()): ?>
   <!-- Tab bar -->
   <div class="cmte-tabs" role="tablist">
     <button class="cmte-tab is-active" role="tab" data-panel="cmte-admin">Parish Administration</button>
@@ -261,6 +264,7 @@ get_header();
     </div>
 
   </div><!-- /cmte-spiritual -->
+  <?php endif; ?>
 
 </div></div>
 

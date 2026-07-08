@@ -25,3 +25,4 @@ require_once SJIOC_DIR . '/inc/sharepoint.php';
 require_once SJIOC_DIR . '/inc/vehicles.php';
 require_once SJIOC_DIR . '/inc/hall-rental.php';
 require_once SJIOC_DIR . '/inc/new-to-church.php';
+require_once SJIOC_DIR . '/inc/office.php';
