@@ -26,10 +26,10 @@ function sjioc_handle_new_to_church(): void {
         wp_send_json_error(['msg' => 'Please fill in your name and phone number.']);
     }
 
-    $recipients = array_unique(array_filter([
-        sjioc_get('sjioc_email_secretary', ''),
-        sjioc_get('sjioc_email_vicar',     ''),
-        sjioc_get('sjioc_email',           'info@sjioc.org'),
+    $to = sjioc_get('sjioc_email_secretary', '') ?: sjioc_get('sjioc_email', 'info@sjioc.org');
+    $cc = array_unique(array_filter([
+        sjioc_get('sjioc_email_vicar',   ''),
+        sjioc_get('sjioc_email_trustee', ''),
     ]));
 
     $rows = [
@@ -55,9 +55,9 @@ function sjioc_handle_new_to_church(): void {
     $body .= '</table></div></body></html>';
 
     $subject = 'New to SJIOC — ' . esc_html(trim($fname . ' ' . $lname));
-    foreach ($recipients as $to) {
-        wp_mail($to, $subject, $body, ['Content-Type: text/html; charset=UTF-8']);
-    }
+    $headers = ['Content-Type: text/html; charset=UTF-8'];
+    if ($cc) $headers[] = 'Cc: ' . implode(', ', $cc);
+    wp_mail($to, $subject, $body, $headers);
 
     wp_send_json_success(['msg' => 'Thank you, ' . esc_html($fname) . '! We will reach out to you soon. God bless you.']);
 }

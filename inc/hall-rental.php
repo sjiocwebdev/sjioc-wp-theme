@@ -296,10 +296,10 @@ function sjioc_rental_email_footer(): string {
 }
 
 function sjioc_rental_notify_staff(int $id, array $d): void {
-    $recipients = array_unique(array_filter([
-        sjioc_get('sjioc_email_vicar',     'info@sjioc.org'),
-        sjioc_get('sjioc_email_trustee',   'info@sjioc.org'),
-        sjioc_get('sjioc_email_secretary', 'info@sjioc.org'),
+    $to = sjioc_get('sjioc_email_secretary', '') ?: sjioc_get('sjioc_email', 'info@sjioc.org');
+    $cc = array_unique(array_filter([
+        sjioc_get('sjioc_email_vicar',   ''),
+        sjioc_get('sjioc_email_trustee', ''),
     ]));
 
     $admin_url  = admin_url('admin.php?page=sjioc-rentals&view=' . $id);
@@ -360,9 +360,9 @@ function sjioc_rental_notify_staff(int $id, array $d): void {
     $subject = 'Hall Rental Request #' . str_pad($id, 4, '0', STR_PAD_LEFT)
              . ' — ' . $d['evtype'] . ' · ' . date('M j, Y', strtotime($d['evdate']));
 
-    foreach ($recipients as $to) {
-        wp_mail($to, $subject, $body, ['Content-Type: text/html; charset=UTF-8']);
-    }
+    $headers = ['Content-Type: text/html; charset=UTF-8'];
+    if ($cc) $headers[] = 'Cc: ' . implode(', ', $cc);
+    wp_mail($to, $subject, $body, $headers);
 }
 
 function sjioc_rental_send_confirmation(int $id, string $fname, string $email, string $evtype, string $evdate, string $stime, string $etime): void {

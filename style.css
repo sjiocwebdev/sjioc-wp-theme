@@ -173,20 +173,18 @@ input, textarea, select { font-family:'Lato', sans-serif; }
   color:var(--go); border-bottom-color:var(--go);
 }
 
-/* Nav phone chip */
+/* Nav phone chip — icon-only badge, matches the social icon badges */
 .nav-phone-chip {
-  display:flex; align-items:center; gap:5px;
-  margin-left:14px; padding-left:14px;
-  border-left:1px solid rgba(201,168,76,.3); flex-shrink:0;
-  color:rgba(255,255,255,.68); font-size:.72rem;
-  transition:color .2s;
+  display:flex; align-items:center; justify-content:center;
+  width:26px; height:26px; border-radius:50%; background:#fff;
+  margin-left:14px; flex-shrink:0; box-shadow:0 1px 4px rgba(0,0,0,.25);
+  transition:transform .2s, box-shadow .2s;
 }
-.nav-phone-chip:hover { color:var(--go); }
+.nav-phone-chip:hover { transform:translateY(-2px); box-shadow:0 3px 9px rgba(0,0,0,.32); }
 
 .nav-social {
   display:flex; align-items:center; gap:10px;
-  margin-left:14px; padding-left:14px;
-  border-left:1px solid rgba(201,168,76,.3); flex-shrink:0;
+  margin-left:2px; flex-shrink:0;
 }
 .nav-social-link { color:rgba(255,255,255,.68); display:flex; transition:color .2s; }
 .nav-social-link:hover { color:var(--go); }
@@ -692,6 +690,10 @@ input, textarea, select { font-family:'Lato', sans-serif; }
 .mdcard-body h3 { font-family:'Playfair Display',serif; color:var(--cr); font-size:1.18rem; margin-bottom:11px; }
 .mdcard-body p  { color:var(--tl); font-size:.87rem; line-height:1.7; margin-bottom:16px; }
 
+/* News pagination */
+.news-pagination { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:14px 20px; margin-top:40px; }
+.news-page-info { color:var(--tl); font-size:.84rem; font-weight:600; letter-spacing:.03em; }
+
 /* ═══════════════════════════════════════════════════
    EVENTS
 ═══════════════════════════════════════════════════ */
@@ -1000,6 +1002,8 @@ input, textarea, select { font-family:'Lato', sans-serif; }
 .footer-col ul li a { color:rgba(255,255,255,.6); font-size:.85rem; transition:color .2s; }
 .footer-col ul li a:hover { color:var(--go); }
 .footer-col p { color:rgba(255,255,255,.6); font-size:.85rem; line-height:1.65; margin-bottom:5px; }
+.footer-contact-row { display:flex; align-items:flex-start; gap:9px; margin-bottom:14px; }
+.footer-contact-icon { flex-shrink:0; margin-top:3px; }
 .footer-col a { color:rgba(255,255,255,.6); }
 .footer-col a:hover { color:var(--go); }
 .footer-bottom {

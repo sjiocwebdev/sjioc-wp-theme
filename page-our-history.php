@@ -5,7 +5,8 @@
  * WP Admin → Parish Milestones, not this file.
  */
 get_header();
-$milestones = sjioc_get_milestones();
+$milestones     = sjioc_get_milestones();
+$vicar_timeline = sjioc_get_vicar_timeline(get_the_ID());
 ?>
 <div class="page-hero">
   <div class="container">
@@ -30,5 +31,20 @@ $milestones = sjioc_get_milestones();
     <?php endforeach; ?>
   </div>
 </div></div>
+
+<?php if ($vicar_timeline): ?>
+<div class="bg-cream"><div class="sec container tc">
+  <span class="stag">Parish Leadership</span>
+  <h2 class="stitle">Vicar Leadership Timeline</h2>
+  <div class="divider"></div>
+  <div style="max-width:640px;margin:0 auto;text-align:left">
+    <ul class="acc-role-list">
+      <?php foreach ($vicar_timeline as $v): ?>
+      <li><span class="acc-role"><?php echo esc_html($v['period']); ?></span><span class="acc-name"><?php echo esc_html($v['name']); ?></span></li>
+      <?php endforeach; ?>
+    </ul>
+  </div>
+</div></div>
+<?php endif; ?>
 
 <?php sjioc_footer(); get_footer(); ?>

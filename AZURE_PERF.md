@@ -35,6 +35,7 @@ Audit date: 2026-08-17
 | Our History page load | 1 | 1 — `sjioc_get_milestones()`, cached 24h | None | 🟢 Light |
 | Leadership / Committees page load | 1 | 1 — office bearer query, cached 24h | None | 🟢 Light |
 | Outreach page load | 1 | 1 — `sjioc_outreach` get_posts (not cached, same as Ministries) | None | 🟢 Light |
+| News page load | 1 | 1 — `sjioc_news` get_posts, all published fetched then paginated in PHP (not cached, same as Ministries/Outreach) | None | 🟢 Light |
 
 ---
 
@@ -160,3 +161,5 @@ Before adding any new feature, answer these:
 | `page-leadership.php` / `page-committees.php` | Office bearer listings | 0 at render — reads cached office data |
 | `inc/outreach.php` | Outreach Programs CPT | 1 per page load (not cached, mirrors Ministries) |
 | `page-outreach.php` | Outreach page — card grid + popup | 1 via `sjioc_outreach` get_posts |
+| `inc/news.php` | SJIOC News CPT (native editor/thumbnail/excerpt) | 0 — CPT registration only |
+| `page-news.php` | News page — card grid + popup + in-PHP pagination | 1 via `sjioc_news` get_posts (all, sliced in PHP) |

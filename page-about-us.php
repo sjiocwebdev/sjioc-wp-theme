@@ -269,18 +269,42 @@ get_header();
 </div></div>
 
 <!-- Timeline -->
+<?php
+$_pm_milestones   = sjioc_get_milestones();
+$_pm_history_id   = sjioc_get_our_history_page_id();
+$_pm_vicars       = $_pm_history_id ? sjioc_get_vicar_timeline($_pm_history_id) : [];
+?>
 <div id="history" class="bg-ww"><div class="sec container tc">
   <span class="stag">Our History</span>
   <h2 class="stitle">Parish Milestones</h2>
   <div class="divider"></div>
   <div class="timeline" style="text-align:left">
+    <?php if ($_pm_milestones): foreach ($_pm_milestones as $m): ?>
+    <div class="tl-row"><div class="tl-year"><span><?php echo esc_html($m['year']); ?></span></div><div class="tl-content"><h4><?php echo esc_html($m['title']); ?></h4><div><?php echo wp_kses_post($m['content']); ?></div></div></div>
+    <?php endforeach; else: ?>
     <div class="tl-row"><div class="tl-year"><span>2006</span></div><div class="tl-content"><h4>Parish Founded</h4><p>By Kalpana No. K81/2006, His Grace Mathews Mar Barnabas declared the formation of St. John's congregation. First Holy Qurbana November 25, 2006. Fr. Geevarghese Erakkath appointed first Vicar.</p></div></div>
     <div class="tl-row"><div class="tl-year"><span>2008</span></div><div class="tl-content"><h4>Growing Congregation</h4><p>The parish grew significantly, welcoming families from across Delaware Valley into our Orthodox Christian community.</p></div></div>
     <div class="tl-row"><div class="tl-year"><span>2012</span></div><div class="tl-content"><h4>MGOCSM Chapter</h4><p>The MGOCSM chapter was formally established, energizing youth and young adult participation in parish life.</p></div></div>
     <div class="tl-row"><div class="tl-year"><span>2019</span></div><div class="tl-content"><h4>Home at Drexel Hill</h4><p>The parish settled at 4400 State Road, Drexel Hill, PA 19026 — our permanent home in the heart of Delaware Valley.</p></div></div>
     <div class="tl-row"><div class="tl-year"><span>2026</span></div><div class="tl-content"><h4>Serving Today</h4><p>Under Rev. Fr. Tojo Baby, our parish continues to grow in faith, numbers, and community engagement.</p></div></div>
+    <?php endif; ?>
   </div>
 </div></div>
+
+<?php if ($_pm_vicars): ?>
+<div class="bg-cream"><div class="sec container tc">
+  <span class="stag">Parish Leadership</span>
+  <h2 class="stitle">Vicar Leadership Timeline</h2>
+  <div class="divider"></div>
+  <div style="max-width:640px;margin:0 auto;text-align:left">
+    <ul class="acc-role-list">
+      <?php foreach ($_pm_vicars as $v): ?>
+      <li><span class="acc-role"><?php echo esc_html($v['period']); ?></span><span class="acc-name"><?php echo esc_html($v['name']); ?></span></li>
+      <?php endforeach; ?>
+    </ul>
+  </div>
+</div></div>
+<?php endif; ?>
 </article>
 <style>
 /* ── Jt. Office Bearers ── */

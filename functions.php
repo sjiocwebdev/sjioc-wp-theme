@@ -7,7 +7,7 @@
 
 defined('ABSPATH') || exit;
 
-define('SJIOC_VER', '2.0.2');
+define('SJIOC_VER', '2.0.11');
 define('SJIOC_DIR', get_template_directory());
 define('SJIOC_URI', get_template_directory_uri());
 
@@ -28,3 +28,4 @@ require_once SJIOC_DIR . '/inc/new-to-church.php';
 require_once SJIOC_DIR . '/inc/office.php';
 require_once SJIOC_DIR . '/inc/about-pages.php';
 require_once SJIOC_DIR . '/inc/outreach.php';
+require_once SJIOC_DIR . '/inc/news.php';

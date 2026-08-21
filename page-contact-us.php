@@ -70,18 +70,7 @@ get_header();
       <div class="form-group"><label for="cf-phone">Phone</label><input type="tel" id="cf-phone" placeholder="(610) 000-0000"></div>
       <div class="form-group">
         <label for="cf-subject">Subject</label>
-        <select id="cf-subject">
-          <option value="">Select a subject…</option>
-          <option value="Contact the Vicar">Contact the Vicar</option>
-          <option value="Contact the Trustee">Contact the Trustee</option>
-          <option value="Contact the Secretary">Contact the Secretary</option>
-          <option value="General Inquiry">General Inquiry</option>
-          <option value="Prayer Request">Prayer Request</option>
-          <option value="Baptism / Marriage">Baptism / Marriage</option>
-          <option value="Ministry Information">Ministry Information</option>
-          <option value="Pastoral Counseling">Pastoral Counseling</option>
-          <option value="Other">Other</option>
-        </select>
+        <select id="cf-subject"><?php echo sjioc_contact_subject_options_html(); ?></select>
       </div>
       <div class="form-group"><label for="cf-message">Message <span style="color:var(--cr)">*</span></label><textarea id="cf-message" placeholder="How can we help you?" required></textarea></div>
       <button class="form-submit" id="cf-submit" type="button" onclick="sjiocSubmitForm()">Send Message ✉</button>

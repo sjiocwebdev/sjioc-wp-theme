@@ -305,8 +305,12 @@ function sjioc_graph_send_mail(array|string $to, string $subject, string $body_h
     $recipients = array_map(fn($a) => ['emailAddress' => ['address' => $a]], $to_list);
 
     $reply_to = '';
+    $cc_list  = [];
     foreach ($headers as $h) {
-        if (stripos($h, 'Reply-To:') === 0) { $reply_to = trim(substr($h, 9)); break; }
+        if (stripos($h, 'Reply-To:') === 0) { $reply_to = trim(substr($h, 9)); continue; }
+        if (stripos($h, 'Cc:') === 0) {
+            $cc_list = array_filter(array_map('trim', explode(',', substr($h, 3))));
+        }
     }
 
     $from_addr = sjioc_mail_from();
@@ -318,6 +322,9 @@ function sjioc_graph_send_mail(array|string $to, string $subject, string $body_h
     ];
     if ($reply_to) {
         $message['replyTo'] = [['emailAddress' => ['address' => $reply_to]]];
+    }
+    if ($cc_list) {
+        $message['ccRecipients'] = array_map(fn($a) => ['emailAddress' => ['address' => $a]], $cc_list);
     }
 
     $resp = wp_remote_post(
@@ -499,7 +506,7 @@ function sjioc_footer() { ?>
       <div class="footer-col">
         <span class="footer-col-title">Service Times</span>
         <?php foreach (sjioc_get_worship_times() as $wt): ?>
-        <p><?php echo esc_html($wt['label']); ?>: <strong style="color:var(--go)"><?php echo esc_html($wt['time']); ?></strong></p>
+        <p><?php echo esc_html($wt['label']); ?>: <strong style="color:var(--go);white-space:nowrap"><?php echo esc_html($wt['time']); ?></strong></p>
         <?php endforeach; ?>
       </div>
       <div class="footer-col">
@@ -508,11 +515,9 @@ function sjioc_footer() { ?>
       </div>
       <div class="footer-col">
         <span class="footer-col-title">Contact Us</span>
-        <p>📍 <?php echo esc_html(sjioc_address()); ?></p>
-        <br>
-        <p>📞 <a href="tel:<?php echo preg_replace('/\D/', '', sjioc_phone()); ?>"><?php echo esc_html(sjioc_phone()); ?></a></p>
-        <br>
-        <p>✉ <a href="mailto:<?php echo esc_attr(sjioc_email()); ?>"><?php echo esc_html(sjioc_email()); ?></a></p>
+        <p class="footer-contact-row"><svg class="footer-contact-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z" fill="var(--go)"/></svg> <?php echo esc_html(sjioc_address()); ?></p>
+        <p class="footer-contact-row"><svg class="footer-contact-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.86 11a19.79 19.79 0 01-3.07-8.67A2 2 0 012.77 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.91 8.59a16 16 0 006.5 6.5l1.95-1.35a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" fill="var(--go)"/></svg> <a href="tel:<?php echo preg_replace('/\D/', '', sjioc_phone()); ?>"><?php echo esc_html(sjioc_phone()); ?></a></p>
+        <p class="footer-contact-row"><svg class="footer-contact-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="var(--go)"/></svg> <a href="mailto:<?php echo esc_attr(sjioc_email()); ?>"><?php echo esc_html(sjioc_email()); ?></a></p>
       </div>
     </div>
     <div class="footer-bottom">

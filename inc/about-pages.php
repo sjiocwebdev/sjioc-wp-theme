@@ -109,11 +109,15 @@ function sjioc_seed_milestones() {
     if (get_option('sjioc_milestones_seeded')) return;
 
     $milestones = [
-        ['year' => 2006, 'title' => 'Parish Founded',       'content' => "By Kalpana No. K81/2006, His Grace Mathews Mar Barnabas declared the formation of St. John's congregation. First Holy Qurbana November 25, 2006. Fr. Geevarghese Erakkath appointed first Vicar."],
-        ['year' => 2008, 'title' => 'Growing Congregation', 'content' => 'The parish grew significantly, welcoming families from across Delaware Valley into our Orthodox Christian community.'],
+        ['year' => 2006, 'title' => 'Parish Congregation Formed',   'content' => "By Bishop's Kalpana No. 80/2006, dated November 7, 2006, the formation of St. John's parish congregation was officially declared."],
+        ['year' => 2007, 'title' => 'SJIOC Officially Established', 'content' => "On July 17, 2007, the congregation was officially established as St. John's Indian Orthodox Church of Delaware Valley through Kalpana No. 76/2007. Rev. Fr. Geevarghese Errakkath was appointed as the parish's first Vicar."],
+        ['year' => 2008, 'title' => 'Fr. Roy P. George Assumes Leadership', 'content' => 'On April 19, 2008, Rev. Fr. Roy P. George assumed pastoral leadership of the parish.'],
+        ['year' => 2009, 'title' => 'Fr. Siby Varghese Begins Ministry', 'content' => 'On June 1, 2009, Rev. Fr. Siby Varghese began his ministry at SJIOC, going on to serve the parish for 15 years.'],
         ['year' => 2012, 'title' => 'MGOCSM Chapter',       'content' => 'The MGOCSM chapter was formally established, energizing youth and young adult participation in parish life.'],
-        ['year' => 2019, 'title' => 'Home at Drexel Hill',  'content' => 'The parish settled at 4400 State Road, Drexel Hill, PA 19026 — our permanent home in the heart of Delaware Valley.'],
-        ['year' => 2026, 'title' => 'Serving Today',        'content' => 'Under Rev. Fr. Tojo Baby, our parish continues to grow in faith, numbers, and community engagement.'],
+        ['year' => 2013, 'title' => 'First Permanent Church Property', 'content' => 'In 2013, the parish purchased its first permanent property at 4400 State Road, Drexel Hill — transitioning from a rented worship facility to an owned church home.'],
+        ['year' => 2013, 'title' => 'Church Dedication & Consecration', 'content' => 'On May 24–25, 2013, the church was officially dedicated and consecrated by H.G. Zachariah Mar Nicholovos Metropolitan.'],
+        ['year' => 2024, 'title' => 'Fr. Tojo Baby Appointed Vicar', 'content' => 'In 2024, Rev. Fr. Tojo Baby was appointed as the new Vicar of the parish.'],
+        ['year' => 2026, 'title' => 'Expansion Across the Street', 'content' => 'In 2026, the parish acquired the former Christian Science Society property across from SJIOC, expanding ministry space and addressing parking needs.'],
     ];
 
     foreach ($milestones as $m) {
@@ -247,6 +251,52 @@ add_action('save_post_page', function ($post_id) {
 });
 
 /* ─────────────────────────────────────
+   META BOX: on the "Our History" page — Vicar Leadership Timeline.
+   Separate from Parish Milestones (which is chronological parish
+   events) — this is a compact "who served when" list, so it's stored
+   directly on the page rather than as its own CPT.
+───────────────────────────────────── */
+add_action('add_meta_boxes_page', function ($post) {
+    if (get_page_template_slug($post->ID) !== 'page-our-history.php') return;
+    add_meta_box('sjioc_vicar_timeline', 'Vicar Leadership Timeline', 'sjioc_vicar_timeline_meta_box_html', 'page', 'normal', 'high');
+});
+
+function sjioc_vicar_timeline_meta_box_html($post) {
+    wp_nonce_field('sjioc_vicar_timeline_save', 'sjioc_vicar_timeline_nonce');
+    $rows = json_decode(get_post_meta($post->ID, 'sjioc_vicar_timeline', true) ?: '[]', true) ?: [];
+    $text = implode("\n", array_map(fn($r) => ($r['period'] ?? '') . ' | ' . ($r['name'] ?? ''), $rows));
+    ?>
+    <p class="description">One Vicar per line, in the format <code>Period | Name</code>. Leave the end date as "Present" for the current Vicar.</p>
+    <textarea name="vt_lines" rows="6" style="width:100%;font-family:monospace" placeholder="Nov. 15, 2006 – Apr. 19, 2008 | Rev. Fr. Geevarghese Errakkath
+2024 – Present | Rev. Fr. Tojo Baby"><?php echo esc_textarea($text); ?></textarea>
+    <?php
+}
+
+add_action('save_post_page', function ($post_id) {
+    if (!isset($_POST['sjioc_vicar_timeline_nonce']) ||
+        !wp_verify_nonce($_POST['sjioc_vicar_timeline_nonce'], 'sjioc_vicar_timeline_save')) return;
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    if (!current_user_can('edit_page', $post_id)) return;
+
+    $lines = preg_split('/\r\n|\r|\n/', (string) ($_POST['vt_lines'] ?? ''));
+    $rows  = [];
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '') continue;
+        $parts = explode('|', $line, 2);
+        $rows[] = [
+            'period' => sanitize_text_field(trim($parts[0] ?? '')),
+            'name'   => sanitize_text_field(trim($parts[1] ?? '')),
+        ];
+    }
+    update_post_meta($post_id, 'sjioc_vicar_timeline', wp_json_encode($rows));
+});
+
+function sjioc_get_vicar_timeline($page_id) {
+    return json_decode(get_post_meta($page_id, 'sjioc_vicar_timeline', true) ?: '[]', true) ?: [];
+}
+
+/* ─────────────────────────────────────
    Data access — transient-cached reads
 ───────────────────────────────────── */
 function sjioc_get_about_sections() {
@@ -348,12 +398,18 @@ function sjioc_get_about_nav_map() {
                 if ($key && !isset($map[$key])) $map[$key] = get_permalink($p->ID);
             } elseif (isset($template_keys[$tpl]) && !isset($map[$template_keys[$tpl]])) {
                 $map[$template_keys[$tpl]] = get_permalink($p->ID);
+                if ($template_keys[$tpl] === 'our-history') $map['_our_history_id'] = $p->ID;
             }
         }
     }
 
     set_transient('sjioc_about_nav_map', $map, DAY_IN_SECONDS);
     return $map;
+}
+
+function sjioc_get_our_history_page_id() {
+    $map = sjioc_get_about_nav_map();
+    return $map['_our_history_id'] ?? 0;
 }
 
 function sjioc_flush_about_nav_map() {
