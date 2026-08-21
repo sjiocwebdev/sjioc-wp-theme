@@ -78,10 +78,18 @@
   /* ─────────────────────────────────────────
      WIDGET BAR PANELS
   ───────────────────────────────────────── */
+  function sjiocSetExpandedTab(name) {
+    PANELS.forEach(function (n) {
+      var t = document.getElementById('tab-' + n);
+      if (t) t.classList.toggle('is-expanded', n === name);
+    });
+  }
+
   window.sjiocTogglePanel = function (name) {
     var panel = document.getElementById('panel-' + name);
     var tab   = document.getElementById('tab-' + name);
     if (!panel || !tab) return;
+    sjiocSetExpandedTab(name);
     var isOpen = panel.classList.contains('is-open');
     sjiocCloseAllPanels();
     if (!isOpen) {

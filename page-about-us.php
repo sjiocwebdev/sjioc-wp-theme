@@ -44,7 +44,7 @@ get_header();
     <div class="divider"></div>
     <p style="color:rgba(255,255,255,.68);max-width:560px;margin:0 auto 42px;line-height:1.78;font-size:.95rem;position:relative">Everything we do flows from these deeply held convictions about God, the Church, and one another.</p>
     <div class="values-grid" style="position:relative">
-      <div class="vcard"><span class="vcard-icon">✝</span><h3>Authentic Worship</h3><p>Rooted in 2,000 years of Orthodox liturgical tradition connecting us to the universal Church across all time.</p></div>
+      <div class="vcard"><span class="vcard-icon"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><rect x="10" y="2" width="4" height="20" fill="var(--go)"/><rect x="3" y="9" width="18" height="4" fill="var(--go)"/></svg></span><h3>Authentic Worship</h3><p>Rooted in 2,000 years of Orthodox liturgical tradition connecting us to the universal Church across all time.</p></div>
       <div class="vcard"><span class="vcard-icon">❤</span><h3>Loving Community</h3><p>The Church is a family. We care for one another and practice hospitality as a spiritual discipline.</p></div>
       <div class="vcard"><span class="vcard-icon">📖</span><h3>Faithful Teaching</h3><p>We hand on the apostolic faith intact through preaching, catechism, Sunday School, and adult formation.</p></div>
       <div class="vcard"><span class="vcard-icon">🌍</span><h3>Compassionate Service</h3><p>Following Christ's example, we serve the poor and marginalized in Drexel Hill and across the world.</p></div>

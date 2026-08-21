@@ -91,6 +91,7 @@ function sjioc_office_styles() {
         'grid'  => __('Grid — names only', 'sjioc'),
         'roles' => __('Roles — role → name pairs', 'sjioc'),
         'card'  => __('Card — photo + bio (Leadership only)', 'sjioc'),
+        'text'  => __('Text Card — name + role + bio, no photo', 'sjioc'),
         'pill'  => __('Pill — compact role/name chip (Leadership only)', 'sjioc'),
     ];
 }
@@ -378,16 +379,22 @@ function sjioc_render_office_leadership() {
     $leaders = [];
     $joint   = [];
     foreach ($groups as $g) {
-        if ($g['style'] === 'pill') $joint = array_merge($joint, $g['people']);
-        else                        $leaders = array_merge($leaders, $g['people']);
+        foreach ($g['people'] as $p) {
+            $p['_style'] = $g['style'];
+            if ($g['style'] === 'pill') $joint[]   = $p;
+            else                        $leaders[] = $p;
+        }
     }
 
     if ($leaders) {
         echo '<div class="leadership-grid">';
         foreach ($leaders as $p) {
-            $img = $p['photo'] ?: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=250&q=70';
-            echo '<div class="leader-card">';
-            echo '<img class="leader-avatar" src="' . esc_url($img) . '" alt="' . esc_attr($p['name']) . '" loading="lazy">';
+            $no_photo = ($p['_style'] === 'text');
+            echo '<div class="leader-card' . ($no_photo ? ' leader-card-nophoto' : '') . '">';
+            if (!$no_photo) {
+                $img = $p['photo'] ?: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=250&q=70';
+                echo '<img class="leader-avatar" src="' . esc_url($img) . '" alt="' . esc_attr($p['name']) . '" loading="lazy">';
+            }
             echo '<h3>' . esc_html($p['name']) . '</h3>';
             if ($p['role']) echo '<span class="leader-role">' . esc_html($p['role']) . '</span>';
             if ($p['bio'])  echo '<p>' . nl2br(esc_html($p['bio'])) . '</p>';
@@ -447,6 +454,16 @@ function sjioc_render_office_committees() {
             if ($grp['style'] === 'grid') {
                 echo '<ul class="acc-grid">';
                 foreach ($grp['people'] as $p) echo '<li>' . esc_html($p['name']) . '</li>';
+                echo '</ul>';
+            } elseif ($grp['style'] === 'text') {
+                echo '<ul class="acc-role-list">';
+                foreach ($grp['people'] as $p) {
+                    echo '<li>';
+                    if ($p['role']) echo '<span class="acc-role">' . esc_html($p['role']) . '</span>';
+                    echo '<span class="acc-name">' . esc_html($p['name']) . '</span>';
+                    if ($p['bio']) echo '<div class="acc-bio">' . nl2br(esc_html($p['bio'])) . '</div>';
+                    echo '</li>';
+                }
                 echo '</ul>';
             } else {
                 echo '<ul class="acc-role-list">';

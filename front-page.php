@@ -396,7 +396,7 @@ if ($announcements):
 <!-- ════ NEW TO SJIOC ════ -->
 <section class="ntc-band" aria-labelledby="ntc-heading">
   <div class="ntc-inner container">
-    <div class="ntc-cross">&#10013;</div>
+    <div class="ntc-cross"><svg viewBox="0 0 24 24" width="38" height="38" aria-hidden="true"><rect x="10" y="2" width="4" height="20" fill="var(--go)"/><rect x="3" y="9" width="18" height="4" fill="var(--go)"/></svg></div>
     <h2 id="ntc-heading">New to SJIOC?</h2>
     <p>Whether you've recently moved to the Greater Philadelphia region or are simply seeking a spiritual home,<br>we'd love to welcome you and your family into our parish community.</p>
     <button class="btn ntc-cta-btn" id="ntc-open-btn" type="button"> I'm New Here — Connect With Us</button>
@@ -410,7 +410,7 @@ if ($announcements):
 
     <!-- Left: church info -->
     <div class="ntc-panel ntc-info">
-      <div class="ntc-info-cross">&#10013;</div>
+      <div class="ntc-info-cross"><svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true"><rect x="10" y="2" width="4" height="20" fill="var(--go)"/><rect x="3" y="9" width="18" height="4" fill="var(--go)"/></svg></div>
       <h2 id="ntc-modal-title"><?php echo esc_html(sjioc_name()); ?></h2>
       <p class="ntc-tagline">A Keralite Orthodox Christian community in Drexell Hill, PA — a home away from home.</p>
       <p class="ntc-desc">We are a vibrant parish of the Malankara Orthodox Syrian Church, bringing together families from Kerala and the wider community in worship, fellowship, and service. Our doors are always open to newcomers seeking faith and community in Christ.</p>

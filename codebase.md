@@ -20,7 +20,7 @@
 | --- | --- |
 | language | PHP 8.1+ |
 | platform | WordPress classic theme (template hierarchy) |
-| version | SJIOC_VER 2.0.11 (bump on every style.css/main.js change — browsers cache by this query string) |
+| version | SJIOC_VER 2.0.16 (bump on every style.css/main.js change — browsers cache by this query string) |
 | db | MySQL via `$wpdb` (`{prefix}sjioc_*` custom tables) |
 | host | Azure App Service (WordPress on App Service) |
 | assets | `style.css` (all CSS), `assets/js/main.js`, events split out |
@@ -67,7 +67,7 @@
 | hall rental | inc/hall-rental.php | booking form + admin; ajax `rental_request`(+nopriv),`rental_update_status`; OneDrive upload; staff notify = **To Secretary, Cc Vicar+Trustee** (single email, was 3 separate To's); visitor gets a confirmation email + later status-change emails — Contact Us and New to SJIOC do NOT email the visitor, staff-only |
 | new to church | inc/new-to-church.php | ajax `sjioc_new_to_church` (+nopriv); staff notify = **To Secretary, Cc Vicar+Trustee** (was 3 separate To's incl. Trustee never included before) |
 | recaptcha | inc/recaptcha.php | site/secret key helpers + verify; fails open (allows submission) if unconfigured or Google unreachable |
-| office bearers (About page) | inc/office.php | CPT `sjioc_office` + taxonomy `sjioc_office_group`; drives About Leadership + Committees sections; meta box role/bio/order; `sjioc_render_office_*()`; static fallback in page-about-us.php. Group placement (section/tab/style/order) is **term meta**, editable per-group on the Groups screen (SJIOC → Groups submenu, added because the taxonomy has no menu link by default under a shared top-level menu) — not hardcoded; only the 2 Committees tab labels (`sjioc_office_tabs()`) are still fixed in code |
+| office bearers (About page) | inc/office.php | CPT `sjioc_office` + taxonomy `sjioc_office_group`; drives About Leadership + Committees sections; meta box role/bio/order; `sjioc_render_office_*()`; static fallback in page-about-us.php. Group placement (section/tab/style/order) is **term meta**, editable per-group on the Groups screen (SJIOC → Groups submenu, added because the taxonomy has no menu link by default under a shared top-level menu) — not hardcoded; only the 2 Committees tab labels (`sjioc_office_tabs()`) are still fixed in code. 5 display styles now: grid/roles/card/pill/**text** (text = name+role+bio, no photo — works for both Leadership-section and Committee-section groups; leadership renderer tracks each person's style individually since people from differently-styled groups get merged into one grid) |
 
 ## data_model
 | table (`{prefix}` prefix) | source file |
@@ -102,6 +102,8 @@
 | page-load DB | each page +1 query max; cache non-realtime reads in transients |
 | email body HTML | always `esc_html()` user-submitted fields before interpolating into HTML email bodies (was a gap in contact-form.php, fixed) |
 | `add_action` with multi-param closures | WordPress only passes 1 arg to a hook callback by default — a closure declaring 2+ params needs explicit `add_action($hook, $cb, $priority, $accepted_args)` or it fatals with `ArgumentCountError`. Bit us once on `sjioc_office_group_edit_form_fields` |
+| `.mdcard img { height:100% }` (Ministries/Outreach/News shared card) | Works on desktop (2-col grid, image row height is set by the text column). On mobile (1-col stack) the image's row has nothing else to anchor its height, so `height:100%` resolves to `auto` per spec — a portrait photo can render very tall, pushing card text far below the fold. Fixed with a flat `height:200px` inside the `max-width:640px` media query; don't revert to a percentage height there |
+| Unicode dingbats (☎ ✝ 📍 etc.) as icons | Renders inconsistently across OS/browser emoji fonts — color can't be overridden via CSS `color`, and some render in a jarring default color (seen: black phone glyph, blue/purple cross). Site convention now: hand-rolled inline SVG in `var(--go)` for any icon that needs to match theme color, not raw `&#xxxx;`/emoji characters |
 
 ## recent_changes
 | date | change | files |
@@ -109,6 +111,7 @@
 | 2026-07-07 | Office Bearers CPT makes About Leadership + Committees editable in WP Admin (transient-cached, static fallback) | inc/office.php, functions.php, page-about-us.php |
 | 2026-08-20 | Office Bearer groups became fully admin-configurable — section/tab/style/order moved from a hardcoded PHP array to term meta on `sjioc_office_group`, editable per-group; one-time migration backfills the original 13 groups so existing content renders unchanged | inc/office.php |
 | 2026-08-20/21 | About Us hub system (About Us Hub, Our Parish/Diocese/Church/Vicar, Leadership, Committees, Our History as dedicated pages), Outreach CPT+page, News CPT+page, Vicar Leadership Timeline (new page-level meta box), header/footer social icons redesigned to full-brand-color SVGs + "Follow" tab added to the bottom widget bar, Contact Form subjects made admin-configurable with per-subject CC, Graph API mail gained Cc support, contact form rate-limited + email-body XSS fix, Hall Rental/New-to-Church staff notify switched from 3 separate To's to one To(Secretary)+Cc(Vicar,Trustee) email | inc/about-pages.php, inc/outreach.php, inc/news.php, page-*.php (many), inc/setup.php, inc/contact-form.php, inc/admin.php, inc/hall-rental.php, inc/new-to-church.php, style.css |
+| 2026-08-21 | Mobile fixes: widget-bar tabs no longer overflow off-screen (icon-only breakpoint raised 380px->640px, one consolidated mobile rule instead of two); widget bar tabs now show icon+label only for the active/last-tapped tab (Chat expanded by default) via new `sjiocSetExpandedTab()`; fixed `.mdcard` images rendering oversized on mobile (see risk_zones); replaced remaining raw cross-glyph icons (New to SJIOC band+popup, About Us Core Values card, Hall Rental terms) with gold SVGs; removed the giant low-opacity `::before` cross watermark on the New to SJIOC band (was visible as a stray colored overlay on mobile). Office Bearers gained a 5th display style, "Text Card" (name+role+bio, no photo) — see feature_index | style.css, footer.php, assets/js/main.js, front-page.php, page-about-us.php, page-hall-rental.php, inc/office.php, functions.php |
 
 ## rules
 - Follow CLAUDE.md: ask before assuming, surgical changes, `sjioc_` prefix, `defined('ABSPATH')||exit`.

@@ -322,7 +322,7 @@ $min_setup_date = date('Y-m-d', strtotime('+2 days'));
 
         <div class="rf-terms-box">
           <div class="rf-terms-title">
-            <span class="rf-terms-cross">&#10013;</span>
+            <span class="rf-terms-cross"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="10" y="2" width="4" height="20" fill="var(--go)"/><rect x="3" y="9" width="18" height="4" fill="var(--go)"/></svg></span>
             Terms &amp; Conditions for Use of SJIOC Church Facility
           </div>
           <div class="rf-terms-scroll">

@@ -43,7 +43,7 @@ $_sjioc_celeb_total = count($_sjioc_bdays) + count($_sjioc_annivs);
   </div>
 
   <!-- Tab ③ Chat -->
-  <div class="wbar-tab" id="tab-chat" role="button" tabindex="0" aria-controls="panel-chat" aria-expanded="false" onclick="sjiocTogglePanel('chat')" onkeydown="if(event.key==='Enter'||event.key===' ')sjiocTogglePanel('chat')">
+  <div class="wbar-tab is-expanded" id="tab-chat" role="button" tabindex="0" aria-controls="panel-chat" aria-expanded="false" onclick="sjiocTogglePanel('chat')" onkeydown="if(event.key==='Enter'||event.key===' ')sjiocTogglePanel('chat')">
     <span class="wbar-icon" aria-hidden="true">💬</span>
     <span class="wbar-label"><?php esc_html_e('Chat','sjioc'); ?></span>
     <span class="wpulse" aria-hidden="true"></span>
