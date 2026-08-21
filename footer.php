@@ -28,13 +28,6 @@ $_sjioc_celeb_total = count($_sjioc_bdays) + count($_sjioc_annivs);
     <span class="wbar-badge" id="badge-celeb"><?php echo $_sjioc_celeb_total ?: ''; ?></span>
   </div>
 
-  <!-- Tab ③ Chat -->
-  <div class="wbar-tab" id="tab-chat" role="button" tabindex="0" aria-controls="panel-chat" aria-expanded="false" onclick="sjiocTogglePanel('chat')" onkeydown="if(event.key==='Enter'||event.key===' ')sjiocTogglePanel('chat')">
-    <span class="wbar-icon" aria-hidden="true">💬</span>
-    <span class="wbar-label"><?php esc_html_e('Chat','sjioc'); ?></span>
-    <span class="wpulse" aria-hidden="true"></span>
-  </div>
-
   <!-- Scrolling ticker -->
   <div class="wbar-ticker" aria-hidden="true">
     <div class="ticker-track">
@@ -49,7 +42,18 @@ $_sjioc_celeb_total = count($_sjioc_bdays) + count($_sjioc_annivs);
     </div>
   </div>
 
-  <div class="wbar-azure" aria-label="Hosted on Microsoft Azure">☁ <span>Azure</span></div>
+  <!-- Tab ③ Chat -->
+  <div class="wbar-tab" id="tab-chat" role="button" tabindex="0" aria-controls="panel-chat" aria-expanded="false" onclick="sjiocTogglePanel('chat')" onkeydown="if(event.key==='Enter'||event.key===' ')sjiocTogglePanel('chat')">
+    <span class="wbar-icon" aria-hidden="true">💬</span>
+    <span class="wbar-label"><?php esc_html_e('Chat','sjioc'); ?></span>
+    <span class="wpulse" aria-hidden="true"></span>
+  </div>
+
+  <!-- Tab ④ Follow Us -->
+  <div class="wbar-tab" id="tab-follow" role="button" tabindex="0" aria-controls="panel-follow" aria-expanded="false" onclick="sjiocTogglePanel('follow')" onkeydown="if(event.key==='Enter'||event.key===' ')sjiocTogglePanel('follow')">
+    <span class="wbar-icon" aria-hidden="true">🔗</span>
+    <span class="wbar-label"><?php esc_html_e('Follow','sjioc'); ?></span>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════
@@ -220,6 +224,22 @@ $_sjioc_celeb_total = count($_sjioc_bdays) + count($_sjioc_annivs);
   <div class="chat-input-row">
     <input class="chat-input" id="chatInput" type="text" placeholder="<?php esc_attr_e('Type your message…','sjioc'); ?>" onkeydown="if(event.key==='Enter')sjiocSendChat()" aria-label="<?php esc_attr_e('Chat message','sjioc'); ?>">
     <button class="chat-send" onclick="sjiocSendChat()" aria-label="<?php esc_attr_e('Send message','sjioc'); ?>">➤</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PANEL ④ — FOLLOW US
+═══════════════════════════════════════════════ -->
+<div class="widget-panel" id="panel-follow" role="dialog" aria-label="Follow Us" aria-modal="true">
+  <div class="panel-header">
+    <div>
+      <h3>🔗 <?php esc_html_e('Follow Us','sjioc'); ?></h3>
+      <p><?php esc_html_e('Stay connected on social media','sjioc'); ?></p>
+    </div>
+    <button class="panel-close" onclick="sjiocClosePanel('follow')" aria-label="<?php esc_attr_e('Close','sjioc'); ?>">&times;</button>
+  </div>
+  <div class="panel-body">
+    <?php sjioc_follow_rows(); ?>
   </div>
 </div>
 

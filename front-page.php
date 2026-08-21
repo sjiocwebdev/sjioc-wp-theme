@@ -221,11 +221,10 @@ if ($announcements):
     <div class="welcome-grid">
       <div class="welcome-text">
         <span class="stag">Our Community</span>
-        <h2>Welcome to <?php echo esc_html(sjioc_name()); ?></h2>
+        <h2>Welcome to St. John's Indian Orthodox Church of Delaware Valley</h2>
         <div class="divider divider-l"></div>
-        <p>We warmly welcome you to <?php echo esc_html(sjioc_name()); ?>. Our church at <?php echo esc_html(sjioc_address()); ?> is a place of faith, fellowship, and ancient Orthodox tradition.</p>
-        <p>Serving the communities of Exton, Downingtown, West Chester, Upper Darby, King of Prussia, Springfield, Broomall, Drexel Hill, Glen Mills, and all of Delaware Valley since November 2006.</p>
-        <p>Rooted in the Malankara Orthodox Syrian Church — the ancient apostolic faith brought to India by St. Thomas the Apostle in 52 AD.</p>
+        <p>Welcome to St. John's Indian Orthodox Church of Delaware Valley, a vibrant sanctuary of faith, fellowship, and timeless Orthodox tradition. Located at 4400 State Road in Drexel Hill, Pennsylvania, our parish has been proudly serving families across Delaware Valley and Greater Philadelphia regions since November 2006.</p>
+        <p>Our community is deeply rooted in the Malankara Orthodox Syrian Church, carrying forward the ancient apostolic faith established in India by St. Thomas the Apostle in 52 AD. Whether you are looking for a spiritual home, seeking to explore your faith, or wanting to connect with a welcoming community, we invite you to experience the rich liturgy and warmth of our parish.</p>
         <br>
         <a href="<?php echo esc_url(home_url('/about-us/')); ?>" class="btn btn-cr">Learn More About Us</a>
       </div>
@@ -247,16 +246,16 @@ if ($announcements):
     <div class="divider"></div>
     <div class="times-row">
       <div class="time-col">
-        <span class="time-label">Sunday Holy Qurbana</span>
-        <span class="time-val"><?php echo esc_html(sjioc_qurbana()); ?></span>
+        <span class="time-label">Saturday</span>
+        <span class="time-val">Evening Prayer — <?php echo esc_html(sjioc_sat_evening()); ?></span>
       </div>
       <div class="time-col">
-        <span class="time-label">Sunday School</span>
-        <span class="time-val"><?php echo esc_html(sjioc_school()); ?></span>
+        <span class="time-label">Sunday</span>
+        <span class="time-val">Morning Prayer — <?php echo esc_html(sjioc_morning_prayer()); ?> &nbsp;|&nbsp; Holy Qurbana — <?php echo esc_html(sjioc_qurbana()); ?></span>
       </div>
       <div class="time-col">
-        <span class="time-label">Saturday Office Hours</span>
-        <span class="time-val"><?php echo esc_html(sjioc_get('sjioc_saturday','5:00 – 7:30 PM')); ?></span>
+        <span class="time-label">First Wednesday</span>
+        <span class="time-val">Holy Qurbana — <?php echo esc_html(sjioc_first_wed_qurbana()); ?></span>
       </div>
     </div>
   </div>
@@ -399,7 +398,7 @@ if ($announcements):
   <div class="ntc-inner container">
     <div class="ntc-cross">&#10013;</div>
     <h2 id="ntc-heading">New to SJIOC?</h2>
-    <p>Whether you've recently moved to Philadelphia or are simply seeking a spiritual home,<br>we'd love to welcome you and your family into our parish community.</p>
+    <p>Whether you've recently moved to the Greater Philadelphia region or are simply seeking a spiritual home,<br>we'd love to welcome you and your family into our parish community.</p>
     <button class="btn ntc-cta-btn" id="ntc-open-btn" type="button"> I'm New Here — Connect With Us</button>
   </div>
 </section>

@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var PANELS = ['contacts', 'celeb', 'chat'];
+  var PANELS = ['contacts', 'celeb', 'chat', 'follow'];
 
   /* ─── Sticky Nav Shadow ─── */
   var header = document.getElementById('site-header');
@@ -117,7 +117,7 @@
       panel.style.cssText = 'left:0;right:0;width:100%;max-height:70vh';
       return;
     }
-    if (name === 'chat') {
+    if (name === 'chat' || name === 'follow') {
       panel.style.right = '0'; panel.style.left = 'auto'; panel.style.width = PW + 'px';
       return;
     }
@@ -429,5 +429,35 @@
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  /* ─── Committees page: tabs + accordion ─── */
+  document.querySelectorAll('.cmte-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      document.querySelectorAll('.cmte-tab').forEach(function (t) { t.classList.remove('is-active'); });
+      document.querySelectorAll('.cmte-panel').forEach(function (p) { p.style.display = 'none'; });
+      this.classList.add('is-active');
+      var panel = document.getElementById(this.dataset.panel);
+      if (panel) panel.style.display = '';
+    });
+  });
+
+  document.querySelectorAll('.acc-header').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var item = this.closest('.acc-item');
+      var body = item.querySelector('.acc-body');
+      var open = item.classList.contains('is-open');
+      var panel = item.closest('.cmte-panel');
+      panel.querySelectorAll('.acc-item').forEach(function (i) {
+        i.classList.remove('is-open');
+        i.querySelector('.acc-header').setAttribute('aria-expanded', 'false');
+        i.querySelector('.acc-body').style.display = 'none';
+      });
+      if (!open) {
+        item.classList.add('is-open');
+        btn.setAttribute('aria-expanded', 'true');
+        body.style.display = '';
+      }
+    });
+  });
 
 })();

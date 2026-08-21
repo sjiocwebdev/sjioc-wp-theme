@@ -30,12 +30,15 @@ get_header();
         <div><h4>Email</h4><a href="mailto:<?php echo esc_attr(sjioc_email()); ?>"><?php echo esc_html(sjioc_email()); ?></a></div>
       </div>
       <div class="cdet">
-        <div class="cicon">🕐</div>
-        <div><h4>Office Hours</h4><p>Saturday: 5:00 PM – 8:00 PM<br>Sunday: After Holy Qurbana</p></div>
-      </div>
-      <div class="cdet">
         <div class="cicon">🛐</div>
-        <div><h4>Sunday Services</h4><p>Holy Qurbana: <?php echo esc_html(sjioc_qurbana()); ?><br>Sunday School: <?php echo esc_html(sjioc_school()); ?></p></div>
+        <div>
+          <h4>Worship Times</h4>
+          <p>
+            <?php foreach (sjioc_get_worship_times() as $i => $wt): ?>
+              <?php echo esc_html($wt['label']); ?>: <?php echo esc_html($wt['time']); ?><?php echo $i < 4 ? '<br>' : ''; ?>
+            <?php endforeach; ?>
+          </p>
+        </div>
       </div>
 
       <!-- Map -->
@@ -104,7 +107,7 @@ get_header();
     <div class="times-row">
       <div class="time-col"><span class="time-label">Holy Qurbana</span><span class="time-val"><?php echo esc_html(sjioc_qurbana()); ?></span></div>
       <div class="time-col"><span class="time-label">Sunday School</span><span class="time-val"><?php echo esc_html(sjioc_school()); ?></span></div>
-      <div class="time-col"><span class="time-label">Parish Office</span><span class="time-val">Sat 5:00–7:30 PM</span></div>
+      <div class="time-col"><span class="time-label">Saturday</span><span class="time-val">Evening Prayer <?php echo esc_html(sjioc_sat_evening()); ?></span></div>
     </div>
   </div>
 </section>

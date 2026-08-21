@@ -80,6 +80,10 @@
       <?php echo esc_html(sjioc_phone()); ?>
     </a>
 
+    <div class="nav-social" aria-label="Social links">
+      <?php sjioc_social_icons('header'); ?>
+    </div>
+
   </div>
 </header>
 <!-- /#site-header -->

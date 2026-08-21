@@ -44,7 +44,7 @@ function sjioc_assets() {
         'phone'         => sjioc_get('sjioc_phone', '(610) 822-0033'),
         'email'         => sjioc_get('sjioc_email', 'info@sjioc.org'),
         'address'       => sjioc_get('sjioc_address', '4400 State Road, Drexel Hill, PA 19026'),
-        'qurbana'       => sjioc_get('sjioc_qurbana', '8:30 AM'),
+        'qurbana'       => sjioc_get('sjioc_qurbana', '9:30 AM'),
         'school'        => sjioc_get('sjioc_school',  '12:00 PM'),
         'ajaxUrl'       => admin_url('admin-ajax.php'),
         'nonce'         => wp_create_nonce('sjioc_ajax'),
@@ -103,11 +103,16 @@ function sjioc_customizer($wp_customize) {
         'sjioc_address'         => ['label' => 'Address',               'default' => '4400 State Road, Drexel Hill, PA 19026',               'section' => 'sjioc_info'],
         'sjioc_phone'           => ['label' => 'Phone Number',          'default' => '(610) 822-0033',                                       'section' => 'sjioc_info'],
         'sjioc_email'           => ['label' => 'Email Address',         'default' => 'info@sjioc.org',                                       'section' => 'sjioc_info'],
-        'sjioc_qurbana'         => ['label' => 'Holy Qurbana Time',     'default' => '8:30 AM',                                              'section' => 'sjioc_info'],
-        'sjioc_school'          => ['label' => 'Sunday School Time',    'default' => '12:00 PM',                                             'section' => 'sjioc_info'],
-        'sjioc_saturday'        => ['label' => 'Saturday Office Hours', 'default' => '5:00 PM – 7:30 PM',                                   'section' => 'sjioc_info'],
+        'sjioc_morning_prayer'  => ['label' => 'Sunday Morning Prayer Time', 'default' => '8:30 AM',                                        'section' => 'sjioc_info'],
+        'sjioc_qurbana'         => ['label' => 'Sunday Holy Qurbana Time', 'default' => '9:30 AM',                                           'section' => 'sjioc_info'],
+        'sjioc_school'          => ['label' => 'Spiritual Organizations Time', 'default' => '12:00 PM',                                      'section' => 'sjioc_info'],
+        'sjioc_saturday'        => ['label' => 'Saturday Evening Prayer Time', 'default' => '6:00 PM',                                       'section' => 'sjioc_info'],
+        'sjioc_first_wed_qurbana' => ['label' => 'First Wednesday Holy Qurbana Time', 'default' => '6:00 PM',                                'section' => 'sjioc_info'],
         'sjioc_facebook'        => ['label' => 'Facebook URL',          'default' => '#',                                                    'section' => 'sjioc_info'],
+        'sjioc_instagram'       => ['label' => 'Instagram URL',         'default' => '#',                                                    'section' => 'sjioc_info'],
         'sjioc_youtube'         => ['label' => 'YouTube URL',           'default' => '#',                                                    'section' => 'sjioc_info'],
+        'sjioc_zoom'            => ['label' => 'Zoom Meeting URL',      'default' => '#',                                                    'section' => 'sjioc_info'],
+        'sjioc_calendar_url'    => ['label' => 'Online Calendar URL',   'default' => '#',                                                    'section' => 'sjioc_info'],
         'sjioc_maps_url'        => ['label' => 'Google Maps URL',       'default' => 'https://share.google/zTkW7YSgj41LVTwW9',              'section' => 'sjioc_info'],
         'sjioc_email_vicar'     => ['label' => 'Vicar Email',           'default' => 'info@sjioc.org',                                       'section' => 'sjioc_info'],
         'sjioc_email_trustee'   => ['label' => 'Trustee Email',         'default' => 'info@sjioc.org',                                       'section' => 'sjioc_info'],
@@ -164,6 +169,19 @@ function sjioc_customizer($wp_customize) {
         'section'     => 'sjioc_info',
         'mime_type'   => 'image',
         'description' => __('Upload the Zelle QR code displayed on the Support Us / Give page.', 'sjioc'),
+    ]));
+
+    // Patron Saint icon — Worship & Services "Feast of the Patron Saint" section
+    $wp_customize->add_setting('sjioc_patron_saint_icon', [
+        'default'           => '',
+        'sanitize_callback' => 'absint',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control(new WP_Customize_Media_Control($wp_customize, 'sjioc_patron_saint_icon', [
+        'label'       => __('Patron Saint Icon (St. John the Baptist)', 'sjioc'),
+        'section'     => 'sjioc_info',
+        'mime_type'   => 'image',
+        'description' => __('Shown on the Worship & Services page, Feast of the Patron Saint section.', 'sjioc'),
     ]));
 
     // Hero watermark — separate upload, independent of the nav logo
@@ -345,11 +363,104 @@ function sjioc_email()   { return sjioc_get('sjioc_email',       'info@sjioc.org
 function sjioc_address() { return sjioc_get('sjioc_address',     '4400 State Road, Drexel Hill, PA 19026'); }
 function sjioc_name()    { return sjioc_get('sjioc_church_name', "St. John's Indian Orthodox Church Of Delaware Valley"); }
 function sjioc_abbr()    { return sjioc_get('sjioc_abbr',        'SJIOC'); }
-function sjioc_qurbana() { return sjioc_get('sjioc_qurbana',     '8:30 AM'); }
+function sjioc_qurbana() { return sjioc_get('sjioc_qurbana',     '9:30 AM'); }
 function sjioc_school()  { return sjioc_get('sjioc_school',      '12:00 PM'); }
 function sjioc_maps()    { return sjioc_get('sjioc_maps_url',    'https://share.google/zTkW7YSgj41LVTwW9'); }
 function sjioc_fb()      { return sjioc_get('sjioc_facebook',    '#'); }
 function sjioc_yt()      { return sjioc_get('sjioc_youtube',     '#'); }
+function sjioc_ig()      { return sjioc_get('sjioc_instagram',   '#'); }
+function sjioc_zoom()    { return sjioc_get('sjioc_zoom',        '#'); }
+function sjioc_cal()     { return sjioc_get('sjioc_calendar_url','#'); }
+function sjioc_morning_prayer()  { return sjioc_get('sjioc_morning_prayer',     '8:30 AM'); }
+function sjioc_sat_evening()     { return sjioc_get('sjioc_saturday',           '6:00 PM'); }
+function sjioc_first_wed_qurbana() { return sjioc_get('sjioc_first_wed_qurbana','6:00 PM'); }
+
+function sjioc_get_worship_times() {
+    return [
+        ['label' => 'Saturday Evening Prayer',     'time' => sjioc_sat_evening()],
+        ['label' => 'Sunday Morning Prayer',        'time' => sjioc_morning_prayer()],
+        ['label' => 'Sunday Holy Qurbana',          'time' => sjioc_qurbana()],
+        ['label' => 'Spiritual Organizations',      'time' => sjioc_school()],
+        ['label' => 'First Wednesday Holy Qurbana', 'time' => sjioc_first_wed_qurbana()],
+    ];
+}
+
+function sjioc_social_links_data($context) {
+    $ig_grad_id = 'sjioc-ig-grad-' . $context;
+
+    return [
+        'facebook'  => [
+            'url'   => sjioc_fb(),
+            'label' => 'Facebook',
+            'size'  => 18,
+            'svg'   => '<rect width="24" height="24" rx="12" fill="#1877F2"/><path d="M16.3 12.5h-2.15V20h-3.06v-7.5H9.45V9.83h1.64V8.16c0-1.98.92-3.29 3.32-3.29h2.13v2.79h-1.34c-.9 0-.97.3-.97.98v1.19h2.35l-.28 2.67z" fill="#fff"/>',
+        ],
+        'instagram' => [
+            'url'   => sjioc_ig(),
+            'label' => 'Instagram',
+            'size'  => 18,
+            'svg'   => '<defs><linearGradient id="' . esc_attr($ig_grad_id) . '" x1="0" y1="24" x2="24" y2="0">'
+                . '<stop offset="0" stop-color="#FED576"/><stop offset=".26" stop-color="#F47133"/>'
+                . '<stop offset=".61" stop-color="#BC3081"/><stop offset="1" stop-color="#4C63D2"/></linearGradient></defs>'
+                . '<rect width="24" height="24" rx="7" fill="url(#' . esc_attr($ig_grad_id) . ')"/>'
+                . '<rect x="6.2" y="6.2" width="11.6" height="11.6" rx="3.6" fill="none" stroke="#fff" stroke-width="1.6"/>'
+                . '<circle cx="12" cy="12" r="3.1" fill="none" stroke="#fff" stroke-width="1.6"/>'
+                . '<circle cx="16.1" cy="7.9" r="1" fill="#fff"/>',
+        ],
+        'youtube'   => [
+            'url'   => sjioc_yt(),
+            'label' => 'YouTube',
+            'size'  => 18,
+            'svg'   => '<rect width="24" height="24" rx="7" fill="#FF0000"/><path d="M9.7 8.4l6.2 3.6-6.2 3.6z" fill="#fff"/>',
+        ],
+        'zoom'      => [
+            'url'   => sjioc_zoom(),
+            'label' => 'Zoom',
+            'size'  => 18,
+            'svg'   => '<rect width="24" height="24" rx="7" fill="#2D8CFF"/><rect x="4.3" y="8" width="10.4" height="8" rx="2" fill="#fff"/><path d="M15.9 10.5l3.6-2.3v7.6l-3.6-2.3z" fill="#fff"/>',
+        ],
+        'calendar'  => [
+            'url'   => sjioc_cal(),
+            'label' => 'Calendar',
+            'size'  => 15,
+            'mono'  => true,
+            'svg'   => '<rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/><line x1="8" y1="3" x2="8" y2="7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="16" y1="3" x2="16" y2="7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+        ],
+    ];
+}
+
+function sjioc_social_icons($context = 'footer') {
+    $links      = sjioc_social_links_data($context);
+    $base_class = $context === 'header' ? 'nav-social-link' : 'social-link';
+    foreach ($links as $l) {
+        if (empty($l['url']) || $l['url'] === '#') continue;
+        $class = $base_class . (empty($l['mono']) ? ' social-badge' : '');
+        printf(
+            '<a class="%s" href="%s" target="_blank" rel="noopener" aria-label="%s"><svg viewBox="0 0 24 24" width="%d" height="%d" aria-hidden="true">%s</svg></a>',
+            esc_attr($class), esc_url($l['url']), esc_attr($l['label']), $l['size'], $l['size'], $l['svg']
+        );
+    }
+}
+
+/* ─────────────────────────────────────
+   FOLLOW US PANEL ROWS — same brand icons as sjioc_social_icons(),
+   rendered as a labeled list for the widget-bar "Follow" panel.
+───────────────────────────────────── */
+function sjioc_follow_rows() {
+    $links = sjioc_social_links_data('panel');
+    $any   = false;
+    foreach ($links as $key => $l) {
+        if ($key === 'calendar' || empty($l['url']) || $l['url'] === '#') continue;
+        $any = true;
+        printf(
+            '<a class="follow-row" href="%s" target="_blank" rel="noopener"><span class="follow-icon"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">%s</svg></span><span class="follow-label">%s</span><span class="follow-arrow" aria-hidden="true">&rarr;</span></a>',
+            esc_url($l['url']), $l['svg'], esc_html($l['label'])
+        );
+    }
+    if (!$any) {
+        echo '<p style="padding:20px 16px;color:#888;text-align:center;font-size:13px">Social links not set up yet.<br><span style="font-size:11px;color:var(--tl)">Add them in Appearance → Customize → Church Information</span></p>';
+    }
+}
 
 /* ─────────────────────────────────────
    FOOTER HTML
@@ -387,10 +498,9 @@ function sjioc_footer() { ?>
       </div>
       <div class="footer-col">
         <span class="footer-col-title">Service Times</span>
-        <p>Sunday Holy Qurbana</p>
-        <p><strong style="color:var(--go)"><?php echo esc_html(sjioc_qurbana()); ?></strong></p>
-        <br><p>Sunday School</p>
-        <p><strong style="color:var(--go)"><?php echo esc_html(sjioc_school()); ?></strong></p>
+        <?php foreach (sjioc_get_worship_times() as $wt): ?>
+        <p><?php echo esc_html($wt['label']); ?>: <strong style="color:var(--go)"><?php echo esc_html($wt['time']); ?></strong></p>
+        <?php endforeach; ?>
       </div>
       <div class="footer-col">
         <span class="footer-col-title">Quick Links</span>
@@ -408,8 +518,7 @@ function sjioc_footer() { ?>
     <div class="footer-bottom">
       <p>&copy; <?php echo date('Y'); ?> <?php echo esc_html(sjioc_name()); ?>. All rights reserved. Hosted on <span style="color:rgba(255,255,255,.5)">Microsoft Azure</span>.</p>
       <div class="social-links">
-        <a class="social-link" href="<?php echo esc_url(sjioc_fb()); ?>" target="_blank" rel="noopener" aria-label="Facebook">f</a>
-        <a class="social-link" href="<?php echo esc_url(sjioc_yt()); ?>" target="_blank" rel="noopener" aria-label="YouTube">▶</a>
+        <?php sjioc_social_icons('footer'); ?>
       </div>
     </div>
   </div>
@@ -424,6 +533,7 @@ function sjioc_footer_links() {
         home_url('/ministries/')       => 'Ministries',
         home_url('/events/')           => 'Events',
         home_url('/photos/')           => 'Parish Life',
+        home_url('/outreach/')         => 'Outreach',
         home_url('/contact-us/')       => 'Contact',
         home_url('/give/')             => 'Support Us',
     ];
@@ -453,6 +563,7 @@ function sjioc_primary_nav_fallback() {
         home_url('/ministries/')       => 'Ministries',
         home_url('/events/')           => 'Events',
         home_url('/photos/')           => 'Parish Life',
+        home_url('/outreach/')         => 'Outreach',
         $contact                       => 'Contact',
     ];
 

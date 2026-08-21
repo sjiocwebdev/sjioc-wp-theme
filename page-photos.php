@@ -37,7 +37,7 @@ $sorted_cats = array_merge(
     array_filter($cats_found, fn($c) => !isset($cat_labels[$c]))
 );
 ?>
-<div class="page-hero"><div class="container"><h1>Parish Life</h1><p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › Parish Life</p></div></div>
+<div class="page-hero"><div class="container"><h1>Gallery</h1><p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › Gallery</p></div></div>
 <div class="bg-cream"><div class="sec container">
   <div class="tc" style="margin-bottom:42px">
     <span class="stag">Our Parish Life</span>

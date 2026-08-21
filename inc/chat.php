@@ -201,12 +201,12 @@ function sjioc_azure_oai(string $message, string $kb_excerpt = ''): array {
 }
 
 function sjioc_chat_system_prompt($kb = '') {
+    $times = implode(' | ', array_map(fn($wt) => $wt['label'] . ' ' . $wt['time'], sjioc_get_worship_times()));
     $header = sprintf(
         "You are the parish assistant for %s, an Indian Orthodox Christian church.\n" .
         "Address: %s | Phone: %s | Email: %s\n" .
-        "Services: Holy Qurbana %s | Sunday School %s | Saturday %s\n\n",
-        sjioc_name(), sjioc_address(), sjioc_phone(), sjioc_email(),
-        sjioc_qurbana(), sjioc_school(), sjioc_get('sjioc_saturday', '5:00–7:30 PM')
+        "Services: %s\n\n",
+        sjioc_name(), sjioc_address(), sjioc_phone(), sjioc_email(), $times
     );
 
     $rules  = get_option('sjioc_chat_rules', sjioc_default_chat_rules());

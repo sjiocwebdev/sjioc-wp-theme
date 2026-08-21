@@ -4,7 +4,7 @@ Site hosted on **Azure App Service P0v3** (1 vCore, 4 GiB RAM — fixed-rate, pa
 **DB:** Azure Database for MySQL Flexible Server **B2s** (2 vCores, 4 GiB RAM, 684 IOPS — fixed-rate).
 Cost pressure = CPU/memory load per request. Higher load → need to scale up the plan.
 
-Audit date: 2026-05-16
+Audit date: 2026-08-17
 
 ---
 
@@ -31,6 +31,10 @@ Audit date: 2026-05-16
 | Parish Life — each photo in grid (first visit) | 1 per photo | 3 per photo — rate limit transient R+W + photo row SELECT; +1 write if URL cache miss | 1 per photo — SharePoint download | 🔴 Heavy (see note) |
 | Parish Life — each photo in grid (repeat, <1hr) | 0 | 0 | 0 | 🟢 None — browser cache |
 | Parish Life — video in lightbox (any visit) | 1 | 3 — rate limit R+W + photo SELECT; URL from 50-min cache | 0 — browser redirected to SharePoint directly | 🟢 Light |
+| About hub / Our Parish / Diocese / Church / Vicar page load | 1 | 1 — `sjioc_get_about_sections()`, cached 24h | None | 🟢 Light |
+| Our History page load | 1 | 1 — `sjioc_get_milestones()`, cached 24h | None | 🟢 Light |
+| Leadership / Committees page load | 1 | 1 — office bearer query, cached 24h | None | 🟢 Light |
+| Outreach page load | 1 | 1 — `sjioc_outreach` get_posts (not cached, same as Ministries) | None | 🟢 Light |
 
 ---
 
@@ -149,3 +153,10 @@ Before adding any new feature, answer these:
 | `page-events.php` | Events page template | 0 at render (REST fires after) |
 | `page-photos.php` | Parish Life gallery — album grid + photo grid | 1 at render (full photos SELECT); then 3 per photo proxy request |
 | `inc/sharepoint.php` | Photo proxy, delta sync, OneDrive token | 3 per photo (rate limit + URL cache + row SELECT); videos redirect, no proxy |
+| `inc/about-pages.php` | About Sections + Milestones CPTs, nav map | 1 per data type, transient-cached 24h |
+| `inc/office.php` | Office Bearers CPT (Leadership + Committees) | 1, transient-cached 24h |
+| `page-about-hub.php` / `template-about-section.php` | About Us hub + Our Parish/Diocese/Church/Vicar | 0 at render — reads cached `sjioc_get_about_sections()` |
+| `page-our-history.php` | Milestone timeline | 0 at render — reads cached `sjioc_get_milestones()` |
+| `page-leadership.php` / `page-committees.php` | Office bearer listings | 0 at render — reads cached office data |
+| `inc/outreach.php` | Outreach Programs CPT | 1 per page load (not cached, mirrors Ministries) |
+| `page-outreach.php` | Outreach page — card grid + popup | 1 via `sjioc_outreach` get_posts |
