@@ -86,8 +86,9 @@ foreach ($programs as $p) {
 <div class="min-modal" id="min-modal" onclick="sjiocCloseOutreach(event)" role="dialog" aria-modal="true" aria-label="Outreach Program Details">
   <div class="min-modal-box">
     <button class="min-close" onclick="sjiocCloseOutreach()" aria-label="Close">&times;</button>
-    <div class="min-hero" id="min-hero">
-      <div class="min-hero-overlay">
+    <div class="min-hero">
+      <div class="min-hero-img" id="min-hero-img"></div>
+      <div class="min-hero-text">
         <span id="min-tag" class="mcard-tag"></span>
         <h2 id="min-title"></h2>
       </div>
@@ -113,7 +114,7 @@ function sjiocOpenOutreach(id) {
     var m = SJIOC_OUTREACH[id];
     if (!m) return;
 
-    var hero = document.getElementById('min-hero');
+    var hero = document.getElementById('min-hero-img');
     if (m.img) {
         hero.style.backgroundImage = 'url(' + m.img + ')';
         hero.classList.remove('no-img');

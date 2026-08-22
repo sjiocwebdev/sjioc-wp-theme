@@ -93,8 +93,9 @@ $_pl_url   = $_pl_pages ? get_permalink($_pl_pages[0]->ID) : home_url('/photos/'
 <div class="min-modal" id="min-modal" onclick="sjiocCloseMinistry(event)" role="dialog" aria-modal="true" aria-label="Ministry Details">
   <div class="min-modal-box">
     <button class="min-close" onclick="sjiocCloseMinistry()" aria-label="Close">&times;</button>
-    <div class="min-hero" id="min-hero">
-      <div class="min-hero-overlay">
+    <div class="min-hero">
+      <div class="min-hero-img" id="min-hero-img"></div>
+      <div class="min-hero-text">
         <span id="min-tag" class="mcard-tag"></span>
         <h2 id="min-title"></h2>
       </div>
@@ -128,8 +129,8 @@ function sjiocOpenMinistry(id) {
     var m = SJIOC_MINISTRIES[id];
     if (!m) return;
 
-    // Hero: image as CSS background, fallback to cardinal colour
-    var hero = document.getElementById('min-hero');
+    // Hero image column: hidden entirely when there's no image
+    var hero = document.getElementById('min-hero-img');
     if (m.img) {
         hero.style.backgroundImage = 'url(' + m.img + ')';
         hero.classList.remove('no-img');

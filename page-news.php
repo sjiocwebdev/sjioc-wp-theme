@@ -95,8 +95,9 @@ foreach ($articles as $a) {
 <div class="min-modal" id="min-modal" onclick="sjiocCloseNews(event)" role="dialog" aria-modal="true" aria-label="News Article">
   <div class="min-modal-box">
     <button class="min-close" onclick="sjiocCloseNews()" aria-label="Close">&times;</button>
-    <div class="min-hero" id="min-hero">
-      <div class="min-hero-overlay">
+    <div class="min-hero">
+      <div class="min-hero-img" id="min-hero-img"></div>
+      <div class="min-hero-text">
         <span id="min-tag" class="mcard-tag"></span>
         <h2 id="min-title"></h2>
       </div>
@@ -117,7 +118,7 @@ function sjiocOpenNews(id) {
     var n = SJIOC_NEWS[id];
     if (!n) return;
 
-    var hero = document.getElementById('min-hero');
+    var hero = document.getElementById('min-hero-img');
     if (n.img) {
         hero.style.backgroundImage = 'url(' + n.img + ')';
         hero.classList.remove('no-img');
