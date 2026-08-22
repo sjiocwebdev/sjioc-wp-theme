@@ -54,6 +54,10 @@ function sjioc_admin_menu() {
         'sjioc', 'Contact Form Subjects', 'Contact Form',
         'manage_options', 'sjioc-contact-subjects', 'sjioc_contact_subjects_admin_page'
     );
+    add_submenu_page(
+        'sjioc', 'Core Values', 'Core Values',
+        'manage_options', 'sjioc-core-values', 'sjioc_core_values_admin_page'
+    );
     // Hidden page — edit form not shown in sidebar nav
     add_submenu_page(
         null, 'Edit Member', '', 'manage_options', 'sjioc-member-edit', 'sjioc_member_edit_page'

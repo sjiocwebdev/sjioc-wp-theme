@@ -15,22 +15,22 @@ get_header();
       <div class="divider divider-l" style="margin-bottom:30px"></div>
 
       <div class="cdet">
-        <div class="cicon">📍</div>
+        <div class="cicon"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z" fill="currentColor"/></svg></div>
         <div>
           <h4>Our Address</h4>
           <p><?php echo esc_html(sjioc_name()); ?><br><?php echo esc_html(sjioc_address()); ?></p>
         </div>
       </div>
       <div class="cdet">
-        <div class="cicon">📞</div>
+        <div class="cicon"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.86 11a19.79 19.79 0 01-3.07-8.67A2 2 0 012.77 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.91 8.59a16 16 0 006.5 6.5l1.95-1.35a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" fill="currentColor"/></svg></div>
         <div><h4>Phone</h4><a href="tel:<?php echo preg_replace('/\D/','',sjioc_phone()); ?>"><?php echo esc_html(sjioc_phone()); ?></a></div>
       </div>
       <div class="cdet">
-        <div class="cicon">✉</div>
+        <div class="cicon"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="currentColor"/></svg></div>
         <div><h4>Email</h4><a href="mailto:<?php echo esc_attr(sjioc_email()); ?>"><?php echo esc_html(sjioc_email()); ?></a></div>
       </div>
       <div class="cdet">
-        <div class="cicon">🛐</div>
+        <div class="cicon"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <div>
           <h4>Worship Times</h4>
           <p>

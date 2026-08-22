@@ -196,6 +196,45 @@ function sjioc_customizer($wp_customize) {
         'mime_type' => 'image',
         'description' => __('Upload a high-res image (PNG with transparency recommended). Falls back to the site logo, then the cross SVG.', 'sjioc'),
     ]));
+
+    // Home page Welcome section image
+    $wp_customize->add_setting('sjioc_welcome_img', [
+        'default'           => '',
+        'sanitize_callback' => 'absint',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control(new WP_Customize_Media_Control($wp_customize, 'sjioc_welcome_img', [
+        'label'       => __('Home Page Welcome Image', 'sjioc'),
+        'section'     => 'sjioc_hero',
+        'mime_type'   => 'image',
+        'description' => __('Shown in the "Welcome" section on the home page, below the hero banner.', 'sjioc'),
+    ]));
+
+    // About Us page intro image
+    $wp_customize->add_setting('sjioc_about_img', [
+        'default'           => '',
+        'sanitize_callback' => 'absint',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control(new WP_Customize_Media_Control($wp_customize, 'sjioc_about_img', [
+        'label'       => __('About Us Page Image', 'sjioc'),
+        'section'     => 'sjioc_info',
+        'mime_type'   => 'image',
+        'description' => __('Shown alongside the intro text on the About Us page.', 'sjioc'),
+    ]));
+
+    // Worship & Services page image
+    $wp_customize->add_setting('sjioc_worship_img', [
+        'default'           => '',
+        'sanitize_callback' => 'absint',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control(new WP_Customize_Media_Control($wp_customize, 'sjioc_worship_img', [
+        'label'       => __('Worship & Services Page Image', 'sjioc'),
+        'section'     => 'sjioc_info',
+        'mime_type'   => 'image',
+        'description' => __('Shown on the Worship & Services page, next to the Sunday Schedule.', 'sjioc'),
+    ]));
 }
 add_action('customize_register', 'sjioc_customizer');
 
@@ -429,9 +468,8 @@ function sjioc_social_links_data($context) {
         'calendar'  => [
             'url'   => sjioc_cal(),
             'label' => 'Calendar',
-            'size'  => 15,
-            'mono'  => true,
-            'svg'   => '<rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/><line x1="8" y1="3" x2="8" y2="7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="16" y1="3" x2="16" y2="7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+            'size'  => 18,
+            'svg'   => '<rect width="24" height="24" rx="7" fill="#C9A84C"/><rect x="5" y="6" width="14" height="13" rx="1.5" fill="none" stroke="#fff" stroke-width="1.6"/><line x1="5" y1="10" x2="19" y2="10" stroke="#fff" stroke-width="1.6"/><line x1="8.5" y1="4" x2="8.5" y2="7.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><line x1="15.5" y1="4" x2="15.5" y2="7.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>',
         ],
     ];
 }
@@ -457,7 +495,7 @@ function sjioc_follow_rows() {
     $links = sjioc_social_links_data('panel');
     $any   = false;
     foreach ($links as $key => $l) {
-        if ($key === 'calendar' || empty($l['url']) || $l['url'] === '#') continue;
+        if (empty($l['url']) || $l['url'] === '#') continue;
         $any = true;
         printf(
             '<a class="follow-row" href="%s" target="_blank" rel="noopener"><span class="follow-icon"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">%s</svg></span><span class="follow-label">%s</span><span class="follow-arrow" aria-hidden="true">&rarr;</span></a>',

@@ -230,7 +230,8 @@ if ($announcements):
       </div>
       <div class="welcome-img">
         <?php
-        $img_url = get_theme_mod('sjioc_welcome_img', 'https://sjioc.org/images/20250419_123136.jpg');
+        $img_id  = get_theme_mod('sjioc_welcome_img');
+        $img_url = $img_id ? wp_get_attachment_image_url($img_id, 'large') : 'https://sjioc.org/images/20250419_123136.jpg';
         ?>
         <img src="<?php echo esc_url($img_url); ?>" alt="<?php echo esc_attr(sjioc_name()); ?>"
              loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1548625149-720754956904?w=800&q=80'">

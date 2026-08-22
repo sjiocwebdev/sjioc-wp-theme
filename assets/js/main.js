@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var PANELS = ['contacts', 'celeb', 'chat', 'follow'];
+  var PANELS = ['contacts', 'celeb', 'calendar', 'chat', 'follow'];
 
   /* ─── Sticky Nav Shadow ─── */
   var header = document.getElementById('site-header');

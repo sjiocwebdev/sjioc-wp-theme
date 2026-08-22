@@ -23,7 +23,11 @@ get_header();
         </div>
         <?php endforeach; ?>
       </div>
-      <img src="https://sjioc.org/images/20250419_123136.jpg" alt="Church worship" style="width:100%;height:220px;object-fit:cover;border:3px solid var(--border)" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1548625149-720754956904?w=900&q=70'">
+      <?php
+      $worship_img_id  = get_theme_mod('sjioc_worship_img');
+      $worship_img_url = $worship_img_id ? wp_get_attachment_image_url($worship_img_id, 'large') : 'https://sjioc.org/images/20250419_123136.jpg';
+      ?>
+      <img src="<?php echo esc_url($worship_img_url); ?>" alt="Church worship" style="width:100%;height:220px;object-fit:cover;border:3px solid var(--border)" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1548625149-720754956904?w=900&q=70'">
     </div>
     <div>
       <h3 style="font-family:'Playfair Display',serif;color:var(--cr);font-size:1.45rem;margin-bottom:16px">Feast of the Patron Saint</h3>

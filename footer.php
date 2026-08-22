@@ -28,6 +28,12 @@ $_sjioc_celeb_total = count($_sjioc_bdays) + count($_sjioc_annivs);
     <span class="wbar-badge" id="badge-celeb"><?php echo $_sjioc_celeb_total ?: ''; ?></span>
   </div>
 
+  <!-- Tab ③ Calendar -->
+  <div class="wbar-tab" id="tab-calendar" role="button" tabindex="0" aria-controls="panel-calendar" aria-expanded="false" onclick="sjiocTogglePanel('calendar')" onkeydown="if(event.key==='Enter'||event.key===' ')sjiocTogglePanel('calendar')">
+    <span class="wbar-icon" aria-hidden="true">📅</span>
+    <span class="wbar-label"><?php esc_html_e('Calendar','sjioc'); ?></span>
+  </div>
+
   <!-- Scrolling ticker -->
   <div class="wbar-ticker" aria-hidden="true">
     <div class="ticker-track">
@@ -191,6 +197,31 @@ $_sjioc_celeb_total = count($_sjioc_bdays) + count($_sjioc_annivs);
         </p>
       <?php endif; ?>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PANEL — UPCOMING EVENTS (CALENDAR)
+═══════════════════════════════════════════════ -->
+<div class="widget-panel" id="panel-calendar" role="dialog" aria-label="Upcoming Events" aria-modal="true">
+  <div class="panel-header">
+    <div>
+      <h3>📅 <?php esc_html_e('Upcoming Events','sjioc'); ?></h3>
+      <p><?php esc_html_e("What's coming up at SJIOC",'sjioc'); ?></p>
+    </div>
+    <button class="panel-close" onclick="sjiocClosePanel('calendar')" aria-label="<?php esc_attr_e('Close','sjioc'); ?>">&times;</button>
+  </div>
+  <div class="panel-body">
+    <?php foreach (sjioc_get_widget_calendar_events() as $e): ?>
+    <div class="ev-item">
+      <div class="ev-date-box"><span class="ev-mon"><?php echo esc_html($e['mon']); ?></span><span class="ev-day"><?php echo esc_html($e['day']); ?></span></div>
+      <div class="ev-info"><h4><?php echo esc_html($e['title']); ?></h4><p><?php echo esc_html($e['excerpt']); ?></p></div>
+    </div>
+    <?php endforeach; ?>
+  </div>
+  <div class="panel-footer">
+    <?php $_cal_url = sjioc_cal(); $_cal_url = ($_cal_url && $_cal_url !== '#') ? $_cal_url : home_url('/events/'); ?>
+    <a href="<?php echo esc_url($_cal_url); ?>" class="panel-footer-btn gold" style="text-align:center"><?php esc_html_e('View Full Calendar','sjioc'); ?></a>
   </div>
 </div>
 

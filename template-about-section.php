@@ -16,6 +16,7 @@ $content = $section ? $section['content'] : '';
 $image   = $section ? $section['image_url'] : '';
 $link_label = $section ? $section['link_label'] : '';
 $link_url   = $section ? $section['link_url']   : '';
+$is_person  = $section ? !empty($section['is_person']) : false;
 
 if (!$section && have_posts()) {
     while (have_posts()) { the_post(); $content = apply_filters('the_content', get_the_content()); }
@@ -37,7 +38,7 @@ if (!$section && have_posts()) {
       <?php endif; ?>
     </div>
     <?php if ($image): ?>
-    <div class="about-img">
+    <div class="about-img<?php echo $is_person ? ' is-person' : ''; ?>">
       <img src="<?php echo esc_url($image); ?>" alt="<?php echo esc_attr($title); ?>" loading="lazy">
     </div>
     <?php endif; ?>

@@ -155,6 +155,17 @@ function sjioc_front_page_events(): array {
     ];
 }
 
+// ── Widget-bar Calendar panel — cached wrapper, since footer.php (and thus
+//    this call) loads on every page site-wide, unlike the home-page-only
+//    teaser above. 30-min transient keeps it within the +1-query budget.
+function sjioc_get_widget_calendar_events(): array {
+    $cached = get_transient('sjioc_widget_calendar_events');
+    if ($cached !== false) return $cached;
+    $items = sjioc_front_page_events();
+    set_transient('sjioc_widget_calendar_events', $items, 30 * MINUTE_IN_SECONDS);
+    return $items;
+}
+
 // ── AJAX: GCal sync ────────────────────────────────────────────────────────
 add_action('wp_ajax_sjioc_gcal_sync', 'sjioc_gcal_sync_ajax');
 function sjioc_gcal_sync_ajax(): void {

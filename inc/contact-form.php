@@ -42,7 +42,7 @@ function sjioc_contact_subjects_admin_page() {
     if (!current_user_can('manage_options')) return;
 
     if (isset($_POST['sjioc_contact_subjects_save']) && check_admin_referer('sjioc_contact_subjects_save')) {
-        $lines = preg_split('/\r\n|\r|\n/', (string) ($_POST['cs_lines'] ?? ''));
+        $lines = preg_split('/\r\n|\r|\n/', (string) wp_unslash($_POST['cs_lines'] ?? ''));
         $rows  = [];
         foreach ($lines as $line) {
             $line = trim($line);

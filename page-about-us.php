@@ -32,7 +32,11 @@ get_header();
       <br><a href="<?php echo esc_url(home_url('/contact-us/')); ?>" class="btn btn-cr">Get In Touch</a>
     </div>
     <div class="about-img">
-      <img src="https://sjioc.org/images/20250419_123136.jpg" alt="<?php echo esc_attr(sjioc_name()); ?>" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1548625149-720754956904?w=800&q=80'">
+      <?php
+      $about_img_id  = get_theme_mod('sjioc_about_img');
+      $about_img_url = $about_img_id ? wp_get_attachment_image_url($about_img_id, 'large') : 'https://sjioc.org/images/20250419_123136.jpg';
+      ?>
+      <img src="<?php echo esc_url($about_img_url); ?>" alt="<?php echo esc_attr(sjioc_name()); ?>" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1548625149-720754956904?w=800&q=80'">
     </div>
   </div>
 </div></div>
@@ -44,12 +48,9 @@ get_header();
     <div class="divider"></div>
     <p style="color:rgba(255,255,255,.68);max-width:560px;margin:0 auto 42px;line-height:1.78;font-size:.95rem;position:relative">Everything we do flows from these deeply held convictions about God, the Church, and one another.</p>
     <div class="values-grid" style="position:relative">
-      <div class="vcard"><span class="vcard-icon"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><rect x="10" y="2" width="4" height="20" fill="var(--go)"/><rect x="3" y="9" width="18" height="4" fill="var(--go)"/></svg></span><h3>Authentic Worship</h3><p>Rooted in 2,000 years of Orthodox liturgical tradition connecting us to the universal Church across all time.</p></div>
-      <div class="vcard"><span class="vcard-icon">❤</span><h3>Loving Community</h3><p>The Church is a family. We care for one another and practice hospitality as a spiritual discipline.</p></div>
-      <div class="vcard"><span class="vcard-icon">📖</span><h3>Faithful Teaching</h3><p>We hand on the apostolic faith intact through preaching, catechism, Sunday School, and adult formation.</p></div>
-      <div class="vcard"><span class="vcard-icon">🌍</span><h3>Compassionate Service</h3><p>Following Christ's example, we serve the poor and marginalized in Drexel Hill and across the world.</p></div>
-      <div class="vcard"><span class="vcard-icon">🕊</span><h3>Spiritual Formation</h3><p>We nurture the inner life through prayer, fasting, scripture, and the sacraments — growing in holiness together.</p></div>
-      <div class="vcard"><span class="vcard-icon">🤝</span><h3>Unity in Diversity</h3><p>All generations and backgrounds are welcome. We celebrate our Indian heritage while embracing all into God's family.</p></div>
+      <?php foreach (sjioc_core_values() as $v): ?>
+      <div class="vcard"><span class="vcard-icon"><?php echo esc_html($v['icon']); ?></span><h3><?php echo esc_html($v['title']); ?></h3><p><?php echo esc_html($v['desc']); ?></p></div>
+      <?php endforeach; ?>
     </div>
   </div>
 </section>
@@ -457,44 +458,5 @@ $_pm_vicars       = $_pm_history_id ? sjioc_get_vicar_timeline($_pm_history_id) 
   margin: 0 0 8px;
 }
 </style>
-
-<script>
-(function () {
-  // ── Tab switching ─────────────────────────────────
-  document.querySelectorAll('.cmte-tab').forEach(function (tab) {
-    tab.addEventListener('click', function () {
-      document.querySelectorAll('.cmte-tab').forEach(function (t) { t.classList.remove('is-active'); });
-      document.querySelectorAll('.cmte-panel').forEach(function (p) { p.style.display = 'none'; });
-      this.classList.add('is-active');
-      var panel = document.getElementById(this.dataset.panel);
-      if (panel) panel.style.display = '';
-    });
-  });
-
-  // ── Accordion ────────────────────────────────────
-  document.querySelectorAll('.acc-header').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var item = this.closest('.acc-item');
-      var body = item.querySelector('.acc-body');
-      var open = item.classList.contains('is-open');
-
-      // Close all in same panel
-      var panel = item.closest('.cmte-panel');
-      panel.querySelectorAll('.acc-item').forEach(function (i) {
-        i.classList.remove('is-open');
-        i.querySelector('.acc-header').setAttribute('aria-expanded', 'false');
-        i.querySelector('.acc-body').style.display = 'none';
-      });
-
-      // Toggle clicked
-      if (!open) {
-        item.classList.add('is-open');
-        btn.setAttribute('aria-expanded', 'true');
-        body.style.display = '';
-      }
-    });
-  });
-})();
-</script>
 
 <?php sjioc_footer(); get_footer(); ?>

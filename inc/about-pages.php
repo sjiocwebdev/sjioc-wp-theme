@@ -148,6 +148,7 @@ function sjioc_about_section_meta_box_html($post) {
     $key        = get_post_meta($post->ID, 'about_section_key',   true);
     $link_label = get_post_meta($post->ID, 'about_section_link_label', true);
     $link_url   = get_post_meta($post->ID, 'about_section_link_url',   true);
+    $is_person  = (bool) get_post_meta($post->ID, 'about_section_is_person', true);
     ?>
     <p>
         <label for="about_section_key"><strong>Section</strong></label><br>
@@ -169,6 +170,11 @@ function sjioc_about_section_meta_box_html($post) {
         <input type="url" id="about_section_link_url" name="about_section_link_url" style="width:100%"
             value="<?php echo esc_attr($link_url); ?>" placeholder="https://">
     </p>
+    <p>
+        <label><input type="checkbox" name="about_section_is_person" value="1" <?php checked($is_person, true); ?>>
+        <strong>This section shows a person</strong></label>
+        <span style="color:#666;font-style:italic;display:block;margin-top:4px">Uses a portrait photo frame (crops toward the top, so faces aren't cut off) instead of the wide landscape frame.</span>
+    </p>
     <p style="color:#555">Featured Image (above) is shown alongside the text on the front end.</p>
     <?php
 }
@@ -184,6 +190,7 @@ add_action('save_post_sjioc_about_section', function ($post_id) {
     update_post_meta($post_id, 'about_section_key', $key);
     update_post_meta($post_id, 'about_section_link_label', sanitize_text_field($_POST['about_section_link_label'] ?? ''));
     update_post_meta($post_id, 'about_section_link_url',   esc_url_raw($_POST['about_section_link_url'] ?? ''));
+    update_post_meta($post_id, 'about_section_is_person',  isset($_POST['about_section_is_person']) ? 1 : 0);
 });
 
 /* ─────────────────────────────────────
@@ -278,7 +285,7 @@ add_action('save_post_page', function ($post_id) {
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
     if (!current_user_can('edit_page', $post_id)) return;
 
-    $lines = preg_split('/\r\n|\r|\n/', (string) ($_POST['vt_lines'] ?? ''));
+    $lines = preg_split('/\r\n|\r|\n/', (string) wp_unslash($_POST['vt_lines'] ?? ''));
     $rows  = [];
     foreach ($lines as $line) {
         $line = trim($line);
@@ -321,6 +328,7 @@ function sjioc_get_about_sections() {
             'image_url'  => get_the_post_thumbnail_url($p->ID, 'medium_large') ?: '',
             'link_label' => (string) get_post_meta($p->ID, 'about_section_link_label', true),
             'link_url'   => (string) get_post_meta($p->ID, 'about_section_link_url',   true),
+            'is_person'  => (bool) get_post_meta($p->ID, 'about_section_is_person', true),
         ];
     }
 
@@ -417,3 +425,62 @@ function sjioc_flush_about_nav_map() {
 }
 add_action('save_post_page', 'sjioc_flush_about_nav_map');
 add_action('deleted_post',   'sjioc_flush_about_nav_map');
+
+/* ─────────────────────────────────────
+   CORE VALUES — About Us page. Admin-editable via a plain textarea
+   (SJIOC → Core Values), one value per line: Icon | Title | Description.
+   Falls back to the original hardcoded 6 values until an admin saves.
+───────────────────────────────────── */
+function sjioc_core_values_default() {
+    return [
+        ['icon' => '✝', 'title' => 'Authentic Worship',     'desc' => 'Rooted in 2,000 years of Orthodox liturgical tradition connecting us to the universal Church across all time.'],
+        ['icon' => '❤', 'title' => 'Loving Community',      'desc' => 'The Church is a family. We care for one another and practice hospitality as a spiritual discipline.'],
+        ['icon' => '📖', 'title' => 'Faithful Teaching',     'desc' => 'We hand on the apostolic faith intact through preaching, catechism, Sunday School, and adult formation.'],
+        ['icon' => '🌍', 'title' => 'Compassionate Service', 'desc' => "Following Christ's example, we serve the poor and marginalized in Drexel Hill and across the world."],
+        ['icon' => '🕊', 'title' => 'Spiritual Formation',   'desc' => 'We nurture the inner life through prayer, fasting, scripture, and the sacraments — growing in holiness together.'],
+        ['icon' => '🤝', 'title' => 'Unity in Diversity',    'desc' => "All generations and backgrounds are welcome. We celebrate our Indian heritage while embracing all into God's family."],
+    ];
+}
+
+function sjioc_core_values() {
+    $raw  = get_option('sjioc_core_values', '');
+    $rows = $raw !== '' ? json_decode($raw, true) : null;
+    return (is_array($rows) && $rows) ? $rows : sjioc_core_values_default();
+}
+
+function sjioc_core_values_admin_page() {
+    if (!current_user_can('manage_options')) return;
+
+    if (isset($_POST['sjioc_core_values_save']) && check_admin_referer('sjioc_core_values_save')) {
+        $lines = preg_split('/\r\n|\r|\n/', (string) wp_unslash($_POST['cv_lines'] ?? ''));
+        $rows  = [];
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') continue;
+            $parts = explode('|', $line, 3);
+            $icon  = sanitize_text_field(trim($parts[0] ?? ''));
+            $title = sanitize_text_field(trim($parts[1] ?? ''));
+            $desc  = sanitize_text_field(trim($parts[2] ?? ''));
+            if ($title === '') continue;
+            $rows[] = ['icon' => $icon, 'title' => $title, 'desc' => $desc];
+        }
+        update_option('sjioc_core_values', wp_json_encode($rows));
+        echo '<div class="notice notice-success is-dismissible"><p>Core Values saved.</p></div>';
+    }
+
+    $text = implode("\n", array_map(
+        fn($v) => ($v['icon'] ?? '') . ' | ' . ($v['title'] ?? '') . ' | ' . ($v['desc'] ?? ''),
+        sjioc_core_values()
+    ));
+    ?>
+    <div class="wrap">
+        <h1>Core Values</h1>
+        <p>One value per line, in the format <code>Icon | Title | Description</code> — the icon can be any single emoji character. This drives the "Our Core Values" section on the About Us page.</p>
+        <form method="post">
+            <?php wp_nonce_field('sjioc_core_values_save'); ?>
+            <textarea name="cv_lines" rows="10" style="width:100%;max-width:800px;font-family:monospace"><?php echo esc_textarea($text); ?></textarea>
+            <p><button type="submit" name="sjioc_core_values_save" value="1" class="button button-primary">Save Core Values</button></p>
+        </form>
+    </div>
+    <?php
+}

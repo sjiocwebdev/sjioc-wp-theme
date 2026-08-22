@@ -872,13 +872,15 @@ input, textarea, select { font-family:'Lato', sans-serif; }
 .about-grid { display:grid; grid-template-columns:1.1fr 1fr; gap:72px; align-items:center; }
 .about-img { position:relative; }
 .about-img img {
-  width:100%; height:420px; object-fit:cover;
+  width:100%; height:420px; object-fit:cover; object-position:center 20%;
   border:4px solid var(--border); position:relative; z-index:1;
 }
 .about-img::before {
   content:''; position:absolute; top:-13px; left:-13px;
   width:100%; height:100%; border:3px solid var(--go); z-index:0;
 }
+.about-img.is-person { max-width:360px; margin:0 auto; }
+.about-img.is-person img { height:auto; aspect-ratio:3/4; object-position:center top; }
 
 /* Values */
 .values-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-top:40px; }
