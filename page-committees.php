@@ -10,7 +10,7 @@ get_header();
 <div class="page-hero">
   <div class="container">
     <h1>Committees &amp; Organizations</h1>
-    <p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › About › Committees</p>
+    <p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › <a href="<?php echo esc_url(sjioc_get_about_hub_url()); ?>">About</a> › Committees</p>
   </div>
 </div>
 

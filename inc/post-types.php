@@ -120,7 +120,7 @@ add_action('save_post_sjioc_contact', function ($post_id) {
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
     if (!current_user_can('edit_post', $post_id)) return;
 
-    update_post_meta($post_id, 'contact_role',   sanitize_text_field($_POST['contact_role']  ?? ''));
+    update_post_meta($post_id, 'contact_role',   sanitize_text_field(wp_unslash($_POST['contact_role']  ?? '')));
     update_post_meta($post_id, 'contact_order',  absint($_POST['contact_order']  ?? 10));
     update_post_meta($post_id, 'contact_pinned', isset($_POST['contact_pinned']) ? '1' : '0');
     $allowed_types = ['', 'vicar', 'trustee', 'secretary'];
@@ -311,11 +311,11 @@ add_action('save_post_sjioc_announcement', function ($post_id) {
     update_post_meta($post_id, 'ann_message', wp_kses_post(wp_unslash($_POST['ann_message'] ?? '')));
     update_post_meta($post_id, 'ann_start',   sanitize_text_field($_POST['ann_start']  ?? ''));
     update_post_meta($post_id, 'ann_expiry',  sanitize_text_field($_POST['ann_expiry'] ?? ''));
-    update_post_meta($post_id, 'ann_link',    esc_url_raw($_POST['ann_link'] ?? ''));
+    update_post_meta($post_id, 'ann_link',    esc_url_raw(wp_unslash($_POST['ann_link'] ?? '')));
 
-    $titles = array_map('sanitize_text_field',    (array)($_POST['ann_card_title'] ?? []));
-    $descs  = array_map('sanitize_textarea_field', (array)($_POST['ann_card_desc']  ?? []));
-    $links  = array_map('esc_url_raw',             (array)($_POST['ann_card_link']  ?? []));
+    $titles = array_map('sanitize_text_field',    (array) wp_unslash($_POST['ann_card_title'] ?? []));
+    $descs  = array_map('sanitize_textarea_field', (array) wp_unslash($_POST['ann_card_desc']  ?? []));
+    $links  = array_map('esc_url_raw',             (array) wp_unslash($_POST['ann_card_link']  ?? []));
     $cards  = [];
     for ($i = 0; $i < min(4, count($titles)); $i++) {
         if ($titles[$i] !== '' || $descs[$i] !== '') {
@@ -367,6 +367,7 @@ function sjioc_ministry_meta_box_html($post) {
     $album_cat  = get_post_meta($post->ID, 'ministry_album_cat',  true);
     $album_name = get_post_meta($post->ID, 'ministry_album_name', true);
     $order      = get_post_meta($post->ID, 'ministry_order',      true);
+    $is_logo    = (bool) get_post_meta($post->ID, 'ministry_is_logo', true);
     $roles_raw  = get_post_meta($post->ID, 'ministry_roles',      true) ?: '[]';
     $roles      = json_decode($roles_raw, true) ?: [];
     ?>
@@ -397,6 +398,14 @@ function sjioc_ministry_meta_box_html($post) {
                     value="<?php echo esc_attr($order ?: 10); ?>"
                     min="1" max="99" style="width:70px">
                 <span style="color:#666;margin-left:6px;font-style:italic">Lower = appears first</span>
+            </td>
+        </tr>
+        <tr>
+            <th><label for="ministry_is_logo">Cover Photo Type</label></th>
+            <td>
+                <label><input type="checkbox" id="ministry_is_logo" name="ministry_is_logo" value="1" <?php checked($is_logo, true); ?>>
+                This is a logo (not a photo)</label>
+                <p class="description">Shows the full logo without cropping on the home page and Ministries page cards, instead of the usual cropped-to-fill photo treatment.</p>
             </td>
         </tr>
         <tr><td colspan="2"><p class="sjioc-mmb-sep">Introduction</p></td></tr>
@@ -479,8 +488,8 @@ add_action('save_post_sjioc_ministry', function ($post_id) {
     if (!current_user_can('edit_post', $post_id)) return;
 
     // Build roles array from parallel name/title inputs
-    $titles = array_map('sanitize_text_field', (array) ($_POST['ministry_roles_title'] ?? []));
-    $names  = array_map('sanitize_text_field', (array) ($_POST['ministry_roles_name']  ?? []));
+    $titles = array_map('sanitize_text_field', (array) wp_unslash($_POST['ministry_roles_title'] ?? []));
+    $names  = array_map('sanitize_text_field', (array) wp_unslash($_POST['ministry_roles_name']  ?? []));
     $roles  = [];
     $max    = max(count($titles), count($names));
     for ($i = 0; $i < $max; $i++) {
@@ -492,10 +501,11 @@ add_action('save_post_sjioc_ministry', function ($post_id) {
     }
     update_post_meta($post_id, 'ministry_roles', wp_json_encode($roles));
 
-    update_post_meta($post_id, 'ministry_tag',        sanitize_text_field($_POST['ministry_tag']        ?? ''));
-    update_post_meta($post_id, 'ministry_album_name', sanitize_text_field($_POST['ministry_album_name'] ?? ''));
-    update_post_meta($post_id, 'ministry_activities', sanitize_textarea_field($_POST['ministry_activities'] ?? ''));
+    update_post_meta($post_id, 'ministry_tag',        sanitize_text_field(wp_unslash($_POST['ministry_tag']        ?? '')));
+    update_post_meta($post_id, 'ministry_album_name', sanitize_text_field(wp_unslash($_POST['ministry_album_name'] ?? '')));
+    update_post_meta($post_id, 'ministry_activities', sanitize_textarea_field(wp_unslash($_POST['ministry_activities'] ?? '')));
     update_post_meta($post_id, 'ministry_order',      absint($_POST['ministry_order'] ?? 10));
+    update_post_meta($post_id, 'ministry_is_logo',    isset($_POST['ministry_is_logo']) ? 1 : 0);
     $allowed_cats = ['', 'worship', 'events', 'ministries', 'community'];
     $cat = in_array($_POST['ministry_album_cat'] ?? '', $allowed_cats, true) ? $_POST['ministry_album_cat'] : '';
     update_post_meta($post_id, 'ministry_album_cat', $cat);

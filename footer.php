@@ -220,8 +220,7 @@ $_sjioc_celeb_total = count($_sjioc_bdays) + count($_sjioc_annivs);
     <?php endforeach; ?>
   </div>
   <div class="panel-footer">
-    <?php $_cal_url = sjioc_cal(); $_cal_url = ($_cal_url && $_cal_url !== '#') ? $_cal_url : home_url('/events/'); ?>
-    <a href="<?php echo esc_url($_cal_url); ?>" class="panel-footer-btn gold" style="text-align:center"><?php esc_html_e('View Full Calendar','sjioc'); ?></a>
+    <a href="<?php echo esc_url(sjioc_cal_safe_url()); ?>" class="panel-footer-btn gold" style="text-align:center"><?php esc_html_e('View Full Calendar','sjioc'); ?></a>
   </div>
 </div>
 

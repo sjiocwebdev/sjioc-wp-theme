@@ -436,7 +436,7 @@ function sjioc_od_photos_page(): void {
         $saved = 0;
         foreach ($db_fields as $option => $constant) {
             if (defined($constant)) continue; // wp-config.php wins — don't overwrite
-            $val = sanitize_text_field($_POST[$option] ?? '');
+            $val = sanitize_text_field(wp_unslash($_POST[$option] ?? ''));
             if ($val !== '') {
                 update_option($option, $val, false);
                 $saved++;

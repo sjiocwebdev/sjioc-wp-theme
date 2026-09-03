@@ -17,17 +17,13 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
     <span class="hero-eyebrow"><?php echo esc_html($hero_eyebrow); ?></span>
     <h1><?php echo esc_html($hero_title); ?></h1>
     <span class="hero-sub"><?php echo esc_html($hero_sub); ?></span>
+    <div class="hero-verses-divider-short" aria-hidden="true"></div>
+    <p class="hero-static-verse-text">&ldquo;To Prepare The Way Of The Lord, Make His Paths Straight&rdquo; <span class="hero-static-verse-ref">— Luke 3:4</span></p>
     <div class="hero-btns">
       <a href="<?php echo esc_url(home_url('/worship-services/')); ?>" class="btn btn-cr">Worship &amp; Services</a>
       <a href="<?php echo esc_url(home_url('/contact-us/')); ?>" class="btn btn-ol">Contact Us</a>
       <a href="<?php echo esc_url(home_url('/give/')); ?>" class="btn btn-go">Support Us</a>
     </div>
-    <?php $hero_verse = sjioc_get_current_bible_verse(); if ($hero_verse): ?>
-    <div class="hero-verse">
-      <p class="hero-verse-text">&ldquo;<?php echo esc_html($hero_verse['text']); ?>&rdquo;</p>
-      <span class="hero-verse-ref"><?php echo esc_html($hero_verse['ref']); ?></span>
-    </div>
-    <?php endif; ?>
   </div>
 </section>
 
@@ -324,6 +320,13 @@ if ($announcements):
         <span class="time-val">Holy Qurbana — <?php echo esc_html(sjioc_first_wed_qurbana()); ?></span>
       </div>
     </div>
+    <?php $hero_verse = sjioc_get_current_bible_verse(); if ($hero_verse): ?>
+    <div class="times-verse-sep" aria-hidden="true"></div>
+    <div class="times-verse">
+      <p class="times-verse-text">&ldquo;<?php echo esc_html($hero_verse['text']); ?>&rdquo;</p>
+      <span class="times-verse-ref"><?php echo esc_html($hero_verse['ref']); ?></span>
+    </div>
+    <?php endif; ?>
   </div>
 </section>
 

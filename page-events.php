@@ -41,9 +41,13 @@ get_header();
     <p id="ev-loading" class="tc" style="color:var(--tl);margin:48px 0">Loading events&hellip;</p>
     <p id="ev-error"   class="tc" style="display:none;color:var(--cr);margin:48px 0">Could not load events. Please try again later.</p>
 
+    <?php
+    $ev_ics_https  = rest_url('sjioc/v1/calendar.ics');
+    $ev_ics_webcal = preg_replace('#^https?://#', 'webcal://', $ev_ics_https);
+    ?>
     <div class="ev-subscribe" id="calendar">
       <span>Subscribe to our calendar:</span>
-      <a href="<?php echo esc_url(rest_url('sjioc/v1/calendar.ics')); ?>" class="btn btn-ol btn-sm">&#128197; Download ICS</a>
+      <a href="<?php echo esc_url($ev_ics_webcal, ['http', 'https', 'webcal']); ?>" class="btn btn-ol btn-sm">&#128197; Subscribe to Calendar</a>
     </div>
 
   </div>

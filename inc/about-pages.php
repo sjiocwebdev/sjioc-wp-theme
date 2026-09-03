@@ -188,8 +188,8 @@ add_action('save_post_sjioc_about_section', function ($post_id) {
     $allowed_keys = array_keys(sjioc_about_section_config());
     $key = in_array($_POST['about_section_key'] ?? '', $allowed_keys, true) ? $_POST['about_section_key'] : '';
     update_post_meta($post_id, 'about_section_key', $key);
-    update_post_meta($post_id, 'about_section_link_label', sanitize_text_field($_POST['about_section_link_label'] ?? ''));
-    update_post_meta($post_id, 'about_section_link_url',   esc_url_raw($_POST['about_section_link_url'] ?? ''));
+    update_post_meta($post_id, 'about_section_link_label', sanitize_text_field(wp_unslash($_POST['about_section_link_label'] ?? '')));
+    update_post_meta($post_id, 'about_section_link_url',   esc_url_raw(wp_unslash($_POST['about_section_link_url'] ?? '')));
     update_post_meta($post_id, 'about_section_is_person',  isset($_POST['about_section_is_person']) ? 1 : 0);
 });
 
@@ -256,52 +256,6 @@ add_action('save_post_page', function ($post_id) {
     update_post_meta($post_id, 'sjioc_about_page_key', $key);
     delete_transient('sjioc_about_nav_map');
 });
-
-/* ─────────────────────────────────────
-   META BOX: on the "Our History" page — Vicar Leadership Timeline.
-   Separate from Parish Milestones (which is chronological parish
-   events) — this is a compact "who served when" list, so it's stored
-   directly on the page rather than as its own CPT.
-───────────────────────────────────── */
-add_action('add_meta_boxes_page', function ($post) {
-    if (get_page_template_slug($post->ID) !== 'page-our-history.php') return;
-    add_meta_box('sjioc_vicar_timeline', 'Vicar Leadership Timeline', 'sjioc_vicar_timeline_meta_box_html', 'page', 'normal', 'high');
-});
-
-function sjioc_vicar_timeline_meta_box_html($post) {
-    wp_nonce_field('sjioc_vicar_timeline_save', 'sjioc_vicar_timeline_nonce');
-    $rows = json_decode(get_post_meta($post->ID, 'sjioc_vicar_timeline', true) ?: '[]', true) ?: [];
-    $text = implode("\n", array_map(fn($r) => ($r['period'] ?? '') . ' | ' . ($r['name'] ?? ''), $rows));
-    ?>
-    <p class="description">One Vicar per line, in the format <code>Period | Name</code>. Leave the end date as "Present" for the current Vicar.</p>
-    <textarea name="vt_lines" rows="6" style="width:100%;font-family:monospace" placeholder="Nov. 15, 2006 – Apr. 19, 2008 | Rev. Fr. Geevarghese Errakkath
-2024 – Present | Rev. Fr. Tojo Baby"><?php echo esc_textarea($text); ?></textarea>
-    <?php
-}
-
-add_action('save_post_page', function ($post_id) {
-    if (!isset($_POST['sjioc_vicar_timeline_nonce']) ||
-        !wp_verify_nonce($_POST['sjioc_vicar_timeline_nonce'], 'sjioc_vicar_timeline_save')) return;
-    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-    if (!current_user_can('edit_page', $post_id)) return;
-
-    $lines = preg_split('/\r\n|\r|\n/', (string) wp_unslash($_POST['vt_lines'] ?? ''));
-    $rows  = [];
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if ($line === '') continue;
-        $parts = explode('|', $line, 2);
-        $rows[] = [
-            'period' => sanitize_text_field(trim($parts[0] ?? '')),
-            'name'   => sanitize_text_field(trim($parts[1] ?? '')),
-        ];
-    }
-    update_post_meta($post_id, 'sjioc_vicar_timeline', wp_json_encode($rows));
-});
-
-function sjioc_get_vicar_timeline($page_id) {
-    return json_decode(get_post_meta($page_id, 'sjioc_vicar_timeline', true) ?: '[]', true) ?: [];
-}
 
 /* ─────────────────────────────────────
    Data access — transient-cached reads
@@ -391,9 +345,10 @@ function sjioc_get_about_nav_map() {
 
     $map = [];
     $template_keys = [
-        'page-leadership.php'  => 'leadership',
-        'page-committees.php'  => 'committees',
-        'page-our-history.php' => 'our-history',
+        'page-about-hub.php'    => 'hub',
+        'page-leadership.php'   => 'leadership',
+        'page-committees.php'   => 'committees',
+        'page-our-history.php'  => 'our-history',
     ];
 
     $pages = get_pages(['post_status' => 'publish']);
@@ -413,6 +368,11 @@ function sjioc_get_about_nav_map() {
 
     set_transient('sjioc_about_nav_map', $map, DAY_IN_SECONDS);
     return $map;
+}
+
+function sjioc_get_about_hub_url() {
+    $map = sjioc_get_about_nav_map();
+    return $map['hub'] ?? home_url('/about-us/');
 }
 
 function sjioc_get_our_history_page_id() {

@@ -9,7 +9,7 @@ get_header();
 <div class="page-hero">
   <div class="container">
     <h1>Our Leadership</h1>
-    <p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › About › Leadership</p>
+    <p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › <a href="<?php echo esc_url(sjioc_get_about_hub_url()); ?>">About</a> › Leadership</p>
   </div>
 </div>
 

@@ -41,7 +41,7 @@ get_header();
       <p class="give-card-sub">Fast, free, and secure — directly from your bank app.</p>
       <div class="give-zelle-detail">
         <span class="give-zelle-label">Send to</span>
-        <span class="give-zelle-value"><?php echo esc_html(sjioc_email()); ?></span>
+        <span class="give-zelle-value"><?php echo esc_html(sjioc_zelle_email()); ?></span>
       </div>
       <div class="give-zelle-detail">
         <span class="give-zelle-label">Recipient Name</span>
@@ -82,7 +82,7 @@ get_header();
           <span class="give-step-num">3</span>
           <div>
             <strong>Enter the church email</strong>
-            <p><strong style="color:var(--cr)"><?php echo esc_html(sjioc_email()); ?></strong> — confirm the recipient name matches <em><?php echo esc_html(sjioc_name()); ?></em>.</p>
+            <p><strong style="color:var(--cr)"><?php echo esc_html(sjioc_zelle_email()); ?></strong> — confirm the recipient name matches <em><?php echo esc_html(sjioc_name()); ?></em>.</p>
           </div>
         </li>
         <li>

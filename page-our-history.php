@@ -6,12 +6,12 @@
  */
 get_header();
 $milestones     = sjioc_get_milestones();
-$vicar_timeline = sjioc_get_vicar_timeline(get_the_ID());
+$vicar_timeline = sjioc_get_vicar_history();
 ?>
 <div class="page-hero">
   <div class="container">
     <h1>Our History</h1>
-    <p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › About › Our History</p>
+    <p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › <a href="<?php echo esc_url(sjioc_get_about_hub_url()); ?>">About</a> › Our History</p>
   </div>
 </div>
 
@@ -37,12 +37,8 @@ $vicar_timeline = sjioc_get_vicar_timeline(get_the_ID());
   <span class="stag">Parish Leadership</span>
   <h2 class="stitle">Vicar Leadership Timeline</h2>
   <div class="divider"></div>
-  <div style="max-width:640px;margin:0 auto;text-align:left">
-    <ul class="acc-role-list">
-      <?php foreach ($vicar_timeline as $v): ?>
-      <li><span class="acc-role"><?php echo esc_html($v['period']); ?></span><span class="acc-name"><?php echo esc_html($v['name']); ?></span></li>
-      <?php endforeach; ?>
-    </ul>
+  <div style="max-width:560px;margin:0 auto;text-align:left">
+    <?php sjioc_render_vicar_history_timeline($vicar_timeline); ?>
   </div>
 </div></div>
 <?php endif; ?>

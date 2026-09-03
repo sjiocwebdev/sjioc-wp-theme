@@ -102,12 +102,12 @@ function sjioc_handle_contact() {
         wp_send_json_error(['msg' => 'Security check failed. Please refresh the page and try again.']);
     }
 
-    $fname   = sanitize_text_field($_POST['fname']   ?? '');
-    $lname   = sanitize_text_field($_POST['lname']   ?? '');
+    $fname   = sanitize_text_field(wp_unslash($_POST['fname']   ?? ''));
+    $lname   = sanitize_text_field(wp_unslash($_POST['lname']   ?? ''));
     $email   = sanitize_email($_POST['email']         ?? '');
-    $phone   = sanitize_text_field($_POST['phone']   ?? '');
-    $subject = sanitize_text_field($_POST['subject'] ?? '');
-    $message = sanitize_textarea_field($_POST['message'] ?? '');
+    $phone   = sanitize_text_field(wp_unslash($_POST['phone']   ?? ''));
+    $subject = sanitize_text_field(wp_unslash($_POST['subject'] ?? ''));
+    $message = sanitize_textarea_field(wp_unslash($_POST['message'] ?? ''));
 
     if (empty($fname) || empty($email) || empty($message)) {
         wp_send_json_error(['msg' => __('Please fill in your name, email, and message.', 'sjioc')]);

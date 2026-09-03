@@ -25,6 +25,7 @@ foreach ($ministries as $m) {
         'roles'        => json_decode(get_post_meta($m->ID, 'ministry_roles', true) ?: '[]', true) ?: [],
         'album_cat'    => get_post_meta($m->ID, 'ministry_album_cat',  true) ?: '',
         'album_name'   => get_post_meta($m->ID, 'ministry_album_name', true) ?: '',
+        'is_logo'      => (bool) get_post_meta($m->ID, 'ministry_is_logo', true),
     ];
 }
 
@@ -54,7 +55,7 @@ $_pl_url   = $_pl_pages ? get_permalink($_pl_pages[0]->ID) : home_url('/photos/'
         $img     = $d['img'] ?: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=500&q=70';
         $excerpt = wp_trim_words(wp_strip_all_tags($m->post_content), 28, '…') ?: 'Learn more about this ministry.';
     ?>
-    <article class="mdcard">
+    <article class="mdcard<?php echo $d['is_logo'] ? ' is-logo' : ''; ?>">
       <img src="<?php echo esc_url($img); ?>" alt="<?php echo esc_attr($m->post_title); ?>" loading="lazy">
       <div class="mdcard-body">
         <?php if ($d['tag']): ?>

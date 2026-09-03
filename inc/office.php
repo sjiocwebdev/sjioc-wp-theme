@@ -290,8 +290,8 @@ add_action('save_post_sjioc_office', function ($post_id) {
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
     if (!current_user_can('edit_post', $post_id)) return;
 
-    update_post_meta($post_id, 'office_role',  sanitize_text_field($_POST['office_role'] ?? ''));
-    update_post_meta($post_id, 'office_bio',   sanitize_textarea_field($_POST['office_bio'] ?? ''));
+    update_post_meta($post_id, 'office_role',  sanitize_text_field(wp_unslash($_POST['office_role'] ?? '')));
+    update_post_meta($post_id, 'office_bio',   sanitize_textarea_field(wp_unslash($_POST['office_bio'] ?? '')));
     update_post_meta($post_id, 'office_order', absint($_POST['office_order'] ?? 10));
 });
 

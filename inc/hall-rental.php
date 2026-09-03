@@ -78,16 +78,16 @@ function sjioc_handle_rental_request(): void {
         wp_send_json_error(['msg' => 'Security check failed. Please refresh the page and try again.']);
     }
 
-    $fname          = sanitize_text_field($_POST['fname']          ?? '');
-    $lname          = sanitize_text_field($_POST['lname']          ?? '');
+    $fname          = sanitize_text_field(wp_unslash($_POST['fname']          ?? ''));
+    $lname          = sanitize_text_field(wp_unslash($_POST['lname']          ?? ''));
     $email          = sanitize_email(     $_POST['email']          ?? '');
-    $phone          = sanitize_text_field($_POST['phone']          ?? '');
-    $address        = sanitize_textarea_field($_POST['address']    ?? '');
+    $phone          = sanitize_text_field(wp_unslash($_POST['phone']          ?? ''));
+    $address        = sanitize_textarea_field(wp_unslash($_POST['address']    ?? ''));
     $member         = in_array($_POST['member_status'] ?? '', ['member','non-member'], true)
                       ? $_POST['member_status'] : 'non-member';
-    $org_name       = sanitize_text_field($_POST['org_name']       ?? '');
-    $recommended_by = sanitize_text_field($_POST['recommended_by'] ?? '');
-    $evtype         = sanitize_text_field($_POST['event_type']     ?? '');
+    $org_name       = sanitize_text_field(wp_unslash($_POST['org_name']       ?? ''));
+    $recommended_by = sanitize_text_field(wp_unslash($_POST['recommended_by'] ?? ''));
+    $evtype         = sanitize_text_field(wp_unslash($_POST['event_type']     ?? ''));
     $evdate         = sanitize_text_field($_POST['event_date']     ?? '');
     $stime          = sanitize_text_field($_POST['start_time']     ?? '');
     $etime          = sanitize_text_field($_POST['end_time']       ?? '');
@@ -95,11 +95,11 @@ function sjioc_handle_rental_request(): void {
     $setup_stime    = sanitize_text_field($_POST['setup_start_time'] ?? '18:30');
     $setup_etime    = sanitize_text_field($_POST['setup_end_time']   ?? '22:00');
     $guests         = abs((int) ($_POST['guests']                  ?? 0));
-    $purpose        = sanitize_textarea_field($_POST['event_purpose'] ?? '');
+    $purpose        = sanitize_textarea_field(wp_unslash($_POST['event_purpose'] ?? ''));
     $catering       = in_array($_POST['catering'] ?? '', ['none','self','outside'], true)
                       ? $_POST['catering'] : 'none';
-    $special        = sanitize_textarea_field($_POST['special_req'] ?? '');
-    $sig            = sanitize_text_field($_POST['signature']      ?? '');
+    $special        = sanitize_textarea_field(wp_unslash($_POST['special_req'] ?? ''));
+    $sig            = sanitize_text_field(wp_unslash($_POST['signature']      ?? ''));
     $booking_amount = (float) sjioc_get('sjioc_hall_booking_amount', '650');
     $deposit_amount = (float) sjioc_get('sjioc_hall_deposit_amount', '100');
 
@@ -199,11 +199,11 @@ function sjioc_rental_update_status(): void {
     if (!current_user_can('manage_options')) wp_die('Unauthorized');
 
     $id             = (int) ($_POST['rental_id']     ?? 0);
-    $status         = sanitize_text_field($_POST['status']       ?? '');
-    $notes          = sanitize_textarea_field($_POST['admin_notes'] ?? '');
-    $payment_method = sanitize_text_field($_POST['payment_method'] ?? '');
-    $accepted_by    = sanitize_text_field($_POST['accepted_by']    ?? '');
-    $receipt_no     = sanitize_text_field($_POST['receipt_no']     ?? '');
+    $status         = sanitize_text_field(wp_unslash($_POST['status']       ?? ''));
+    $notes          = sanitize_textarea_field(wp_unslash($_POST['admin_notes'] ?? ''));
+    $payment_method = sanitize_text_field(wp_unslash($_POST['payment_method'] ?? ''));
+    $accepted_by    = sanitize_text_field(wp_unslash($_POST['accepted_by']    ?? ''));
+    $receipt_no     = sanitize_text_field(wp_unslash($_POST['receipt_no']     ?? ''));
     $payment_date   = sanitize_text_field($_POST['payment_date']   ?? '');
     $booking_amount = (float) ($_POST['booking_amount']            ?? 0);
     $deposit_amount = (float) ($_POST['deposit_amount']            ?? 0);

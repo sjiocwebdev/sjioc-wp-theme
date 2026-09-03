@@ -25,7 +25,7 @@ if (!$section && have_posts()) {
 <div class="page-hero">
   <div class="container">
     <h1><?php echo esc_html($title); ?></h1>
-    <p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › About › <?php echo esc_html($title); ?></p>
+    <p class="breadcrumb"><a href="<?php echo esc_url(home_url('/')); ?>">Home</a> › <a href="<?php echo esc_url(sjioc_get_about_hub_url()); ?>">About</a> › <?php echo esc_html($title); ?></p>
   </div>
 </div>
 

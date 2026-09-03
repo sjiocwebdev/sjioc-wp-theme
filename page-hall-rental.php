@@ -93,7 +93,7 @@ $min_setup_date = date('Y-m-d', strtotime('+2 days'));
 
     <div class="rental-form-wrap">
       <?php wp_nonce_field('sjioc_ajax', 'sjioc_nonce'); ?>
-      <div style="display:none" aria-hidden="true"><input type="text" id="rf-hp" tabindex="-1" autocomplete="off"></div>
+      <div style="display:none" aria-hidden="true"><input type="text" id="rf-hp" name="rf_hp" tabindex="-1" autocomplete="off"></div>
 
       <!-- ── Step 1: About You ── -->
       <div class="rf-step is-active" id="rf-step-1">

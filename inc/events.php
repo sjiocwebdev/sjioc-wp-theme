@@ -94,7 +94,20 @@ add_action('rest_api_init', function () {
     ]);
 });
 
+// Simple per-IP request cap for public REST routes — same transient pattern
+// used everywhere else in this theme (chat, contact form, photo proxy).
+function sjioc_rest_rate_limited(string $key_prefix, int $max, int $window_seconds): bool {
+    $key  = $key_prefix . md5($_SERVER['REMOTE_ADDR'] ?? '');
+    $hits = (int) get_transient($key);
+    if ($hits >= $max) return true;
+    set_transient($key, $hits + 1, $window_seconds);
+    return false;
+}
+
 function sjioc_events_rest(WP_REST_Request $req): WP_REST_Response {
+    if (sjioc_rest_rate_limited('sjioc_rl_events_', 30, 5 * MINUTE_IN_SECONDS)) {
+        return new WP_REST_Response(['message' => 'Too many requests.'], 429);
+    }
     return rest_ensure_response(sjioc_get_db_events((int)$req->get_param('months')));
 }
 
@@ -282,9 +295,9 @@ function sjioc_events_settings_page(): void {
     // ── Save GCal credentials ────────────────────────────────────────────
     if (isset($_POST['sjioc_save_gcal'])) {
         check_admin_referer('sjioc_events_admin');
-        update_option('sjioc_gcal_key', sanitize_text_field($_POST['sjioc_gcal_key'] ?? ''));
-        update_option('sjioc_gcal_id',  sanitize_text_field($_POST['sjioc_gcal_id']  ?? ''));
-        update_option('sjioc_gcal_ics', esc_url_raw($_POST['sjioc_gcal_ics'] ?? ''));
+        update_option('sjioc_gcal_key', sanitize_text_field(wp_unslash($_POST['sjioc_gcal_key'] ?? '')));
+        update_option('sjioc_gcal_id',  sanitize_text_field(wp_unslash($_POST['sjioc_gcal_id']  ?? '')));
+        update_option('sjioc_gcal_ics', esc_url_raw(wp_unslash($_POST['sjioc_gcal_ics'] ?? '')));
         $notice = '<div class="notice notice-success is-dismissible"><p>Settings saved.</p></div>';
     }
 
@@ -300,15 +313,15 @@ function sjioc_events_settings_page(): void {
         // End time without end date → same day as start
         if (!$all_day && $end_t && !$end_d) $end_d = $start_d ?: null;
         $data    = [
-            'title'       => sanitize_text_field($_POST['ev_title']   ?? ''),
-            'description' => sanitize_textarea_field($_POST['ev_desc'] ?? ''),
-            'location'    => sanitize_text_field($_POST['ev_location'] ?? ''),
+            'title'       => sanitize_text_field(wp_unslash($_POST['ev_title']   ?? '')),
+            'description' => sanitize_textarea_field(wp_unslash($_POST['ev_desc'] ?? '')),
+            'location'    => sanitize_text_field(wp_unslash($_POST['ev_location'] ?? '')),
             'start_date'  => $start_d,
             'start_time'  => $start_t,
             'end_date'    => $end_d,
             'end_time'    => $end_t,
             'all_day'     => $all_day,
-            'url'         => esc_url_raw($_POST['ev_url'] ?? ''),
+            'url'         => esc_url_raw(wp_unslash($_POST['ev_url'] ?? '')),
             'source'      => 'manual',
         ];
         $fmt = ['%s','%s','%s','%s','%s','%s','%s','%d','%s','%s'];
@@ -619,6 +632,11 @@ function sjioc_events_settings_page(): void {
 
 // ── ICS calendar download ──────────────────────────────────────────────────
 function sjioc_calendar_ics_endpoint(): void {
+    if (sjioc_rest_rate_limited('sjioc_rl_ics_', 10, 30 * MINUTE_IN_SECONDS)) {
+        status_header(429);
+        header('Retry-After: 1800');
+        exit('Too many requests. Please try again later.');
+    }
     $ics = sjioc_generate_ics();
     header('Content-Type: text/calendar; charset=utf-8');
     header('Content-Disposition: inline; filename="sjioc-events.ics"');
@@ -650,10 +668,15 @@ function sjioc_generate_ics(): string {
             $lines[] = 'DTSTART;VALUE=DATE:' . $start;
             $lines[] = 'DTEND;VALUE=DATE:'   . $end;
         } else {
-            $ts_s    = strtotime($e['start']);
-            $ts_e    = $e['end'] ? strtotime($e['end']) : $ts_s + 3600;
-            $lines[] = 'DTSTART:' . date('Ymd\THis', $ts_s);  // floating local time
-            $lines[] = 'DTEND:'   . date('Ymd\THis', $ts_e);
+            // Interpret the stored wall-clock time as the site's own timezone,
+            // then convert to true UTC — so subscribers outside the church's
+            // timezone still see the correct local time on their own calendar.
+            $site_tz = wp_timezone();
+            $utc_tz  = new DateTimeZone('UTC');
+            $dt_s    = new DateTimeImmutable($e['start'], $site_tz);
+            $dt_e    = $e['end'] ? new DateTimeImmutable($e['end'], $site_tz) : $dt_s->modify('+1 hour');
+            $lines[] = 'DTSTART:' . $dt_s->setTimezone($utc_tz)->format('Ymd\THis\Z');
+            $lines[] = 'DTEND:'   . $dt_e->setTimezone($utc_tz)->format('Ymd\THis\Z');
         }
         $lines[] = sjioc_ics_fold('SUMMARY:'     . sjioc_ics_escape($e['title']));
         if ($e['description']) $lines[] = sjioc_ics_fold('DESCRIPTION:' . sjioc_ics_escape($e['description']));
@@ -674,10 +697,13 @@ function sjioc_ics_fold(string $line): string {
     if (strlen($line) <= 75) return $line;
     $out = '';
     $len = 0;
-    foreach (str_split($line) as $ch) {
-        if ($len >= 74) { $out .= "\r\n "; $len = 1; }
+    // Fold by UTF-8 character, not raw byte, so a multi-byte character
+    // (e.g. Malayalam text) never gets split across a fold boundary.
+    foreach (mb_str_split($line) as $ch) {
+        $ch_len = strlen($ch);
+        if ($len > 0 && $len + $ch_len > 74) { $out .= "\r\n "; $len = 0; }
         $out .= $ch;
-        $len++;
+        $len += $ch_len;
     }
     return $out;
 }

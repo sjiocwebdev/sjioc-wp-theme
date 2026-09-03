@@ -92,8 +92,8 @@ add_action('save_post_sjioc_outreach', function ($post_id) {
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
     if (!current_user_can('edit_post', $post_id)) return;
 
-    update_post_meta($post_id, 'outreach_tag',        sanitize_text_field($_POST['outreach_tag']        ?? ''));
-    update_post_meta($post_id, 'outreach_activities', sanitize_textarea_field($_POST['outreach_activities'] ?? ''));
+    update_post_meta($post_id, 'outreach_tag',        sanitize_text_field(wp_unslash($_POST['outreach_tag']        ?? '')));
+    update_post_meta($post_id, 'outreach_activities', sanitize_textarea_field(wp_unslash($_POST['outreach_activities'] ?? '')));
     update_post_meta($post_id, 'outreach_order',      absint($_POST['outreach_order'] ?? 10));
 });
 

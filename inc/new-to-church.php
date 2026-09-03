@@ -7,20 +7,25 @@ add_action('wp_ajax_sjioc_new_to_church',        'sjioc_handle_new_to_church');
 function sjioc_handle_new_to_church(): void {
     check_ajax_referer('sjioc_ntc', 'nonce');
 
+    // Honeypot
+    if (!empty($_POST['ntc_hp'])) {
+        wp_send_json_error(['msg' => 'Submission rejected.']);
+    }
+
     $rc_token = sanitize_text_field($_POST['recaptcha_token'] ?? '');
     if (!sjioc_recaptcha_verify($rc_token, 'new_to_church', 0.5)) {
         wp_send_json_error(['msg' => 'Security check failed. Please refresh and try again.']);
     }
 
-    $fname  = sanitize_text_field($_POST['ntc_fname']   ?? '');
-    $lname  = sanitize_text_field($_POST['ntc_lname']   ?? '');
-    $phone  = sanitize_text_field($_POST['ntc_phone']   ?? '');
-    $addr   = sanitize_textarea_field($_POST['ntc_address']  ?? '');
-    $visit  = sanitize_text_field($_POST['ntc_visit']   ?? '');
+    $fname  = sanitize_text_field(wp_unslash($_POST['ntc_fname']   ?? ''));
+    $lname  = sanitize_text_field(wp_unslash($_POST['ntc_lname']   ?? ''));
+    $phone  = sanitize_text_field(wp_unslash($_POST['ntc_phone']   ?? ''));
+    $addr   = sanitize_textarea_field(wp_unslash($_POST['ntc_address']  ?? ''));
+    $visit  = sanitize_text_field(wp_unslash($_POST['ntc_visit']   ?? ''));
     $count  = abs((int)($_POST['ntc_family']            ?? 0));
-    $kerala = sanitize_text_field($_POST['ntc_kerala']  ?? '');
-    $parish = sanitize_text_field($_POST['ntc_parish']  ?? '');
-    $call   = sanitize_text_field($_POST['ntc_call']    ?? '');
+    $kerala = sanitize_text_field(wp_unslash($_POST['ntc_kerala']  ?? ''));
+    $parish = sanitize_text_field(wp_unslash($_POST['ntc_parish']  ?? ''));
+    $call   = sanitize_text_field(wp_unslash($_POST['ntc_call']    ?? ''));
 
     if (!$fname || !$lname || !$phone) {
         wp_send_json_error(['msg' => 'Please fill in your name and phone number.']);

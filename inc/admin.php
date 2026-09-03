@@ -51,6 +51,10 @@ function sjioc_admin_menu() {
         'manage_options', 'sjioc-smtp', 'sjioc_smtp_settings_page'
     );
     add_submenu_page(
+        'sjioc', 'Weekly Bible Verse', 'Bible Verse',
+        'manage_options', 'sjioc-bible-verse', 'sjioc_bible_verse_admin_page'
+    );
+    add_submenu_page(
         'sjioc', 'Contact Form Subjects', 'Contact Form',
         'manage_options', 'sjioc-contact-subjects', 'sjioc_contact_subjects_admin_page'
     );
@@ -233,22 +237,22 @@ function sjioc_member_edit_page() {
         $dob = sanitize_text_field($_POST['date_of_birth'] ?? '');
         $wed = sanitize_text_field($_POST['wedding_date']  ?? '');
         $data = [
-            'cardex_no'      => sanitize_text_field($_POST['cardex_no']      ?? ''),
+            'cardex_no'      => sanitize_text_field(wp_unslash($_POST['cardex_no']      ?? '')),
             'member_seq'     => max(1, (int) ($_POST['member_seq']            ?? 1)),
-            'first_name'     => sanitize_text_field($_POST['first_name']      ?? ''),
-            'middle_name'    => sanitize_text_field($_POST['middle_name']     ?? ''),
-            'last_name'      => sanitize_text_field($_POST['last_name']       ?? ''),
+            'first_name'     => sanitize_text_field(wp_unslash($_POST['first_name']      ?? '')),
+            'middle_name'    => sanitize_text_field(wp_unslash($_POST['middle_name']     ?? '')),
+            'last_name'      => sanitize_text_field(wp_unslash($_POST['last_name']       ?? '')),
             'gender'         => in_array($_POST['gender'] ?? '', ['M','F']) ? $_POST['gender'] : 'M',
             'date_of_birth'  => $dob ?: null,
             'marital_status' => in_array($_POST['marital_status'] ?? '', ['M','S','W','D']) ? $_POST['marital_status'] : 'S',
             'wedding_date'   => $wed ?: null,
-            'phone_number'   => sanitize_text_field($_POST['phone_number']    ?? ''),
+            'phone_number'   => sanitize_text_field(wp_unslash($_POST['phone_number']    ?? '')),
             'email'          => sanitize_email($_POST['email']                ?? ''),
-            'address'        => sanitize_text_field($_POST['address']         ?? ''),
-            'city'           => sanitize_text_field($_POST['city']            ?? ''),
+            'address'        => sanitize_text_field(wp_unslash($_POST['address']         ?? '')),
+            'city'           => sanitize_text_field(wp_unslash($_POST['city']            ?? '')),
             'state'          => strtoupper(sanitize_text_field($_POST['state'] ?? '')),
             'zip_code'       => sanitize_text_field($_POST['zip_code']        ?? ''),
-            'country'        => sanitize_text_field($_POST['country']         ?? 'USA'),
+            'country'        => sanitize_text_field(wp_unslash($_POST['country']         ?? 'USA')),
             'is_active'      => isset($_POST['is_active']) ? 1 : 0,
         ];
 
@@ -479,7 +483,7 @@ function sjioc_smtp_settings_page(): void {
         ];
         foreach ($saveable as $opt => $const) {
             if (!defined($const)) {
-                update_option($opt, sanitize_text_field($_POST[$opt] ?? ''));
+                update_option($opt, sanitize_text_field(wp_unslash($_POST[$opt] ?? '')));
             }
         }
         if (!defined('SJIOC_MAIL_CLIENT_SECRET')) {
@@ -502,7 +506,7 @@ function sjioc_smtp_settings_page(): void {
         ];
         foreach ($saveable as $opt => $const) {
             if (!defined($const)) {
-                update_option($opt, sanitize_text_field($_POST[$opt] ?? ''));
+                update_option($opt, sanitize_text_field(wp_unslash($_POST[$opt] ?? '')));
             }
         }
         if (!defined('SJIOC_SMTP_PASS')) {

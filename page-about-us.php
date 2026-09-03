@@ -272,8 +272,7 @@ get_header();
 <!-- Timeline -->
 <?php
 $_pm_milestones   = sjioc_get_milestones();
-$_pm_history_id   = sjioc_get_our_history_page_id();
-$_pm_vicars       = $_pm_history_id ? sjioc_get_vicar_timeline($_pm_history_id) : [];
+$_pm_vicars       = sjioc_get_vicar_history();
 ?>
 <div id="history" class="bg-ww"><div class="sec container tc">
   <span class="stag">Our History</span>
@@ -297,12 +296,8 @@ $_pm_vicars       = $_pm_history_id ? sjioc_get_vicar_timeline($_pm_history_id) 
   <span class="stag">Parish Leadership</span>
   <h2 class="stitle">Vicar Leadership Timeline</h2>
   <div class="divider"></div>
-  <div style="max-width:640px;margin:0 auto;text-align:left">
-    <ul class="acc-role-list">
-      <?php foreach ($_pm_vicars as $v): ?>
-      <li><span class="acc-role"><?php echo esc_html($v['period']); ?></span><span class="acc-name"><?php echo esc_html($v['name']); ?></span></li>
-      <?php endforeach; ?>
-    </ul>
+  <div style="max-width:560px;margin:0 auto;text-align:left">
+    <?php sjioc_render_vicar_history_timeline($_pm_vicars); ?>
   </div>
 </div></div>
 <?php endif; ?>
