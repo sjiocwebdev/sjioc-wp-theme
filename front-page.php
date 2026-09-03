@@ -22,6 +22,12 @@ $hero_sub     = sjioc_get('sjioc_hero_sub',     'A Faith Community Rooted in Tra
       <a href="<?php echo esc_url(home_url('/contact-us/')); ?>" class="btn btn-ol">Contact Us</a>
       <a href="<?php echo esc_url(home_url('/give/')); ?>" class="btn btn-go">Support Us</a>
     </div>
+    <?php $hero_verse = sjioc_get_current_bible_verse(); if ($hero_verse): ?>
+    <div class="hero-verse">
+      <p class="hero-verse-text">&ldquo;<?php echo esc_html($hero_verse['text']); ?>&rdquo;</p>
+      <span class="hero-verse-ref"><?php echo esc_html($hero_verse['ref']); ?></span>
+    </div>
+    <?php endif; ?>
   </div>
 </section>
 
@@ -226,7 +232,22 @@ if ($announcements):
         <p>Welcome to St. John's Indian Orthodox Church of Delaware Valley, a vibrant sanctuary of faith, fellowship, and timeless Orthodox tradition. Located at 4400 State Road in Drexel Hill, Pennsylvania, our parish has been proudly serving families across Delaware Valley and Greater Philadelphia regions since November 2006.</p>
         <p>Our community is deeply rooted in the Malankara Orthodox Syrian Church, carrying forward the ancient apostolic faith established in India by St. Thomas the Apostle in 52 AD. Whether you are looking for a spiritual home, seeking to explore your faith, or wanting to connect with a welcoming community, we invite you to experience the rich liturgy and warmth of our parish.</p>
         <br>
-        <a href="<?php echo esc_url(home_url('/about-us/')); ?>" class="btn btn-cr">Learn More About Us</a>
+        <?php $vsb_id = sjioc_youtube_id(get_theme_mod('sjioc_story_video_url', '')); ?>
+        <div class="welcome-cta-row">
+          <a href="<?php echo esc_url(home_url('/about-us/')); ?>" class="btn btn-cr">Learn More About Us</a>
+          <?php if ($vsb_id):
+              $vsb_thumb = 'https://img.youtube.com/vi/' . $vsb_id . '/hqdefault.jpg';
+          ?>
+          <button type="button" class="welcome-video-badge" id="welcome-video-badge" aria-haspopup="dialog" aria-controls="vsb-modal" aria-label="Watch our welcome video">
+            <span class="welcome-video-badge-ring">
+              <span class="welcome-video-badge-inner" style="background-image:url('<?php echo esc_url($vsb_thumb); ?>')">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+              </span>
+            </span>
+            <span class="welcome-video-badge-label">Watch Our Story</span>
+          </button>
+          <?php endif; ?>
+        </div>
       </div>
       <div class="welcome-img">
         <?php
@@ -239,6 +260,50 @@ if ($announcements):
     </div>
   </div>
 </div>
+
+<?php if ($vsb_id): ?>
+<div class="vsb-modal" id="vsb-modal" role="dialog" aria-modal="true" aria-label="Welcome Video">
+  <div class="vsb-modal-box">
+    <button class="vsb-close" id="vsb-close" aria-label="Close">&times;</button>
+    <div class="vsb-video-wrap" id="vsb-video-wrap"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var fab   = document.getElementById('welcome-video-badge');
+  var modal = document.getElementById('vsb-modal');
+  var close = document.getElementById('vsb-close');
+  var wrap  = document.getElementById('vsb-video-wrap');
+  if (!fab || !modal || !wrap) return;
+
+  var videoId = <?php echo wp_json_encode($vsb_id); ?>;
+
+  function open() {
+    var iframe = document.createElement('iframe');
+    iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1&rel=0&modestbranding=1';
+    iframe.setAttribute('allow', 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture');
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.setAttribute('frameborder', '0');
+    wrap.innerHTML = '';
+    wrap.appendChild(iframe);
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    close.focus();
+  }
+  function hide() {
+    modal.classList.remove('is-open');
+    document.body.style.overflow = '';
+    wrap.innerHTML = '';
+  }
+
+  fab.addEventListener('click', open);
+  close.addEventListener('click', hide);
+  modal.addEventListener('click', function (e) { if (e.target === modal) hide(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
+})();
+</script>
+<?php endif; ?>
 
 <!-- ════ SERVICE TIMES ════ -->
 <section class="times-band" aria-labelledby="times-heading">
@@ -288,8 +353,9 @@ if ($announcements):
           $mp_img  = get_the_post_thumbnail_url($mp->ID, 'large') ?: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=70';
           $mp_tag  = get_post_meta($mp->ID, 'ministry_tag', true);
           $mp_desc = wp_trim_words(wp_strip_all_tags($mp->post_content), 22, '…') ?: 'Learn more about this ministry.';
+          $mp_is_logo = (bool) get_post_meta($mp->ID, 'ministry_is_logo', true);
       ?>
-        <article class="mcard">
+        <article class="mcard<?php echo $mp_is_logo ? ' is-logo' : ''; ?>">
           <img src="<?php echo esc_url($mp_img); ?>" alt="<?php echo esc_attr($mp->post_title); ?>" loading="lazy">
           <div class="mcard-body">
             <?php if ($mp_tag): ?><span class="mcard-tag"><?php echo esc_html($mp_tag); ?></span><?php endif; ?>
@@ -394,6 +460,42 @@ if ($announcements):
   </div>
 </div>
 
+<!-- ════ LATEST EVENT VIDEO (hidden entirely when no link is set) ════ -->
+<?php
+$lv_id = sjioc_youtube_id(get_theme_mod('sjioc_latest_video_url', ''));
+if ($lv_id):
+    $lv_thumb = 'https://img.youtube.com/vi/' . $lv_id . '/hqdefault.jpg';
+?>
+<div class="bg-cream">
+  <div class="sec container tc">
+    <span class="stag">Watch &amp; Relive</span>
+    <h2 class="stitle">Latest Event Video</h2>
+    <div class="divider"></div>
+    <div class="lv-wrap">
+      <button type="button" class="lv-embed lv-facade" id="lv-embed" aria-label="Play latest event video" style="background-image:url('<?php echo esc_url($lv_thumb); ?>')">
+        <span class="lv-play-ring"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>
+      </button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var facade = document.getElementById('lv-embed');
+  if (!facade) return;
+  var videoId = <?php echo wp_json_encode($lv_id); ?>;
+  facade.addEventListener('click', function(){
+    var iframe = document.createElement('iframe');
+    iframe.className = 'lv-embed';
+    iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1&rel=0&modestbranding=1';
+    iframe.setAttribute('allow', 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture');
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.setAttribute('frameborder', '0');
+    facade.replaceWith(iframe);
+  });
+})();
+</script>
+<?php endif; ?>
+
 <!-- ════ NEW TO SJIOC ════ -->
 <section class="ntc-band" aria-labelledby="ntc-heading">
   <div class="ntc-inner container">
@@ -434,6 +536,7 @@ if ($announcements):
       <form id="ntc-form" novalidate>
         <?php wp_nonce_field('sjioc_ntc', 'sjioc_ntc_nonce'); ?>
         <input type="hidden" name="recaptcha_token" id="ntc_recaptcha_token">
+        <div style="display:none" aria-hidden="true"><input type="text" id="ntc-hp" name="ntc_hp" tabindex="-1" autocomplete="off"></div>
 
         <div class="ntc-row-2">
           <div class="ntc-group">
@@ -568,6 +671,11 @@ if ($announcements):
         errBox.textContent = 'Please enter your name and phone number.';
         errBox.hidden = false; return;
       }
+
+      // Honeypot — bots fill hidden fields, real users never interact with them
+      var ntcHp = document.getElementById('ntc-hp');
+      if (ntcHp && ntcHp.value.trim()) return;
+
       submit.disabled = true; submit.textContent = '⏳ Sending…';
 
       function doSubmit(rcToken) {
@@ -619,5 +727,58 @@ if ($announcements):
   }
 })();
 </script>
+
+<?php
+$vm_text = get_theme_mod('sjioc_vicar_msg_text', '');
+if ($vm_text):
+    $vm_photo_id = get_theme_mod('sjioc_vicar_msg_photo');
+    $vm_photo    = $vm_photo_id ? wp_get_attachment_image_url($vm_photo_id, 'medium_large') : '';
+    $vm_name     = get_theme_mod('sjioc_vicar_msg_name', '');
+    $vm_title    = get_theme_mod('sjioc_vicar_msg_title', __('Vicar', 'sjioc'));
+?>
+<!-- ════ VICAR'S MESSAGE — floating button + popup ════ -->
+<button type="button" class="vm-fab" id="vm-fab" aria-haspopup="dialog" aria-controls="vm-modal" aria-label="A Message from Our Vicar">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 5.5c-.8.4-1.7.6-2.6.8.9-.6 1.6-1.5 2-2.6-.9.5-1.8.9-2.8 1.1C18.8 3.9 17.6 3.3 16.3 3.3c-2.4 0-4.4 2-4.4 4.4 0 .3 0 .7.1 1C8.4 8.5 5 6.7 2.7 3.9c-.4.6-.6 1.4-.6 2.1 0 1.5.8 2.8 1.9 3.6-.7 0-1.4-.2-2-.5v.1c0 2.1 1.5 3.9 3.5 4.3-.4.1-.7.1-1.1.1-.3 0-.5 0-.8-.1.5 1.7 2.1 3 4 3-1.5 1.2-3.3 1.9-5.3 1.9-.3 0-.7 0-1-.1C3.4 19.5 5.6 20 8 20c8.4 0 13-7 13-13v-.6c.9-.6 1.7-1.4 2.3-2.3z"/></svg>
+</button>
+
+<div class="vm-modal" id="vm-modal" role="dialog" aria-modal="true" aria-label="A Message from Our Vicar">
+  <div class="vm-modal-box">
+    <button class="vm-close" id="vm-close" aria-label="Close">&times;</button>
+    <?php if ($vm_photo): ?>
+    <div class="vm-photo"><img src="<?php echo esc_url($vm_photo); ?>" alt="<?php echo esc_attr($vm_name); ?>" loading="lazy"></div>
+    <?php endif; ?>
+    <div class="vm-text">
+      <span class="stag">A Message from Our Vicar</span>
+      <?php if ($vm_name): ?><h3><?php echo esc_html($vm_name); ?></h3><?php endif; ?>
+      <?php if ($vm_title): ?><p class="vm-role"><?php echo esc_html($vm_title); ?></p><?php endif; ?>
+      <div class="vm-msg"><?php echo wp_kses_post(wpautop($vm_text)); ?></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var fab   = document.getElementById('vm-fab');
+  var modal = document.getElementById('vm-modal');
+  var close = document.getElementById('vm-close');
+  if (!fab || !modal) return;
+
+  function open() {
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    close.focus();
+  }
+  function hide() {
+    modal.classList.remove('is-open');
+    document.body.style.overflow = '';
+  }
+
+  fab.addEventListener('click', open);
+  close.addEventListener('click', hide);
+  modal.addEventListener('click', function (e) { if (e.target === modal) hide(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
+})();
+</script>
+<?php endif; ?>
 
 <?php sjioc_footer(); get_footer(); ?>

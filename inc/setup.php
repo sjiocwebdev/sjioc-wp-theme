@@ -31,6 +31,53 @@ function sjioc_setup() {
 add_action('after_setup_theme', 'sjioc_setup');
 
 /* ─────────────────────────────────────
+   SECURITY HARDENING
+───────────────────────────────────── */
+
+// Remove the WordPress version number from page source (wp_head + RSS feeds).
+remove_action('wp_head', 'wp_generator');
+add_filter('the_generator', '__return_empty_string');
+
+// Block anonymous username enumeration via the REST API user list/lookup —
+// logged-in users (e.g. the block editor) are unaffected.
+add_filter('rest_endpoints', function ($endpoints) {
+    if (!is_user_logged_in()) {
+        unset($endpoints['/wp/v2/users'], $endpoints['/wp/v2/users/(?P<id>[\d]+)']);
+    }
+    return $endpoints;
+});
+
+// Block the classic ?author=1, ?author=2... enumeration trick (redirects to
+// an author archive whose URL slug reveals the username).
+add_action('template_redirect', function () {
+    if (is_author() && !is_user_logged_in() && isset($_GET['author'])) {
+        wp_safe_redirect(home_url('/'), 301);
+        exit;
+    }
+});
+
+// Login brute-force throttle — same per-IP transient pattern used everywhere
+// else in this theme. 5 failed attempts locks that IP out of login for 15
+// minutes; a successful login clears it.
+function sjioc_login_throttle_key(): string {
+    return 'sjioc_login_fail_' . md5($_SERVER['REMOTE_ADDR'] ?? '');
+}
+add_filter('authenticate', function ($user, $username, $password) {
+    if ($username === '' && $password === '') return $user; // initial page load, not an attempt
+    if ((int) get_transient(sjioc_login_throttle_key()) >= 5) {
+        return new WP_Error('sjioc_locked', __('Too many failed login attempts. Please try again in 15 minutes.', 'sjioc'));
+    }
+    return $user;
+}, 10, 3);
+add_action('wp_login_failed', function () {
+    $key = sjioc_login_throttle_key();
+    set_transient($key, (int) get_transient($key) + 1, 15 * MINUTE_IN_SECONDS);
+});
+add_action('wp_login', function () {
+    delete_transient(sjioc_login_throttle_key());
+});
+
+/* ─────────────────────────────────────
    ENQUEUE SCRIPTS & STYLES
 ───────────────────────────────────── */
 function sjioc_assets() {
@@ -171,6 +218,19 @@ function sjioc_customizer($wp_customize) {
         'description' => __('Upload the Zelle QR code displayed on the Support Us / Give page.', 'sjioc'),
     ]));
 
+    // Zelle recipient email — may differ from the general church email
+    $wp_customize->add_setting('sjioc_zelle_email', [
+        'default'           => '',
+        'sanitize_callback' => 'sanitize_email',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control('sjioc_zelle_email', [
+        'label'       => __('Zelle Recipient Email', 'sjioc'),
+        'section'     => 'sjioc_info',
+        'type'        => 'text',
+        'description' => __('Shown on the Support Us page as the "Send to" address. Leave blank to use the Email Address above.', 'sjioc'),
+    ]);
+
     // Patron Saint icon — Worship & Services "Feast of the Patron Saint" section
     $wp_customize->add_setting('sjioc_patron_saint_icon', [
         'default'           => '',
@@ -235,6 +295,97 @@ function sjioc_customizer($wp_customize) {
         'mime_type'   => 'image',
         'description' => __('Shown on the Worship & Services page, next to the Sunday Schedule.', 'sjioc'),
     ]));
+
+    // Vicar's Message — floating home page button + popup
+    $wp_customize->add_section('sjioc_vicar_msg', [
+        'title'       => __("Vicar's Message (Home Page)", 'sjioc'),
+        'description' => __('A floating button on the home page that opens a short message from the Vicar. Leave the message blank to hide the button.', 'sjioc'),
+        'priority'    => 34,
+    ]);
+
+    $wp_customize->add_setting('sjioc_vicar_msg_photo', [
+        'default'           => '',
+        'sanitize_callback' => 'absint',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control(new WP_Customize_Media_Control($wp_customize, 'sjioc_vicar_msg_photo', [
+        'label'       => __("Vicar's Photo", 'sjioc'),
+        'section'     => 'sjioc_vicar_msg',
+        'mime_type'   => 'image',
+        'description' => __('Portrait photo, shown in the message popup.', 'sjioc'),
+    ]));
+
+    $wp_customize->add_setting('sjioc_vicar_msg_name', [
+        'default'           => '',
+        'sanitize_callback' => 'sanitize_text_field',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control('sjioc_vicar_msg_name', [
+        'label'   => __("Vicar's Name", 'sjioc'),
+        'section' => 'sjioc_vicar_msg',
+        'type'    => 'text',
+    ]);
+
+    $wp_customize->add_setting('sjioc_vicar_msg_title', [
+        'default'           => __('Vicar', 'sjioc'),
+        'sanitize_callback' => 'sanitize_text_field',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control('sjioc_vicar_msg_title', [
+        'label'   => __('Title', 'sjioc'),
+        'section' => 'sjioc_vicar_msg',
+        'type'    => 'text',
+    ]);
+
+    $wp_customize->add_setting('sjioc_vicar_msg_text', [
+        'default'           => '',
+        'sanitize_callback' => 'wp_kses_post',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control('sjioc_vicar_msg_text', [
+        'label'       => __('Message', 'sjioc'),
+        'section'     => 'sjioc_vicar_msg',
+        'type'        => 'textarea',
+        'description' => __('A short 2-4 sentence greeting. The floating button only appears once this is filled in.', 'sjioc'),
+    ]);
+
+    // Welcome Video — second floating "story bubble" button
+    $wp_customize->add_section('sjioc_story_video', [
+        'title'       => __('Welcome Video (Home Page)', 'sjioc'),
+        'description' => __('A floating video button on the home page. Paste any YouTube link (watch, youtu.be, or Shorts) — leave blank to hide the button.', 'sjioc'),
+        'priority'    => 35,
+    ]);
+
+    $wp_customize->add_setting('sjioc_story_video_url', [
+        'default'           => '',
+        'sanitize_callback' => 'esc_url_raw',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control('sjioc_story_video_url', [
+        'label'       => __('YouTube Video Link', 'sjioc'),
+        'section'     => 'sjioc_story_video',
+        'type'        => 'text',
+        'description' => __('Paste the video URL from YouTube (Share button, or the address bar). For best results, use an Unlisted video.', 'sjioc'),
+    ]);
+
+    // Latest Event Video — home page row, hidden entirely when blank
+    $wp_customize->add_section('sjioc_latest_video', [
+        'title'       => __('Latest Event Video (Home Page)', 'sjioc'),
+        'description' => __('A "Latest Event Video" row on the home page. Paste any YouTube link — leave blank and the whole row disappears from the home page.', 'sjioc'),
+        'priority'    => 36,
+    ]);
+
+    $wp_customize->add_setting('sjioc_latest_video_url', [
+        'default'           => '',
+        'sanitize_callback' => 'esc_url_raw',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control('sjioc_latest_video_url', [
+        'label'       => __('YouTube Video Link', 'sjioc'),
+        'section'     => 'sjioc_latest_video',
+        'type'        => 'text',
+        'description' => __('Paste the video URL from YouTube (Share button, or the address bar).', 'sjioc'),
+    ]);
 }
 add_action('customize_register', 'sjioc_customizer');
 
@@ -406,6 +557,7 @@ function sjioc_get($key, $fallback = '') {
 }
 function sjioc_phone()   { return sjioc_get('sjioc_phone',       '(610) 822-0033'); }
 function sjioc_email()   { return sjioc_get('sjioc_email',       'info@sjioc.org'); }
+function sjioc_zelle_email() { return sjioc_get('sjioc_zelle_email', '') ?: sjioc_email(); }
 function sjioc_address() { return sjioc_get('sjioc_address',     '4400 State Road, Drexel Hill, PA 19026'); }
 function sjioc_name()    { return sjioc_get('sjioc_church_name', "St. John's Indian Orthodox Church Of Delaware Valley"); }
 function sjioc_abbr()    { return sjioc_get('sjioc_abbr',        'SJIOC'); }
@@ -417,9 +569,25 @@ function sjioc_yt()      { return sjioc_get('sjioc_youtube',     '#'); }
 function sjioc_ig()      { return sjioc_get('sjioc_instagram',   '#'); }
 function sjioc_zoom()    { return sjioc_get('sjioc_zoom',        '#'); }
 function sjioc_cal()     { return sjioc_get('sjioc_calendar_url','#'); }
+function sjioc_cal_safe_url() {
+    $url = sjioc_cal();
+    return ($url && $url !== '#') ? $url : home_url('/events/');
+}
 function sjioc_morning_prayer()  { return sjioc_get('sjioc_morning_prayer',     '8:30 AM'); }
 function sjioc_sat_evening()     { return sjioc_get('sjioc_saturday',           '6:00 PM'); }
 function sjioc_first_wed_qurbana() { return sjioc_get('sjioc_first_wed_qurbana','6:00 PM'); }
+
+function sjioc_youtube_id(string $url): string {
+    $url = trim($url);
+    if ($url === '') return '';
+    if (preg_match('~(?:youtube(?:-nocookie)?\.com/(?:watch\?v=|embed/|shorts/)|youtu\.be/)([A-Za-z0-9_-]{11})~', $url, $m)) {
+        return $m[1];
+    }
+    if (preg_match('~^[A-Za-z0-9_-]{11}$~', $url)) {
+        return $url;
+    }
+    return '';
+}
 
 function sjioc_get_worship_times() {
     return [
@@ -466,7 +634,7 @@ function sjioc_social_links_data($context) {
             'svg'   => '<rect width="24" height="24" rx="7" fill="#2D8CFF"/><rect x="4.3" y="8" width="10.4" height="8" rx="2" fill="#fff"/><path d="M15.9 10.5l3.6-2.3v7.6l-3.6-2.3z" fill="#fff"/>',
         ],
         'calendar'  => [
-            'url'   => sjioc_cal(),
+            'url'   => sjioc_cal_safe_url(),
             'label' => 'Calendar',
             'size'  => 18,
             'svg'   => '<rect width="24" height="24" rx="7" fill="#C9A84C"/><rect x="5" y="6" width="14" height="13" rx="1.5" fill="none" stroke="#fff" stroke-width="1.6"/><line x1="5" y1="10" x2="19" y2="10" stroke="#fff" stroke-width="1.6"/><line x1="8.5" y1="4" x2="8.5" y2="7.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><line x1="15.5" y1="4" x2="15.5" y2="7.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>',
@@ -477,12 +645,13 @@ function sjioc_social_links_data($context) {
 function sjioc_social_icons($context = 'footer') {
     $links      = sjioc_social_links_data($context);
     $base_class = $context === 'header' ? 'nav-social-link' : 'social-link';
-    foreach ($links as $l) {
+    foreach ($links as $key => $l) {
         if (empty($l['url']) || $l['url'] === '#') continue;
-        $class = $base_class . (empty($l['mono']) ? ' social-badge' : '');
+        $class  = $base_class . (empty($l['mono']) ? ' social-badge' : '');
+        $target = $key === 'calendar' ? '' : ' target="_blank" rel="noopener"';
         printf(
-            '<a class="%s" href="%s" target="_blank" rel="noopener" aria-label="%s"><svg viewBox="0 0 24 24" width="%d" height="%d" aria-hidden="true">%s</svg></a>',
-            esc_attr($class), esc_url($l['url']), esc_attr($l['label']), $l['size'], $l['size'], $l['svg']
+            '<a class="%s" href="%s"%s aria-label="%s"><svg viewBox="0 0 24 24" width="%d" height="%d" aria-hidden="true">%s</svg></a>',
+            esc_attr($class), esc_url($l['url']), $target, esc_attr($l['label']), $l['size'], $l['size'], $l['svg']
         );
     }
 }
@@ -496,10 +665,11 @@ function sjioc_follow_rows() {
     $any   = false;
     foreach ($links as $key => $l) {
         if (empty($l['url']) || $l['url'] === '#') continue;
-        $any = true;
+        $any    = true;
+        $target = $key === 'calendar' ? '' : ' target="_blank" rel="noopener"';
         printf(
-            '<a class="follow-row" href="%s" target="_blank" rel="noopener"><span class="follow-icon"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">%s</svg></span><span class="follow-label">%s</span><span class="follow-arrow" aria-hidden="true">&rarr;</span></a>',
-            esc_url($l['url']), $l['svg'], esc_html($l['label'])
+            '<a class="follow-row" href="%s"%s><span class="follow-icon"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">%s</svg></span><span class="follow-label">%s</span><span class="follow-arrow" aria-hidden="true">&rarr;</span></a>',
+            esc_url($l['url']), $target, $l['svg'], esc_html($l['label'])
         );
     }
     if (!$any) {

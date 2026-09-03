@@ -547,6 +547,20 @@ input, textarea, select { font-family:'Lato', sans-serif; }
   display:block; margin-bottom:44px;
 }
 .hero-btns { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
+.hero-verse {
+  max-width:560px; margin:34px auto 0; padding-top:26px;
+  border-top:1px solid rgba(201,168,76,.3);
+}
+.hero-verse-text {
+  font-family:'Cormorant Garamond', serif; font-style:italic;
+  font-size:clamp(1rem,2.2vw,1.25rem); line-height:1.6;
+  color:rgba(255,255,255,.9); margin-bottom:10px;
+}
+.hero-verse-ref {
+  display:block; color:var(--go); font-size:.7rem; font-weight:700;
+  letter-spacing:.14em; text-transform:uppercase;
+}
+@media (max-width:560px) { .hero-verse { margin-top:24px; padding-top:20px; } }
 
 /* ═══════════════════════════════════════════════════
    WELCOME SECTION
@@ -624,6 +638,7 @@ input, textarea, select { font-family:'Lato', sans-serif; }
   filter:sepia(18%) saturate(85%); transition:filter .4s;
 }
 .mcard:hover img { filter:none; }
+.mcard.is-logo img { object-fit:contain; background:var(--ww); filter:none; padding:14px; box-sizing:border-box; }
 .mcard-body { padding:24px; }
 .mcard-tag {
   display:inline-block; background:var(--cr);
@@ -686,6 +701,7 @@ input, textarea, select { font-family:'Lato', sans-serif; }
   object-fit:cover; filter:sepia(16%); transition:filter .3s;
 }
 .mdcard:hover img { filter:none; }
+.mdcard.is-logo img { object-fit:contain; background:var(--ww); filter:none; padding:14px; box-sizing:border-box; }
 .mdcard-body { padding:26px 22px; }
 .mdcard-body h3 { font-family:'Playfair Display',serif; color:var(--cr); font-size:1.18rem; margin-bottom:11px; }
 .mdcard-body p  { color:var(--tl); font-size:.87rem; line-height:1.7; margin-bottom:16px; }
@@ -693,6 +709,44 @@ input, textarea, select { font-family:'Lato', sans-serif; }
 /* News pagination */
 .news-pagination { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:14px 20px; margin-top:40px; }
 .news-page-info { color:var(--tl); font-size:.84rem; font-weight:600; letter-spacing:.03em; }
+
+/* ═══════════════════════════════════════════════════
+   RESOURCES PAGE
+═══════════════════════════════════════════════════ */
+.res-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
+.res-card {
+  display:flex; flex-direction:column; background:var(--ww); border:1px solid var(--border);
+  border-radius:10px; padding:24px; text-decoration:none; position:relative; overflow:hidden;
+  transition:transform .28s, box-shadow .28s, border-color .28s;
+}
+.res-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:linear-gradient(90deg, var(--go), var(--cr-lt), var(--go));
+  transform:scaleX(0); transform-origin:left; transition:transform .35s ease;
+}
+.res-card:hover { transform:translateY(-6px); box-shadow:0 20px 44px rgba(123,24,24,.16); border-color:var(--go); }
+.res-card:hover::before { transform:scaleX(1); }
+.res-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.res-favicon {
+  width:42px; height:42px; border-radius:50%; background:var(--cream);
+  border:1px solid var(--border); display:flex; align-items:center; justify-content:center; overflow:hidden;
+}
+.res-favicon img { width:28px; height:28px; object-fit:contain; }
+.res-tag {
+  background:var(--cr); color:var(--go-lt); font-size:.6rem; font-weight:700;
+  letter-spacing:.1em; text-transform:uppercase; padding:3px 10px;
+}
+.res-card h3 { font-family:'Playfair Display',serif; color:var(--cr); font-size:1.08rem; margin-bottom:8px; }
+.res-card p { color:var(--tl); font-size:.85rem; line-height:1.65; margin-bottom:16px; flex:1; }
+.res-visit {
+  display:inline-flex; align-items:center; gap:6px; color:var(--tm); font-size:.76rem; font-weight:700;
+  letter-spacing:.06em; text-transform:uppercase;
+}
+.res-visit svg { transition:transform .28s ease; }
+.res-card:hover .res-visit { color:var(--cr); }
+.res-card:hover .res-visit svg { transform:translate(2px,-2px); }
+@media (max-width:900px) { .res-grid { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:600px) { .res-grid { grid-template-columns:1fr; } }
 
 /* ═══════════════════════════════════════════════════
    EVENTS
@@ -845,7 +899,7 @@ input, textarea, select { font-family:'Lato', sans-serif; }
 .min-close:hover { background:rgba(0,0,0,.72); }
 .min-hero { display:flex; align-items:stretch; min-height:180px; overflow:hidden; border-radius:12px 12px 0 0; background:var(--ww); border-bottom:1px solid var(--border); }
 .min-hero-img { flex:0 0 180px; background-color:var(--cr-dk, #3d0404); background-size:cover; background-position:center; }
-.min-hero-img.no-img { display:none; }
+.min-hero-img.no-img { background:linear-gradient(135deg, #5c1010 0%, #2a0505 100%); }
 .min-hero-text { flex:1; min-width:0; padding:20px 24px; display:flex; flex-direction:column; justify-content:center; }
 .min-hero-text h2 { color:var(--cr); font-family:'Playfair Display',serif; font-size:1.3rem; margin:4px 0 0; }
 .min-body { padding:20px 24px; }
@@ -920,6 +974,41 @@ input, textarea, select { font-family:'Lato', sans-serif; }
 .tl-content { border-left:3px solid var(--go); padding-left:22px; padding-bottom:4px; }
 .tl-content h4 { font-family:'Playfair Display',serif; color:var(--cr); margin-bottom:5px; font-size:1rem; }
 .tl-content p  { font-size:.87rem; color:var(--tl); line-height:1.62; }
+
+/* Vicar Leadership Timeline — circular photo nodes on a connecting line */
+.vt-timeline { position:relative; }
+.vt-timeline::before {
+  content:''; position:absolute; left:49px; top:50px; bottom:50px; width:2px;
+  background:var(--border); z-index:0;
+}
+.vt-row { position:relative; display:flex; gap:24px; align-items:center; margin-bottom:34px; }
+.vt-row:last-child { margin-bottom:0; }
+.vt-photo {
+  position:relative; z-index:1; flex:0 0 100px; width:100px; height:100px; border-radius:50%;
+  border:3px solid var(--go); background:var(--ww); overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 3px 12px rgba(0,0,0,.18);
+}
+.vt-photo img { width:100%; height:100%; object-fit:cover; object-position:center top; }
+.vt-photo-fallback { font-size:2.2rem; color:var(--go); }
+.vt-row.is-current .vt-photo {
+  width:116px; height:116px; flex-basis:116px; border-width:4px;
+  box-shadow:0 0 0 4px rgba(201,168,76,.22), 0 6px 18px rgba(0,0,0,.22);
+}
+.vt-info { display:flex; flex-direction:column; gap:2px; }
+.vt-period { color:var(--go); font-size:.72rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
+.vt-name { font-family:'Playfair Display',serif; color:var(--cr); font-size:1.16rem; }
+.vt-current-badge {
+  display:inline-block; align-self:flex-start; margin-top:4px;
+  background:var(--cr); color:var(--go-lt); font-size:.6rem; font-weight:700;
+  letter-spacing:.1em; text-transform:uppercase; padding:2px 9px;
+}
+@media (max-width:520px) {
+  .vt-timeline::before { left:39px; top:40px; bottom:40px; }
+  .vt-photo { flex-basis:80px; width:80px; height:80px; }
+  .vt-row.is-current .vt-photo { width:92px; height:92px; flex-basis:92px; }
+  .vt-name { font-size:1.02rem; }
+}
 
 /* ═══════════════════════════════════════════════════
    CONTACT PAGE
@@ -1053,6 +1142,142 @@ input, textarea, select { font-family:'Lato', sans-serif; }
 #back-to-top:hover { background:var(--go-lt); transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,.32); }
 #back-to-top svg { width:18px; height:18px; }
 @media(max-width:640px){ #back-to-top { right:14px; width:38px; height:38px; } }
+
+/* Vicar's Message — floating button + popup */
+.vm-fab {
+  position:fixed; left:22px; bottom:calc(var(--wgth) + 14px); z-index:9790;
+  width:54px; height:54px; border-radius:50%;
+  background:var(--cr); border:2px solid var(--go);
+  color:var(--go-lt); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 16px rgba(0,0,0,.32);
+  animation:vmPulse 2.8s ease-in-out infinite;
+  transition:transform .2s, background .2s;
+}
+.vm-fab:hover { background:var(--cr-dk); transform:translateY(-3px); }
+.vm-fab svg { width:24px; height:24px; fill:currentColor; }
+@keyframes vmPulse {
+  0%,100% { box-shadow:0 4px 16px rgba(0,0,0,.32), 0 0 0 0 rgba(201,168,76,.45); }
+  50%     { box-shadow:0 4px 16px rgba(0,0,0,.32), 0 0 0 9px rgba(201,168,76,0); }
+}
+@media(max-width:640px){ .vm-fab { left:14px; width:46px; height:46px; } .vm-fab svg { width:20px; height:20px; } }
+
+.vm-modal {
+  position:fixed; inset:0; z-index:9950;
+  background:rgba(20,5,5,.68);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+  opacity:0; visibility:hidden;
+  transition:opacity .25s ease, visibility .25s ease;
+}
+.vm-modal.is-open { opacity:1; visibility:visible; }
+.vm-modal-box {
+  background:var(--ww); max-width:520px; width:100%;
+  padding:32px 30px; position:relative;
+  border-top:4px solid var(--go);
+  box-shadow:0 30px 70px rgba(0,0,0,.4);
+  text-align:center;
+  transform:scale(.82) translateY(18px);
+  transition:transform .32s cubic-bezier(.34,1.56,.64,1);
+}
+.vm-modal.is-open .vm-modal-box { transform:scale(1) translateY(0); }
+.vm-close {
+  position:absolute; top:10px; right:14px;
+  background:none; border:none; font-size:1.6rem; line-height:1;
+  color:var(--tl); cursor:pointer;
+}
+.vm-close:hover { color:var(--cr); }
+.vm-photo { max-width:132px; margin:0 auto 18px; position:relative; }
+.vm-photo img {
+  width:100%; height:auto; aspect-ratio:1/1; border-radius:50%; object-fit:cover; object-position:center top;
+  border:4px solid var(--go); position:relative; z-index:1;
+}
+.vm-text h3 { font-family:'Playfair Display',serif; color:var(--cr); font-size:1.3rem; margin:6px 0 2px; }
+.vm-role { color:var(--tl); font-size:.78rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; margin-bottom:14px; }
+.vm-msg { color:var(--tl); font-size:.92rem; line-height:1.75; text-align:left; }
+.vm-msg p:last-child { margin-bottom:0; }
+@media(max-width:640px){ .vm-modal-box { padding:26px 20px; } }
+
+/* Welcome Video — "watch" badge sitting beside the Learn More button + popup */
+.welcome-cta-row { display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
+.welcome-video-badge {
+  position:relative; display:inline-flex; align-items:center; gap:11px;
+  background:none; border:none; padding:0; cursor:pointer;
+}
+.welcome-video-badge-ring { position:relative; flex-shrink:0; width:52px; height:52px; }
+.welcome-video-badge-ring::before {
+  content:''; position:absolute; inset:-3px; border-radius:50%;
+  background:conic-gradient(from 0deg, var(--go), var(--go-lt), var(--cr-lt), var(--go));
+  animation:vsbRotate 3.6s linear infinite; z-index:0;
+}
+.welcome-video-badge-inner {
+  position:relative; z-index:1; display:flex; align-items:center; justify-content:center;
+  width:100%; height:100%; border-radius:50%;
+  background-color:var(--cr-dk); background-size:cover; background-position:center;
+  border:3px solid var(--ww); box-shadow:0 4px 16px rgba(0,0,0,.32);
+}
+.welcome-video-badge-inner svg { width:19px; height:19px; fill:#fff; filter:drop-shadow(0 1px 3px rgba(0,0,0,.55)); }
+.welcome-video-badge-label {
+  color:var(--cr); font-size:.74rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+}
+.welcome-video-badge:hover .welcome-video-badge-inner { transform:scale(1.06); }
+.welcome-video-badge:hover .welcome-video-badge-label { color:var(--go); }
+@keyframes vsbRotate { to { transform:rotate(360deg); } }
+@media(max-width:640px){
+  .welcome-video-badge-ring { width:44px; height:44px; }
+  .welcome-video-badge-inner svg { width:16px; height:16px; }
+  .welcome-video-badge-label { font-size:.68rem; }
+}
+
+.vsb-modal {
+  position:fixed; inset:0; z-index:9950;
+  background:rgba(20,5,5,.78);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+  opacity:0; visibility:hidden;
+  transition:opacity .25s ease, visibility .25s ease;
+}
+.vsb-modal.is-open { opacity:1; visibility:visible; }
+.vsb-modal-box {
+  background:#000; max-width:720px; width:100%; position:relative;
+  box-shadow:0 30px 70px rgba(0,0,0,.5);
+  transform:scale(.85) translateY(18px);
+  transition:transform .32s cubic-bezier(.34,1.56,.64,1);
+}
+.vsb-modal.is-open .vsb-modal-box { transform:scale(1) translateY(0); }
+.vsb-close {
+  position:absolute; top:-42px; right:0;
+  width:34px; height:34px; border-radius:50%;
+  background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.3);
+  color:#fff; font-size:1.4rem; line-height:1; cursor:pointer;
+}
+.vsb-close:hover { background:rgba(255,255,255,.22); }
+.vsb-video-wrap { position:relative; width:100%; aspect-ratio:16/9; }
+.vsb-video-wrap iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+
+/* Latest Event Video row (home page) */
+.lv-wrap { max-width:900px; margin:0 auto; }
+.lv-embed {
+  position:relative; display:block; width:100%; aspect-ratio:16/9;
+  border-radius:8px; overflow:hidden; background-color:#000;
+  box-shadow:0 20px 50px rgba(0,0,0,.18);
+}
+.lv-facade { border:0; padding:0; cursor:pointer; background-size:cover; background-position:center; }
+.lv-facade::before { content:''; position:absolute; inset:0; background:rgba(0,0,0,.25); transition:background .25s; }
+.lv-facade:hover::before { background:rgba(0,0,0,.4); }
+.lv-play-ring {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:74px; height:74px; border-radius:50%; background:var(--go);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 6px 24px rgba(0,0,0,.4); transition:transform .25s;
+}
+.lv-facade:hover .lv-play-ring { transform:translate(-50%,-50%) scale(1.08); }
+.lv-play-ring svg { width:26px; height:26px; fill:var(--cr-dk); margin-left:4px; }
+iframe.lv-embed { border:0; }
+@media(max-width:640px){
+  .lv-play-ring { width:58px; height:58px; }
+  .lv-play-ring svg { width:20px; height:20px; }
+}
 
 /* ═══════════════════════════════════════════════════
    HALL RENTAL PAGE
