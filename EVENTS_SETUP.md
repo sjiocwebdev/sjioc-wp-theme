@@ -9,7 +9,7 @@
 | Add events manually (WP Admin form) | ✅ Yes |
 | Import from spreadsheet (CSV) | ✅ Yes |
 | Events page (calendar + list view) | ✅ Yes — after Step 1 below |
-| Download ICS button on events page | ✅ Yes |
+| Subscribe to Calendar button on events page (`webcal://`) | ✅ Yes |
 | Outlook ICS sync (Sync from Outlook button) | ✅ Yes — paste ICS URL in admin |
 | Google Calendar API sync | ❌ Needs API key |
 
@@ -142,41 +142,42 @@ For recurring events (Sunday services, Bible study, etc.) it's often faster to j
 
 ## For Visitors — Subscribing to the Parish Calendar
 
-The Events page always shows a **Download ICS** button. Visitors can use this to add parish events to their personal calendar app.
+The Events page shows a single **"Subscribe to Calendar"** button (`#calendar` section). As of
+2026-08-24 this links with the `webcal://` scheme (not `https://`), so on most devices clicking
+it hands off directly to the visitor's default calendar app's native "Add Subscription" flow —
+there's no separate "Download" vs "Subscribe" button anymore, and no plain `.ics` file download.
 
-### Import into Outlook (Microsoft 365 / Outlook.com)
+Event times in the feed are true UTC (`DTSTART`/`DTEND` with a `Z` suffix, computed via the
+site's configured timezone + DST-aware conversion) — correct regardless of what timezone the
+subscriber is viewing from.
 
-1. Click **Download ICS** on the Events page — a `.ics` file downloads
-2. Open **Outlook** (desktop or web) → Calendar
-3. Click **Add calendar** (web) or **File → Open & Export → Import/Export** (desktop)
-4. Select **Import an iCalendar (.ics) file** → choose the downloaded file
-5. Click **Import** — events are added to your calendar
+The underlying URL, if you need to paste it manually into a calendar app's "From URL"/"Subscribe"
+field: `https://yoursite.com/wp-json/sjioc/v1/calendar.ics` (or the `webcal://` equivalent — same
+host and path, different scheme).
 
-> Note: this is a one-time import (snapshot). Events added later to the parish website will not sync automatically unless using the Subscribe link (see below).
+### Subscribe in Apple Calendar / Outlook (Mac, iPhone, Windows)
 
-### Subscribe in Outlook (live, auto-updating)
-
-If the **Subscribe (Outlook / GCal)** button appears on the Events page:
-
-1. Click **Subscribe (Outlook / GCal)** — opens Outlook web
-2. Click **Add calendar** in the prompt
-3. The calendar stays in sync automatically — new parish events appear as they're added
-
-### Subscribe in Apple Calendar (Mac / iPhone)
-
-1. Click **Download ICS** → when prompted, choose **Subscribe** (not Import)
-   - Or: File → New Calendar Subscription → paste the ICS URL manually
-2. Set refresh to **Every day** or **Every week**
-3. Click **Subscribe**
-
-The ICS URL to paste is:  
-`https://yoursite.com/wp-json/sjioc/v1/calendar.ics`
+Clicking the "Subscribe to Calendar" button opens the native Calendar/Outlook app directly with
+the subscription pre-filled — confirm, and it's done. Apple Calendar lets you set the refresh
+interval yourself (as low as every 15 minutes) under the calendar's subscription settings.
 
 ### Subscribe in Google Calendar
 
-1. Open [Google Calendar](https://calendar.google.com)
-2. Click the **+** next to **Other calendars** → **From URL**
-3. Paste the ICS URL: `https://yoursite.com/wp-json/sjioc/v1/calendar.ics`
+1. Open [Google Calendar](https://calendar.google.com) → click the **+** next to **Other calendars** → **From URL**
+2. Paste the `https://` URL above (Google doesn't handle `webcal://` links directly)
+3. Click **Add calendar**
+
+> **Known limitation (confirmed 2026-08-24, not a bug on our end):** Google Calendar's own
+> "Subscribe by URL" refresh interval is slow and not configurable or forceable — commonly
+> anywhere from a few hours up to 24+ hours before a newly added event shows up. This is a
+> long-standing Google limitation, not something the website or admin can speed up. If you need
+> to see a just-added event immediately, use Apple Calendar instead (adjustable refresh) or check
+> the Events page directly on the website, which is always current.
+
+> **One-time import vs. live subscribe:** Google Calendar's *Import* feature (Settings → Import &
+> Export) adds a snapshot of events as they exist right now and never updates again — that's
+> different from *Subscribe by URL* above, which stays in sync (just slowly, per the note above).
+> Use Subscribe, not Import, if you want it to stay current.
 4. Click **Add calendar**
 
 ---

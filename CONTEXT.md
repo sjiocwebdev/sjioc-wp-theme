@@ -40,7 +40,8 @@ repo — it's gitignored, holds DB creds).
 | `functions.php` | loader — defines version/dir/uri constants, `require_once`s every `inc/*.php` module |
 | `header.php` / `footer.php` | site chrome; footer has a 3-widget bar (contacts / celebrations / chat) + ticker |
 | `front-page.php` | homepage template |
-| `page-*.php` | page templates: about-us, worship-services, ministries, events, photos, contact-us, give, hall-rental |
+| `page-*.php` | page templates: about-us, about-hub, committees, leadership, our-history, worship-services, ministries, outreach, news, resources, events, photos, contact-us, give, hall-rental |
+| `template-about-section.php` | shared template for Our Parish/Diocese/Church/Vicar (content picked via page meta `sjioc_about_page_key`) |
 | `page.php` / `index.php` | generic page fallback / blog fallback |
 | `style.css` | theme stylesheet header + all CSS |
 | `assets/js/main.js` | nav, widgets, chat, filters, gallery |
@@ -53,7 +54,7 @@ repo — it's gitignored, holds DB creds).
 | theme setup, Customizer, email sending | `setup.php` | sends mail via Microsoft Graph API, falls back to SMTP; OAuth token cached in a transient; AJAX: `test_email`, `clear_mail_token` |
 | custom post types | `post-types.php` | `sjioc_gallery`, `sjioc_contact` (directory), `sjioc_celeb`, `sjioc_announcement`, `sjioc_ministry` |
 | contact form | `contact-form.php` | AJAX `sjioc_contact` (+nopriv) |
-| AI chat widget | `chat.php` | AJAX `sjioc_chat` (+nopriv); calls OpenAI gpt-4o-mini; logs token usage |
+| AI chat widget | `chat.php` | AJAX `sjioc_chat` (+nopriv); calls **Azure OpenAI** (not plain OpenAI — needs `SJIOC_AZURE_OAI_ENDPOINT`/`_KEY` in wp-config.php or shows a "not configured" fallback); logs token usage. 2-tier dispatch only: plate lookup (local DB, no AI) → everything else goes to the AI with worship times + a Knowledge Base excerpt injected as context — there's no separate non-AI path for common questions like "what time is Holy Qurbana" |
 | admin dashboard | `admin.php` | admin menu, token-usage/cost view |
 | members registry | `members.php` | `sjioc_members` table create + list UI |
 | member import | `import.php` | admin bulk-import page |
@@ -65,6 +66,12 @@ repo — it's gitignored, holds DB creds).
 | "New to Church" welcome form | `new-to-church.php` | AJAX `sjioc_new_to_church` (+nopriv); emails Vicar/Secretary, no DB table |
 | reCAPTCHA | `recaptcha.php` | site/secret key helpers + server-side verify, used by public forms |
 | office bearers (About page) | `office.php` | CPT `sjioc_office` + taxonomy `sjioc_office_group`; drives the About page's Leadership + Committees sections; has a static fallback if empty |
+| about pages | `about-pages.php` | CPTs `sjioc_about_section` (Our Parish/Diocese/Church/Vicar) + `sjioc_milestone` (Parish Milestones); `sjioc_get_about_nav_map()` drives hub navigation + breadcrumb links |
+| Vicar History | `vicar-history.php` | CPT `sjioc_vicar_history` (name=title, photo=featured image, meta `vicar_period_start`/`_end`); renders a circular-photo vertical timeline, shared by Our History + About Us pages |
+| Outreach | `outreach.php` | CPT `sjioc_outreach`; card-grid + popup, same pattern as Ministries |
+| News | `news.php` | CPT `sjioc_news`; card-grid + popup + in-PHP pagination |
+| Resources | `resources.php` | CPT `sjioc_resource`; card grid, each card's icon auto-pulled from the linked site's own favicon (no image upload needed) |
+| Weekly Bible Verse | `bible-verse.php` | Admin uploads a CSV (Reference, Verse Text) at SJIOC → Bible Verse; rotates weekly by piggybacking on the existing Celebrations cron (no new scheduled job); shown on the home page, hidden if no CSV uploaded |
 
 ## Data model (custom tables, `{wp_prefix}` prefix)
 | table | key columns | source |
@@ -80,7 +87,7 @@ All schema created via `dbDelta()` (idempotent) on `after_switch_theme`, so re-a
 theme is safe and applies new columns without data loss.
 
 ## External calls (admin/AJAX-triggered only — never on public page render, per cost rule above)
-- `chat.php` → `api.openai.com` (chat completions)
+- `chat.php` → Azure OpenAI Service (not `api.openai.com`)
 - `events.php` → Google Calendar API v3 (sync)
 - `sharepoint.php` → `graph.microsoft.com/v1.0` drives + users (OneDrive photo/attachment sync)
 - `setup.php` → `graph.microsoft.com` sendMail + `login.microsoftonline.com` (OAuth for mail)
@@ -103,6 +110,15 @@ check `defined()` guards in the relevant `inc/*.php` file.
 - Any new page-load DB read should add at most 1 query and be transient-cached if not
   real-time.
 
+## Recent hardening (2026-08-24)
+- Fixed 3 broken honeypots (Contact Us + Hall Rental had a hidden field with no `name` attribute,
+  so it never actually submitted; New-to-Church had no honeypot at all — built one).
+- Swept ~10 save handlers missing `wp_unslash()` before sanitizing — without it, WP's automatic
+  backslash-escaping of `$_POST` leaves a literal `\` before every apostrophe in saved text.
+- Vehicle plate chat lookup: owner name is now privacy-masked (`sjioc_mask_name()` — first name
+  visible, last name shows only first 2 letters + asterisks) before ever reaching the public chat
+  response; full name stays visible only in the capability-gated WP Admin Vehicle Registry.
+
 ---
-*Snapshot basis: repo `codebase.md` last updated 2026-07-07 (git sha b0bc0e6). Newer commits may
+*Snapshot basis: repo `codebase.md` last updated 2026-08-24. Newer commits may
 exist — treat this as a starting point, not ground truth, for anything beyond a quick chat.*

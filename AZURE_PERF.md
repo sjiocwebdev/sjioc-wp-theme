@@ -24,8 +24,7 @@ Audit date: 2026-08-17
 | Admin: Sync from Outlook | 1 (AJAX) | N — 1 upsert per event | 1 — fetch Outlook ICS URL | 🟡 Moderate (admin-only) |
 | Admin: Sync from Google Calendar | 1 (AJAX) | N — 1 upsert per event | 1 — Google Calendar API | 🟡 Moderate (admin-only) |
 | Admin: CSV import | 1 (multipart POST) | N — 1 insert per row | None | 🟡 Moderate (admin-only) |
-| Chat message — plate lookup | 1 (AJAX) | 1 — `sjioc_vehicles` SELECT | None | 🟢 Light |
-| Chat message — PHP intent (timings/contact) | 1 (AJAX) | 1 — transient write (rate limit) | None | 🟢 Light |
+| Chat message — plate lookup | 1 (AJAX) | 1 — `sjioc_vehicles` SELECT + own rate-limit transient | None | 🟢 Light |
 | Chat message — LLM (Azure OpenAI) | 1 (AJAX) | 2 — transient write + `sjioc_chat_usage` upsert | 1 — Azure OpenAI API | 🟡 Moderate |
 | Parish Life page load | 1 | 1 — full `sjioc_photos` SELECT (all photos) | None | 🟢 Light |
 | Parish Life — each photo in grid (first visit) | 1 per photo | 3 per photo — rate limit transient R+W + photo row SELECT; +1 write if URL cache miss | 1 per photo — SharePoint download | 🔴 Heavy (see note) |
@@ -36,6 +35,10 @@ Audit date: 2026-08-17
 | Leadership / Committees page load | 1 | 1 — office bearer query, cached 24h | None | 🟢 Light |
 | Outreach page load | 1 | 1 — `sjioc_outreach` get_posts (not cached, same as Ministries) | None | 🟢 Light |
 | News page load | 1 | 1 — `sjioc_news` get_posts, all published fetched then paginated in PHP (not cached, same as Ministries/Outreach) | None | 🟢 Light |
+| Resources page load | 1 | 1 — `sjioc_resource` get_posts (not cached, small list, same pattern as Ministries/Outreach); favicon images load client-side straight from Google's public favicon service, zero server cost | None | 🟢 Light |
+| Our History / About Us page load (Vicar section) | 1 | +1 — `sjioc_get_vicar_history()` get_posts (not cached, tiny 4-5 row list); replaces the old page-meta read at the same query cost | None | 🟢 Light |
+| Home page — Bible Verse line | 0 extra | 0 extra — `get_option('sjioc_bible_verses')`/`sjioc_bible_verse_index` are small autoloaded options, same cost class as any other theme_mod read | None | 🟢 None |
+| Home page — Welcome Video badge / Vicar's Message popup | 0 extra | 0 — theme_mod reads only; YouTube thumbnail + iframe load client-side, zero server cost, iframe only created on click | 0 (client-side only, not server-side) | 🟢 None |
 
 ---
 
@@ -89,25 +92,27 @@ album-load burst ≈ 0.28 writes/second sustained over 1 hour. Against the B2s 6
 **Scaling trigger:** If album load time degrades, add a server-side image cache (Azure CDN in front of
 the proxy REST endpoint, or migrate to Azure Blob Storage with public read access).
 
-### 6. Chat — three-tier dispatch (no LLM for common questions)
-Chat messages are dispatched in order before touching the LLM:
-1. **License plate pattern** → local DB SELECT on `sjioc_vehicles`. No LLM, no rate limit cost.
-2. **PHP intent** (timings, contact/location keywords) → answer built from Customizer values in PHP.
-   1 transient write (rate limit). No LLM, no Graph API, no external call.
-3. **KB excerpt + church keyword check** → if KB is populated and no KB lines match and no church
-   keyword is present in the message, a static sorry message is returned. No LLM call.
-4. **LLM call** → only reaches Azure OpenAI if all three above pass. KB excerpt sent is targeted
-   (only lines matching words in the message, ≤15 lines) rather than the full 2000-char KB, reducing
-   prompt tokens significantly.
+### 6. Chat — two-tier dispatch (only plate lookups skip the LLM)
+Chat messages are dispatched in order:
+1. **License plate pattern** → local DB SELECT on `sjioc_vehicles`. No LLM call, own rate limit
+   (15 lookups per IP per 5 minutes — separate budget from the LLM, but still capped to stop
+   scripted registry scraping).
+2. **Everything else → Azure OpenAI.** There is no "PHP intent" tier and no static-sorry-message
+   gate before this — any message that isn't a recognized plate goes straight to the AI. Worship
+   times (from Customizer values) and a targeted excerpt of the admin's Knowledge Base (only lines
+   matching words in the message, ≤10 lines, out of the full ≤2000-char KB) are injected into the
+   system prompt as context, keeping prompt tokens down. If `SJIOC_AZURE_OAI_ENDPOINT`/`_KEY` aren't
+   set in wp-config.php, this step short-circuits and returns a fallback message instead of calling
+   the API — this applies to *any* non-plate question, including common ones like "what time is
+   Holy Qurbana", not just obscure ones.
 
 **Token tracking:** Every LLM response includes actual `prompt_tokens`, `completion_tokens`,
 `total_tokens` in the API response body. These are accumulated into a daily row in `sjioc_chat_usage`
 (1 DB upsert per LLM call). Visible in WP Admin → SJIOC → Chat Settings → Actual Token Usage.
 
 **DB write budget per chat message:**
-- Plate lookup: 0 writes
-- PHP intent: 1 transient write
-- LLM call: 1 transient write + 1 `sjioc_chat_usage` upsert = 2 writes
+- Plate lookup: 0 writes (just its own rate-limit transient)
+- LLM call: 1 transient write (rate limit) + 1 `sjioc_chat_usage` upsert = 2 writes
 - Rate limit: 5 LLM calls per IP per 3 minutes — caps worst-case DB writes from a single user.
 
 ### 7. No polling or cron anywhere
@@ -137,7 +142,7 @@ Before adding any new feature, answer these:
 | DB connections spiking | Upgrade App Service plan or add object cache (Redis) |
 | OneDrive upload timeouts | Make upload async (queue + retry pattern) |
 | Album load time degrades under traffic | Add Azure CDN in front of `/wp-json/sjioc/v1/photo/*` |
-| Chat LLM token cost grows | Tighten KB content; PHP intents already skip LLM for common questions |
+| Chat LLM token cost grows | Tighten KB content; the KB excerpt sent per call is already targeted (only matching lines, ≤10) rather than the full KB text |
 
 ---
 
@@ -146,7 +151,7 @@ Before adding any new feature, answer these:
 | File | What it does | DB hits |
 |---|---|---|
 | `inc/events.php` | Events REST, ICS gen, admin sync | 1 per REST call |
-| `inc/chat.php` | Live chat — plate lookup, PHP intents, KB excerpt, LLM | 0 on load; 1–2 per message depending on path |
+| `inc/chat.php` | Live chat — plate lookup, KB excerpt, Azure OpenAI LLM | 0 on load; 1–2 per message depending on path |
 | `inc/hall-rental.php` | Rental form, OneDrive upload | 1 insert on submit |
 | `inc/contact-form.php` | Contact form, SMTP | 0 (no DB) |
 | `inc/celebrations.php` | Anniversary/birthday lookup | 1 (cached via transient) |

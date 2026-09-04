@@ -132,25 +132,16 @@ Caching the REST response eliminates the DB hit on the second call for 30 minute
 
 | Form | Nonce | Honeypot | reCAPTCHA v3 |
 |---|---|---|---|
-| Contact | ✅ | ✅ `cf_hp` | ✅ |
-| Hall Rental | ✅ | ✅ `rf_hp` | ✅ |
-| New-to-church | ✅ | ❌ Missing | ✅ |
+| Contact | ✅ | ✅ `cf_hp` (was missing its `name` attr — bug, fixed 2026-08-24) | ✅ |
+| Hall Rental | ✅ | ✅ `rf_hp` (was missing its `name` attr — bug, fixed 2026-08-24) | ✅ |
+| New-to-church | ✅ | ✅ `ntc_hp` — done 2026-08-24 | ✅ |
 
-### Task 4a — Add honeypot to new-to-church form
+### Task 4a — Add honeypot to new-to-church form ✅ Done 2026-08-24
 
-**Files:** `front-page.php` (HTML field) + `inc/new-to-church.php` (server-side check)
-
-Add a hidden input (same pattern as contact/hall rental):
-```html
-<!-- front-page.php — inside the NTC form -->
-<div style="display:none" aria-hidden="true">
-  <input type="text" name="ntc_hp" id="ntc_hp" tabindex="-1" autocomplete="off">
-</div>
-```
-```php
-// inc/new-to-church.php — first check after nonce
-if (!empty($_POST['ntc_hp'])) wp_send_json_error('invalid');
-```
+Built exactly as planned above — hidden field in `front-page.php` (NTC form) + server-side
+`!empty($_POST['ntc_hp'])` check in `inc/new-to-church.php`. Also found and fixed the same
+underlying bug on Contact + Hall Rental: their honeypot `<input>` had an `id` but no `name`
+attribute, so the field was never actually submitted and the server-side check could never fire.
 
 ---
 
