@@ -195,10 +195,10 @@ function sjioc_member_by_id(int $id): ?object {
     )) ?: null;
 }
 
-function sjioc_member_title(string $gender, string $marital): string {
-    $g = strtoupper($gender);
+function sjioc_member_title(?string $gender, ?string $marital): string {
+    $g = strtoupper((string) $gender);
     if ($g === 'M') return 'Mr.';
-    if ($g === 'F') return in_array(strtoupper($marital), ['M', 'W'], true) ? 'Mrs.' : 'Ms.';
+    if ($g === 'F') return in_array(strtoupper((string) $marital), ['M', 'W'], true) ? 'Mrs.' : 'Ms.';
     return '';
 }
 
@@ -354,6 +354,24 @@ function sjioc_member_rate_hit(string $email): bool {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   FORM TIMING TRAP  (stateless, signed) — a form submitted in
+   under 2s, or older than 12h, or with a bad signature is a bot.
+───────────────────────────────────────────────────────────── */
+
+function sjioc_member_form_ts(): string {
+    $t = (string) time();
+    return $t . '.' . hash_hmac('sha256', $t, sjioc_member_auth_salt());
+}
+
+function sjioc_member_ts_ok(string $v): bool {
+    [$t, $sig] = array_pad(explode('.', $v, 2), 2, '');
+    if ($t === '' || !ctype_digit($t)) return false;
+    if (!hash_equals(hash_hmac('sha256', $t, sjioc_member_auth_salt()), $sig)) return false;
+    $age = time() - (int) $t;
+    return $age >= 2 && $age <= 12 * HOUR_IN_SECONDS;
+}
+
+/* ─────────────────────────────────────────────────────────────
    DEV DELIVERY  (local only — link/code to error_log + admin screen)
 ───────────────────────────────────────────────────────────── */
 
@@ -377,13 +395,19 @@ function sjioc_member_send(): void {
         sjioc_member_redirect(add_query_arg('err', 'expired', $login));
     }
 
-    // Honeypot — pretend success, send nothing.
-    if (!empty($_POST['sjioc_hp'])) {
-        sjioc_member_redirect(add_query_arg('sent', 'link', $login));
+    $method   = (($_POST['method'] ?? '') === 'otp') ? 'otp' : 'link';
+    $sent_arg = $method === 'otp' ? 'otp' : 'link';
+    $neutral  = add_query_arg('sent', $sent_arg, $login);
+
+    // Honeypot + timing trap — a filled hidden field, an instant submit, or a
+    // stale/forged timestamp is a bot. Return the same neutral screen, send nothing.
+    if (!empty($_POST['website'])
+        || !sjioc_member_ts_ok((string) wp_unslash($_POST['sjioc_t'] ?? ''))) {
+        sjioc_member_log('send_trap', ['detail' => $method]);
+        sjioc_member_redirect($neutral);
     }
 
-    $method = (($_POST['method'] ?? '') === 'otp') ? 'otp' : 'link';
-    $email  = sanitize_email(wp_unslash($_POST['email'] ?? ''));
+    $email    = sanitize_email(wp_unslash($_POST['email'] ?? ''));
     $remember = !empty($_POST['remember']);
 
     // Remember-email convenience cookie (not authentication).
@@ -402,10 +426,8 @@ function sjioc_member_send(): void {
         sjioc_member_redirect(add_query_arg('err', 'captcha', $login));
     }
 
-    $sent_arg  = $method === 'otp' ? 'otp' : 'link';
-    $neutral   = add_query_arg('sent', $sent_arg, $login);
-    $blocked   = sjioc_member_rate_hit($email);
-    $member    = sjioc_member_by_email($email);
+    $blocked = sjioc_member_rate_hit($email);
+    $member  = sjioc_member_by_email($email);
 
     // Uniform outcome: a non-member or a rate-limited request looks identical.
     if ($blocked || !$member) {

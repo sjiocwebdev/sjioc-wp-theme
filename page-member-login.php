@@ -78,6 +78,7 @@ $errors = [
       <form class="mlogin-form sjioc-member-form" method="post" action="<?php echo $post_url; ?>" novalidate>
         <input type="hidden" name="action" value="sjioc_member_send">
         <input type="hidden" name="recaptcha_token" value="">
+        <input type="hidden" name="sjioc_t" value="<?php echo esc_attr(sjioc_member_form_ts()); ?>">
         <?php wp_nonce_field('sjioc_member_send', 'sjnonce'); ?>
 
         <label for="ml-email">Email address</label>
@@ -89,9 +90,10 @@ $errors = [
           Remember my email on this device
         </label>
 
-        <div class="mlogin-hp" aria-hidden="true">
-          <label>Leave this field empty
-            <input type="text" name="sjioc_hp" tabindex="-1" autocomplete="off">
+        <?php /* Honeypot — bot-attractive name, hidden inline so a CSS-load failure can't expose it. */ ?>
+        <div class="mlogin-hp" aria-hidden="true" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">
+          <label>Website
+            <input type="text" name="website" tabindex="-1" autocomplete="off">
           </label>
         </div>
 

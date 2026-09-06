@@ -51,12 +51,35 @@ giving are still future phases.
 | Signing key | `SJIOC_MEMBER_AUTH_SALT` (wp-config) if set, else `wp_salt('auth')`. |
 | Constant-time | Every token/code/verifier comparison is `hash_equals()`. |
 | Rate limiting | 3 sends / 15 min **per IP** and **per email** (transient counters). A blocked or unknown-email request returns the *same* "check your email" screen. |
-| Enumeration | Uniform response + uniform work whether or not the email is a member; honeypot-triggered requests also return the neutral "sent" screen. |
-| Bot defense | reCAPTCHA v3 (`member_auth` action, fails open per existing helper) + off-screen honeypot with a real `name`. |
+| Enumeration | Uniform response + uniform work whether or not the email is a member; trap-triggered requests also return the neutral "sent" screen. |
+| Bot defense | Three independent layers: (1) **honeypot** — a hidden `website` field (bot-attractive name, hidden with an inline style so a CSS-load failure can't expose it, `tabindex=-1`, `aria-hidden`); (2) **timing trap** — a signed `sjioc_t` timestamp; a submit under 2 s, older than 12 h, or with a bad HMAC is dropped; (3) **reCAPTCHA v3** (`member_auth` action, fails open per the existing helper). All three fall through to the neutral "sent" screen so a bot learns nothing. |
 | CSRF | WP nonce on every POST (`sjioc_member_send` / `_otp` / `_logout`) + `SameSite` cookie. |
 | Exposure | `nocache_headers()` + `X-Robots-Tag: noindex, nofollow` + `wp_robots` noindex on both templates. |
 | Audit | Every send / login / failure / lockout / logout written to `sjioc_member_auth_log` with IP + UA. Raw tokens, codes, and cookie values are **never** logged or echoed (except the dev-only local delivery, below). |
 | Least privilege | Members are not WP users — no dashboard, no REST auth, no `wp-admin`. |
+
+### Bot defense — assessment & options (reviewed 2026-09-06)
+
+**Current stack is sound for a rate-limited, non-enumerable auth endpoint.** The real
+protection against magic-link abuse is the per-IP + per-email rate limit and the uniform
+responses; the honeypot, timing trap, and reCAPTCHA are defense-in-depth against volume.
+
+- **Honeypot** — follows current practice: real `name`, bot-attractive field name,
+  hidden via inline style (not only an external class), `tabindex=-1`, `aria-hidden`.
+- **Timing trap** — standard, stateless, signed. 2 s floor catches scripted submits;
+  12 h ceiling caps form-scrape-and-replay without wrongly rejecting a slow human.
+- **reCAPTCHA v3** — still a current Google product (v2/v3 free tier live; Enterprise is
+  the paid upsell). *Failing open* is acceptable here because it is not the primary
+  control. Score threshold is the helper default (0.5); if legitimate parishioners on
+  VPNs / privacy browsers / older devices get blocked, drop the login endpoint to ~0.3
+  — rate limiting still backstops it.
+- **Better, if we ever revisit:** **Cloudflare Turnstile** (free, no puzzles, far more
+  privacy-respecting than reCAPTCHA — no data sale, lighter GDPR footprint; verify at
+  `challenges.cloudflare.com/turnstile/v0/siteverify`). Drop-in swap for the reCAPTCHA
+  layer; needs a free Cloudflare account + site/secret key. **hCaptcha** is a similar
+  option. Not urgent — noted for the privacy-conscious upgrade path.
+- **Not needed here:** SMS/phone verification, device fingerprinting, or a CAPTCHA on
+  the OTP-entry step (only reachable after a successful send, and attempt-capped at 5).
 
 ### Local / dev delivery
 Container has no mail service, so when `WP_DEBUG` is on **or** the host is `localhost`/
@@ -67,8 +90,10 @@ administrator**. On Azure (real host, no debug) this path is inert.
 ### Local test results (2026-09-06, WP 7.0.4, OrbStack)
 Passed: link send → verify → dashboard greeting; OTP send → wrong code rejected →
 correct code → dashboard; consumed link reuse rejected; logged-in→dashboard redirect;
-unauth→login redirect; logout revokes session; honeypot → neutral; bad nonce → error;
-non-member email → neutral; per-IP rate limit trips; `X-Robots-Tag` + no-store headers
+unauth→login redirect; logout revokes session; honeypot → neutral; timing trap (instant
+submit, forged timestamp) → neutral, no challenge; valid aged timestamp → sends; bad
+nonce → error; non-member email → neutral; per-IP rate limit trips; member row with
+NULL `marital_status` greets cleanly ("Mr. …"); `X-Robots-Tag` + no-store headers
 present; no PHP notices/warnings. Tables auto-provisioned via the version check.
 
 ### Deployment (SFTP, no theme re-upload)
