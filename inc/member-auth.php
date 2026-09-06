@@ -17,7 +17,7 @@
 
 defined('ABSPATH') || exit;
 
-define('SJIOC_MEMBER_AUTH_SCHEMA', 1);          // bump to re-run dbDelta
+define('SJIOC_MEMBER_AUTH_SCHEMA', 2);          // bump to re-run dbDelta (v2: option now autoloaded)
 define('SJIOC_MEMBER_ASSET_VER', '1.0.0');      // bump on member.css / member.js edits
 
 /* ─────────────────────────────────────────────────────────────
@@ -67,6 +67,14 @@ function sjioc_member_ua(): string {
 add_action('admin_init', 'sjioc_member_auth_maybe_install');
 
 function sjioc_member_auth_maybe_install(): void {
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+
+    // `sjioc_member_auth_schema` is autoloaded — this read costs no extra query
+    // (it rides WordPress's single bulk options load). Once it matches the code's
+    // schema version the tables are never touched again; only a deploy that bumps
+    // SJIOC_MEMBER_AUTH_SCHEMA re-runs dbDelta (itself a no-op if nothing changed).
     if ((int) get_option('sjioc_member_auth_schema') === SJIOC_MEMBER_AUTH_SCHEMA) {
         sjioc_member_auth_gc();
         return;
@@ -129,7 +137,7 @@ function sjioc_member_auth_maybe_install(): void {
         KEY created_at (created_at)
     ) {$charset};");
 
-    update_option('sjioc_member_auth_schema', SJIOC_MEMBER_AUTH_SCHEMA, false);
+    update_option('sjioc_member_auth_schema', SJIOC_MEMBER_AUTH_SCHEMA, true);
 }
 
 /** Housekeeping — runs at most once/day. */
