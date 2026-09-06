@@ -1,10 +1,89 @@
 # Member Login — Design Document
 
-**Status:** Draft for review · **Date:** 2026-09-03
-**Feature owner decision needed on the "Open Decisions" section before build starts.**
+**Status:** Phase 1 built & locally tested · 2026-09-06
+Sections 3–14 are the broader roadmap. **Section 0 is what actually shipped** — where
+it differs from the roadmap below, Section 0 wins.
 
 Passwordless front-end login for parishioners, gated to the existing church directory.
 No username/password anywhere in the flow.
+
+---
+
+## 0. Phase 1 — as built (2026-09-06)
+
+### Scope delivered
+Magic-link email login **and** email OTP, plus a member dashboard that greets the
+signed-in member by name. Google sign-in, member directory page, documents, and
+giving are still future phases.
+
+### Confirmed decisions
+| Decision | Choice |
+| --- | --- |
+| Session model | **No WordPress user accounts, no roles.** A signed selector/verifier cookie backed by a `sessions` table. Lighter, and members get zero `wp-admin` surface. |
+| Identity | Login is **by email**, not by household. Any email that matches an active `sjioc_members` row (case-insensitive) gets in; the greeting uses the **primary** matching row (lowest `member_seq`). Household grouping was explicitly *not* wanted. |
+| Storage | **3 dedicated tables** (not transients) — for the audit trail, session revocation, and clean isolation. Rate-limit counters stay in transients (throwaway). |
+| Session length | **24 hours, hard.** No sliding renewal. "Remember me" only pre-fills the email field next visit (90-day non-auth cookie). |
+| Greeting title | Mr. (male) / Mrs. (married or widowed female) / Ms. (single, divorced, or unknown female). |
+| URLs | `/member-login/` and `/member-dashboard/` — plain WP Pages; the code resolves them by template so the admin can rename the slugs. |
+| Isolation | Only **one line** added to shared code (`functions.php` require). Everything else is new self-contained files with their own asset version. `style.css` / `main.js` / `header.php` / `footer.php` untouched. |
+
+### Files
+| File | Role |
+| --- | --- |
+| `inc/member-auth.php` | Everything: schema install (on `admin_init` via a version check — no theme reactivation), audit log, directory lookup, sessions, send (link/OTP), verify, logout, rate limiting, dev delivery, asset + robots hooks. |
+| `page-member-login.php` | Template `Member Login` — email step, "link sent" step, OTP entry step; all steps driven by query params. |
+| `page-member-dashboard.php` | Template `Member Dashboard` — gated; "Welcome, Mr. …" + sign-out. |
+| `assets/css/member.css` | Scoped styling, theme tokens. Loaded only on the two templates. |
+| `assets/js/member.js` | Progressive enhancement only — injects the reCAPTCHA token, preserves the clicked method button, blocks double-submit. Form works without JS. |
+| `functions.php` | +1 line: `require_once .../inc/member-auth.php`. No `SJIOC_VER` bump (member assets carry `SJIOC_MEMBER_ASSET_VER`). |
+
+### Tables (`{prefix}` prefixed, `dbDelta`, all timestamps UTC)
+- `sjioc_member_challenges` — pending magic-link / OTP: `member_id`, `email`, `kind`, `selector`, `verifier_hash`, `attempts`, `expires_at`, `consumed_at`, `ip`, `created_at`
+- `sjioc_member_sessions` — active logins: `member_id`, `selector` (unique), `verifier_hash`, `issued_at`, `expires_at`, `last_seen`, `ip`, `user_agent`, `revoked_at`
+- `sjioc_member_auth_log` — audit: `member_id`, `email`, `event`, `detail`, `ip`, `user_agent`, `created_at`
+
+### Security — as implemented
+| Area | Measure |
+| --- | --- |
+| Magic-link token | 256-bit CSPRNG (`random_bytes(32)`), split `selector.validator`; only `HMAC-SHA256(validator, salt)` stored; single-use (`consumed_at` set atomically); 15-min expiry; a newer send invalidates older unconsumed links of the same kind. |
+| OTP | 6 digits (`random_int`, zero-padded); only `HMAC-SHA256(code, salt)` stored; **5** wrong attempts then the challenge is burned; 15-min expiry; selector carried in an `HttpOnly` 20-min cookie. |
+| Session cookie | `selector.verifier`; only `HMAC-SHA256(verifier, salt)` stored. Name `__Host-sjioc_member` on HTTPS (falls back to `sjioc_member` on local HTTP). `HttpOnly` + `Secure` + `SameSite=Lax`. HTTPS detected via `is_ssl()` **or** `X-Forwarded-Proto` (Azure's TLS front end). 24-h server-checked expiry. `last_seen` refresh throttled to 10 min. |
+| Signing key | `SJIOC_MEMBER_AUTH_SALT` (wp-config) if set, else `wp_salt('auth')`. |
+| Constant-time | Every token/code/verifier comparison is `hash_equals()`. |
+| Rate limiting | 3 sends / 15 min **per IP** and **per email** (transient counters). A blocked or unknown-email request returns the *same* "check your email" screen. |
+| Enumeration | Uniform response + uniform work whether or not the email is a member; honeypot-triggered requests also return the neutral "sent" screen. |
+| Bot defense | reCAPTCHA v3 (`member_auth` action, fails open per existing helper) + off-screen honeypot with a real `name`. |
+| CSRF | WP nonce on every POST (`sjioc_member_send` / `_otp` / `_logout`) + `SameSite` cookie. |
+| Exposure | `nocache_headers()` + `X-Robots-Tag: noindex, nofollow` + `wp_robots` noindex on both templates. |
+| Audit | Every send / login / failure / lockout / logout written to `sjioc_member_auth_log` with IP + UA. Raw tokens, codes, and cookie values are **never** logged or echoed (except the dev-only local delivery, below). |
+| Least privilege | Members are not WP users — no dashboard, no REST auth, no `wp-admin`. |
+
+### Local / dev delivery
+Container has no mail service, so when `WP_DEBUG` is on **or** the host is `localhost`/
+`*.local`/`*.test`, the magic link and OTP code are written to the PHP error log
+(`docker logs wordpress_app`) and shown on the login page **only to a logged-in WP
+administrator**. On Azure (real host, no debug) this path is inert.
+
+### Local test results (2026-09-06, WP 7.0.4, OrbStack)
+Passed: link send → verify → dashboard greeting; OTP send → wrong code rejected →
+correct code → dashboard; consumed link reuse rejected; logged-in→dashboard redirect;
+unauth→login redirect; logout revokes session; honeypot → neutral; bad nonce → error;
+non-member email → neutral; per-IP rate limit trips; `X-Robots-Tag` + no-store headers
+present; no PHP notices/warnings. Tables auto-provisioned via the version check.
+
+### Deployment (SFTP, no theme re-upload)
+1. Upload the 6 files to `/site/wwwroot/wp-content/themes/sjioc-wp-theme/` (5 new + `functions.php`).
+2. Load any `wp-admin` page once as an admin → the 3 tables auto-create.
+3. Create two Pages: **Member Login** (template *Member Login*, slug `member-login`) and **Member Dashboard** (template *Member Dashboard*, slug `member-dashboard`).
+4. Optional: add `define('SJIOC_MEMBER_AUTH_SALT', '<fresh 50+ char random>');` to `wp-config.php`.
+5. Confirm the site sets `$_SERVER['HTTPS']`/forwards `X-Forwarded-Proto` (standard on Azure App Service) so the `Secure` / `__Host-` cookie engages — the code also checks `X-Forwarded-Proto` directly as a backstop.
+6. If files don't take effect: **Stop + Start** the App Service (opcache), not Restart.
+7. Members without an email on file can't log in until the office adds one (existing Members admin screen).
+
+### Not yet done (next phases)
+Google sign-in (custom OIDC) · member directory page · member documents CPT + protected
+delivery · giving import + statements · passkeys. Login entry point is URL-only for now
+(no nav link) by request.
 
 ---
 

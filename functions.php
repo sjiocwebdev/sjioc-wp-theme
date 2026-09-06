@@ -32,3 +32,4 @@ require_once SJIOC_DIR . '/inc/resources.php';
 require_once SJIOC_DIR . '/inc/bible-verse.php';
 require_once SJIOC_DIR . '/inc/outreach.php';
 require_once SJIOC_DIR . '/inc/news.php';
+require_once SJIOC_DIR . '/inc/member-auth.php';
