@@ -3,9 +3,9 @@
 # SJIOC Delaware Valley WordPress Theme — codebase map
 
 ## meta
-- last_updated: 2026-09-02
-- git_sha: uncommitted (many changes below are local-only; check `git status` before assuming deployed state)
-- estimated_map_tokens: ~2300
+- last_updated: 2026-09-06
+- git_sha: 593412c on main (pushed to origin/sjiocwebdev). Deployed-to-Azure state may lag — check with the church before assuming live.
+- estimated_map_tokens: ~2600
 - baseline_orientation_tokens: ~20000 (estimate; <60 tracked source files)
 - freshness: fresh
 
@@ -35,7 +35,8 @@
 ## project_map
 | path | role |
 | --- | --- |
-| functions.php | loader: defines SJIOC_VER/DIR/URI, `require_once` all 21 inc modules |
+| functions.php | loader: defines SJIOC_VER/DIR/URI, `require_once` all 22 inc modules |
+| page-member-login.php / page-member-dashboard.php | member-login templates (passwordless); see feature_index `member login` |
 | header.php / footer.php | site chrome; footer = 4-tab widget bar (contacts/celebrations/chat/follow) + ticker + Service Times/Quick Links/Contact Us columns |
 | front-page.php | home template |
 | page-*.php | page templates: about-us, about-hub, committees, leadership, our-history, worship-services, ministries, outreach, news, events, photos, contact-us, give, hall-rental, resources |
@@ -63,6 +64,7 @@
 | admin dashboard | inc/admin.php | admin menu (`sjioc` top-level + submenus incl. Email Settings, Contact Form); token-usage/cost view, token clear actions |
 | members | inc/members.php | members table create + list |
 | member import | inc/import.php | admin import page |
+| member login | inc/member-auth.php | **passwordless** front-end login (Phase 1: magic link + email OTP), gated to `sjioc_members` by email match (`is_active=1`, case-insensitive, primary row = lowest `member_seq`). **No WP users/roles** — a signed `selector.verifier` cookie (`__Host-sjioc_member` on HTTPS, `sjioc_member` on local http; `SameSite=Lax`; 24h hard, server-checked) backed by table `sjioc_member_sessions`. admin-post actions `sjioc_member_send`/`_otp`/`_logout` (+nopriv). 3 tables auto-install on `admin_init` via `sjioc_member_auth_schema` option check — **no theme reactivation needed** (deliberately not `after_switch_theme`). Tokens: 256-bit CSPRNG link / 6-digit OTP, stored as `hash_hmac('sha256', …, sjioc_member_auth_salt())` (salt = const `SJIOC_MEMBER_AUTH_SALT` or `wp_salt('auth')`), single-use, 15-min, `hash_equals`. OTP 5 attempts then burned. Sends rate-limited 3/15min per IP+email (transients). 3-layer bot defense: honeypot field `website` (inline-hidden) + signed timing trap `sjioc_t` (2s–12h) + reCAPTCHA v3 (`member_auth`, fails open); all fall through to a neutral "sent" screen (no enumeration). Audit table `sjioc_member_auth_log` (UTC). `nocache_headers()` + `X-Robots-Tag: noindex`. HTTPS detected via `is_ssl()` OR `X-Forwarded-Proto` (Azure). Assets `assets/{css,js}/member.*` (own `SJIOC_MEMBER_ASSET_VER`, enqueued only on the 2 templates). Local/dev (`WP_DEBUG` or localhost host): link/code go to `error_log` + shown on-screen to a logged-in admin only. Greeting title Mr./Mrs./Ms. from gender+marital_status. Page URLs resolved by template (`get_pages` meta_key `_wp_page_template`), transient-cached. **Deploy:** SFTP 6 files → load wp-admin once → create Pages "Member Login"/"Member Dashboard" (slugs `member-login`/`member-dashboard`). Design + full security notes: `MEMBER_LOGIN_DESIGN.md` §0. Not yet built: Google OIDC, directory page, member docs, giving. |
 | celebrations | inc/celebrations.php | custom cron interval; birthdays/anniversaries |
 | events | inc/events.php | DB-backed; Google Calendar + ICS sync + manual; ajax `gcal_sync`,`ics_sync`; nav renamed "Updates" (About > News + Calendar submenus). Outbound subscribe feed (`/wp-json/sjioc/v1/calendar.ics`, `sjioc_generate_ics()`) writes true UTC `DTSTART`/`DTEND` (`...Z`, via `wp_timezone()` + `DateTimeImmutable`, DST-correct) instead of ambiguous floating local time; `sjioc_ics_fold()` folds by UTF-8 character (`mb_str_split`), never splits a multi-byte character (matters for Malayalam text); page-events.php subscribe link is `webcal://` (not `https://`) so it triggers a real auto-refreshing subscription in Apple Calendar/Outlook rather than a one-time download — note Google Calendar's own "Subscribe by URL" refresh interval is slow (hours, sometimes 24h+) and not controllable from our side, this is a Google limitation not a bug |
 | photos / OneDrive | inc/sharepoint.php | Graph drive upload/sync; ajax `od_sync`,`od_reset`,`clear_od_token`; od token in transient |
@@ -81,12 +83,14 @@
 | sjioc_photos | inc/sharepoint.php |
 | sjioc_vehicles | inc/vehicles.php |
 | sjioc_rentals | inc/hall-rental.php (setup creates, admin reads) |
+| sjioc_member_challenges / sjioc_member_sessions / sjioc_member_auth_log | inc/member-auth.php (login challenges, active sessions, audit log; UTC timestamps; GC daily on admin_init) |
 
 ## dependency_edges
-- functions.php -> all inc/*.php (load order: setup, recaptcha, post-types, contact-form, chat, admin, members, celebrations, import, events, sharepoint, vehicles, hall-rental, new-to-church, office, about-pages, outreach, news, vicar-history, resources, bible-verse)
+- functions.php -> all inc/*.php (load order: setup, recaptcha, post-types, contact-form, chat, admin, members, celebrations, import, events, sharepoint, vehicles, hall-rental, new-to-church, office, about-pages, vicar-history, resources, bible-verse, outreach, news, member-auth)
 - hall-rental.php -> sharepoint.php (OneDrive upload of rental attachments)
 - contact-form / new-to-church / hall-rental / chat -> setup.php (email send)
 - public forms -> recaptcha.php (verification)
+- member-auth.php -> members table (`sjioc_members` email lookup) + recaptcha.php + setup.php (`wp_mail`->Graph, `sjioc_abbr`/`sjioc_name`); page-member-*.php -> member-auth.php (gate on `template_redirect`, `sjioc_current_member()`, `sjioc_member_form_ts()`)
 - page-about-us.php / page-our-history.php -> vicar-history.php (`sjioc_get_vicar_history()`, `sjioc_render_vicar_history_timeline()`) so Vicar timeline content matches across both pages without duplicate entry; page-about-us.php -> about-pages.php (`sjioc_get_milestones()`) for Parish Milestones
 - front-page.php -> bible-verse.php (`sjioc_get_current_bible_verse()`) for the hero-band verse; front-page.php -> setup.php (`sjioc_youtube_id()`, `sjioc_cal_safe_url()`)
 
@@ -101,6 +105,7 @@
 | area | note |
 | --- | --- |
 | public ajax forms (contact, chat, rental, new_to_church) | must keep nonce + `current_user_can` where admin + sanitize/escape + honeypot + recaptcha; contact form additionally rate-limited (3/10min/IP) |
+| member-auth.php (login) | account-access surface — every change needs review. Keep: hashed single-use tokens, `hash_equals`, uniform anti-enumeration responses, rate limits, audit-log writes, UTC timestamps (`gmdate`/`UTC_TIMESTAMP()` — do NOT mix `NOW()`/`current_time`), `SameSite=Lax` (not Strict — the magic-link click is a cross-site top-level GET). `sjioc_member_by_email` orders by `member_seq ASC` — the "primary" family member. Do not switch the session model to real WP users without re-checking the unique-`user_email` constraint against shared family emails (see MEMBER_LOGIN_DESIGN.md §4). |
 | OAuth tokens (mail/od) | stored in transients; never log or echo; clear-token ajax must check caps |
 | external HTTP | keep off frontend render; admin/ajax only (Azure cost + latency) |
 | page-load DB | each page +1 query max; cache non-realtime reads in transients |
@@ -114,6 +119,7 @@
 ## recent_changes
 | date | change | files |
 | --- | --- | --- |
+| 2026-09-06 | Member Login Phase 1 — passwordless (magic link + email OTP), directory-gated, signed-cookie sessions (no WP users), 3 tables auto-installed via schema-version check, 3-layer bot defense (honeypot + timing trap + reCAPTCHA v3), full audit log. Built + locally tested (WP 7.0.4). Only shared-code touch = 1 `require_once` in functions.php. Google OIDC / directory page / member docs / giving = future phases. | inc/member-auth.php (new), page-member-login.php (new), page-member-dashboard.php (new), assets/css/member.css (new), assets/js/member.js (new), functions.php, MEMBER_LOGIN_DESIGN.md |
 | 2026-09-02 | Home page "Latest Event Video" row — Customizer field `sjioc_latest_video_url` (YouTube link, same pattern as Welcome Video); row is absent from the DOM entirely (not just CSS-hidden) when blank, same as Flash News; 16:9 responsive facade+lazy-iframe via `aspect-ratio`, placed between Events+Fellowship CTA and New to SJIOC, `bg-cream` to keep the section color rhythm | front-page.php, inc/setup.php, style.css, functions.php (SJIOC_VER bump) |
 | 2026-07-07 | Office Bearers CPT makes About Leadership + Committees editable in WP Admin (transient-cached, static fallback) | inc/office.php, functions.php, page-about-us.php |
 | 2026-08-20 | Office Bearer groups became fully admin-configurable — section/tab/style/order moved from a hardcoded PHP array to term meta on `sjioc_office_group`, editable per-group; one-time migration backfills the original 13 groups so existing content renders unchanged | inc/office.php |
