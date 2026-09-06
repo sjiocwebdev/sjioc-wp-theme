@@ -668,3 +668,116 @@ add_filter('wp_robots', function ($robots) {
     }
     return $robots;
 });
+
+/* ─────────────────────────────────────────────────────────────
+   ADMIN — SJIOC → Member Logins  (active sessions + activity log)
+───────────────────────────────────────────────────────────── */
+
+add_action('admin_menu', function () {
+    add_submenu_page('sjioc', 'Member Logins', 'Member Logins',
+        'manage_options', 'sjioc-member-logins', 'sjioc_member_logins_page');
+}, 20);
+
+function sjioc_member_event_label(string $e): string {
+    return [
+        'send_link'         => 'Link sent',
+        'send_otp'          => 'Code sent',
+        'login_link'        => 'Signed in (link)',
+        'login_otp'         => 'Signed in (code)',
+        'login_link_fail'   => 'Bad / expired link',
+        'login_otp_fail'    => 'Wrong code entered',
+        'login_otp_locked'  => 'Code locked (5 tries)',
+        'logout'            => 'Signed out',
+        'send_trap'         => 'Bot blocked (honeypot / timing)',
+        'send_blocked'      => 'Rate-limited',
+        'send_unknown'      => 'Unknown email — nothing sent',
+    ][$e] ?? $e;
+}
+
+function sjioc_member_logins_page(): void {
+    if (!current_user_can('manage_options')) return;
+    global $wpdb;
+    $s = sjioc_member_tbl('sessions');
+    $l = sjioc_member_tbl('auth_log');
+    $c = sjioc_member_tbl('challenges');
+    $m = $wpdb->prefix . 'sjioc_members';
+
+    if (isset($_POST['sjioc_revoke']) && check_admin_referer('sjioc_member_admin')) {
+        $sid = (int) $_POST['sjioc_revoke'];
+        $wpdb->update($s, ['revoked_at' => gmdate('Y-m-d H:i:s')], ['id' => $sid, 'revoked_at' => null]);
+        sjioc_member_log('admin_revoke', ['detail' => 'session ' . $sid]);
+        echo '<div class="notice notice-success is-dismissible"><p>Session revoked — that member is signed out.</p></div>';
+    }
+    if (isset($_POST['sjioc_revoke_all']) && check_admin_referer('sjioc_member_admin')) {
+        $n = $wpdb->query("UPDATE {$s} SET revoked_at = UTC_TIMESTAMP() WHERE revoked_at IS NULL");
+        sjioc_member_log('admin_revoke_all', ['detail' => (int) $n . ' sessions']);
+        echo '<div class="notice notice-success is-dismissible"><p>' . (int) $n . ' active session(s) revoked.</p></div>';
+    }
+
+    $fmt = fn($utc) => $utc ? esc_html(get_date_from_gmt($utc, 'M j, Y g:i a')) : '—';
+
+    $sessions = $wpdb->get_results(
+        "SELECT s.id, s.member_id, s.issued_at, s.expires_at, s.last_seen, s.ip, s.user_agent,
+                mm.first_name, mm.last_name, mm.email
+           FROM {$s} s LEFT JOIN {$m} mm ON mm.id = s.member_id
+          WHERE s.revoked_at IS NULL AND s.expires_at > UTC_TIMESTAMP()
+          ORDER BY s.last_seen DESC"
+    );
+    $pending = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$c} WHERE consumed_at IS NULL AND expires_at > UTC_TIMESTAMP()");
+    $log     = $wpdb->get_results("SELECT * FROM {$l} ORDER BY id DESC LIMIT 200");
+    ?>
+    <div class="wrap">
+        <h1>Member Logins</h1>
+        <p>Passwordless member sign-in activity. Times shown in the site timezone; all data auto-purges (sessions 7 days after expiry, activity log after 180 days). Full design: <code>MEMBER_LOGIN_DESIGN.md</code>.</p>
+
+        <h2>Active sessions (<?php echo count($sessions); ?>)<?php if ($pending): ?> &nbsp;<span style="font-weight:400;color:#666">· <?php echo $pending; ?> unused link/code pending</span><?php endif; ?></h2>
+        <?php if ($sessions): ?>
+        <table class="widefat striped">
+            <thead><tr><th>Member</th><th>Email</th><th>Signed in</th><th>Expires</th><th>Last seen</th><th>IP</th><th>Device</th><th></th></tr></thead>
+            <tbody>
+            <?php foreach ($sessions as $row): ?>
+                <tr>
+                    <td><?php echo esc_html(trim(($row->first_name ?? '') . ' ' . ($row->last_name ?? '')) ?: '(member #' . (int) $row->member_id . ')'); ?></td>
+                    <td><?php echo esc_html($row->email ?? '—'); ?></td>
+                    <td><?php echo $fmt($row->issued_at); ?></td>
+                    <td><?php echo $fmt($row->expires_at); ?></td>
+                    <td><?php echo $fmt($row->last_seen); ?></td>
+                    <td><?php echo esc_html($row->ip ?: '—'); ?></td>
+                    <td style="max-width:260px;font-size:11px;color:#666"><?php echo esc_html($row->user_agent ?: '—'); ?></td>
+                    <td>
+                        <form method="post" style="margin:0">
+                            <?php wp_nonce_field('sjioc_member_admin'); ?>
+                            <button class="button button-small" name="sjioc_revoke" value="<?php echo (int) $row->id; ?>">Revoke</button>
+                        </form>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <form method="post" style="margin-top:12px">
+            <?php wp_nonce_field('sjioc_member_admin'); ?>
+            <button class="button" name="sjioc_revoke_all" value="1" onclick="return confirm('Sign out every logged-in member?');">Revoke all sessions</button>
+        </form>
+        <?php else: ?>
+        <p><em>No one is signed in right now.</em></p>
+        <?php endif; ?>
+
+        <h2 style="margin-top:32px">Recent activity (last <?php echo count($log); ?>)</h2>
+        <table class="widefat striped">
+            <thead><tr><th>When</th><th>Event</th><th>Email</th><th>IP</th><th>Detail</th></tr></thead>
+            <tbody>
+            <?php foreach ($log as $row): ?>
+                <tr>
+                    <td style="white-space:nowrap"><?php echo $fmt($row->created_at); ?></td>
+                    <td><?php echo esc_html(sjioc_member_event_label($row->event)); ?></td>
+                    <td><?php echo esc_html($row->email ?: '—'); ?></td>
+                    <td><?php echo esc_html($row->ip ?: '—'); ?></td>
+                    <td style="color:#666"><?php echo esc_html($row->detail ?: ''); ?></td>
+                </tr>
+            <?php endforeach; ?>
+            <?php if (!$log): ?><tr><td colspan="5"><em>No activity logged yet.</em></td></tr><?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php
+}

@@ -12,9 +12,10 @@ No username/password anywhere in the flow.
 ## 0. Phase 1 — as built (2026-09-06)
 
 ### Scope delivered
-Magic-link email login **and** email OTP, plus a member dashboard that greets the
-signed-in member by name. Google sign-in, member directory page, documents, and
-giving are still future phases.
+Magic-link email login **and** email OTP, a member dashboard that greets the
+signed-in member by name, and an admin screen (**SJIOC → Member Logins**) showing
+active sessions (with revoke / revoke-all) and the last 200 activity events. Google
+sign-in, member directory page, documents, and giving are still future phases.
 
 ### Confirmed decisions
 | Decision | Choice |
@@ -30,7 +31,7 @@ giving are still future phases.
 ### Files
 | File | Role |
 | --- | --- |
-| `inc/member-auth.php` | Everything: schema install (on `admin_init` via a version check — no theme reactivation), audit log, directory lookup, sessions, send (link/OTP), verify, logout, rate limiting, dev delivery, asset + robots hooks. |
+| `inc/member-auth.php` | Everything: schema install (on `admin_init` via a version check — no theme reactivation), audit log, directory lookup, sessions, send (link/OTP), verify, logout, rate limiting, timing trap, dev delivery, asset + robots hooks, **and the SJIOC → Member Logins admin screen** (active sessions + revoke/revoke-all + 200-row activity log; times shown in site TZ). No edit to `inc/admin.php` — the submenu registers itself under the `sjioc` parent. |
 | `page-member-login.php` | Template `Member Login` — email step, "link sent" step, OTP entry step; all steps driven by query params. |
 | `page-member-dashboard.php` | Template `Member Dashboard` — gated; "Welcome, Mr. …" + sign-out. |
 | `assets/css/member.css` | Scoped styling, theme tokens. Loaded only on the two templates. |
