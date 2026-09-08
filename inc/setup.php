@@ -38,6 +38,40 @@ add_action('after_setup_theme', 'sjioc_setup');
 remove_action('wp_head', 'wp_generator');
 add_filter('the_generator', '__return_empty_string');
 
+// Trim WordPress fingerprint / discovery clutter from <head>. None of this
+// disables functionality — the REST API, feeds and oEmbed still work when
+// called directly; only the auto-advertised <link>/<meta> hints are dropped.
+remove_action('wp_head', 'rsd_link');                              // Really Simple Discovery
+remove_action('wp_head', 'wlwmanifest_link');                      // Windows Live Writer
+remove_action('wp_head', 'wp_shortlink_wp_head');                  // ?p=123 shortlink
+remove_action('wp_head', 'adjacent_posts_rel_link_wp_head');       // prev/next post links
+remove_action('wp_head', 'rest_output_link_wp_head');              // <link rel="https://api.w.org/">
+remove_action('template_redirect', 'rest_output_link_header', 11); // Link: <.../wp-json/> header
+remove_action('wp_head', 'wp_oembed_add_discovery_links');         // oEmbed discovery
+remove_action('wp_head', 'wp_oembed_add_host_js');
+remove_action('wp_head', 'feed_links_extra', 3);                   // per-post/category feed links
+// Disable the emoji detection script + styles (fingerprint + a request on every page).
+remove_action('wp_head', 'print_emoji_detection_script', 7);
+remove_action('wp_print_styles', 'print_emoji_styles');
+remove_action('admin_print_scripts', 'print_emoji_detection_script');
+remove_action('admin_print_styles', 'print_emoji_styles');
+add_filter('emoji_svg_url', '__return_false');
+
+// Copyright / ownership notice in the source of every page (via wp_head, which
+// header.php runs on all templates). It does not hide the source — nothing can —
+// it marks the site's content and code as SJIOC property for anyone who looks.
+add_action('wp_head', 'sjioc_source_copyright', 0);
+function sjioc_source_copyright() {
+    $name = str_replace(['--', '>'], '', sjioc_name());
+    $year = date('Y');
+    echo "\n<!--\n"
+       . "  Copyright (c) {$year} {$name}\n"
+       . "  This website, its design, content, and source code are the property of\n"
+       . "  {$name} and are protected by copyright. All rights reserved.\n"
+       . "  Unauthorized copying, reproduction, or redistribution is prohibited.\n"
+       . "-->\n";
+}
+
 // Block anonymous username enumeration via the REST API user list/lookup —
 // logged-in users (e.g. the block editor) are unaffected.
 add_filter('rest_endpoints', function ($endpoints) {

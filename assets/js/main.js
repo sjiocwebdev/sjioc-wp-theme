@@ -1,6 +1,10 @@
 /**
  * SJIOC Delaware Valley — Main JavaScript
  * Handles: Navigation, Widget Bar, Panels, Chat, Gallery, Events Filter
+ *
+ * Copyright (c) St. John's Indian Orthodox Church of Delaware Valley.
+ * Property of the church. All rights reserved. Unauthorized copying or
+ * redistribution is prohibited.
  */
 (function () {
   'use strict';

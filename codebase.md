@@ -4,7 +4,7 @@
 
 ## meta
 - last_updated: 2026-09-06
-- git_sha: 593412c on main (pushed to origin/sjiocwebdev). Deployed-to-Azure state may lag — check with the church before assuming live.
+- git_sha: latest on main (pushed to origin/sjiocwebdev; `git log -1` for exact). Deployed-to-Azure state may lag — check with the church before assuming live.
 - estimated_map_tokens: ~2600
 - baseline_orientation_tokens: ~20000 (estimate; <60 tracked source files)
 - freshness: fresh
@@ -119,6 +119,7 @@
 ## recent_changes
 | date | change | files |
 | --- | --- | --- |
+| 2026-09-08 | `<head>` hardening/cleanup in setup.php SECURITY HARDENING block: removed RSD/wlwmanifest/shortlink/adjacent-rel/REST-discovery-`<link>`+`Link:`-header/oEmbed-discovery/extra-feed links + disabled emoji script & styles (none disable the actual API/feeds/oEmbed — only the advertised hints). Added `sjioc_source_copyright()` on `wp_head` priority 0 → a copyright/ownership HTML comment in the `<head>` of **every** page (View Source can't be hidden — this marks ownership). Copyright comment also added to `style.css` + `assets/js/main.js` headers. SJIOC_VER 2.0.47→2.0.48. | inc/setup.php, style.css, assets/js/main.js, functions.php |
 | 2026-09-06 | Member Login Phase 1 — passwordless (magic link + email OTP), directory-gated, signed-cookie sessions (no WP users), 3 tables auto-installed via schema-version check, 3-layer bot defense (honeypot + timing trap + reCAPTCHA v3), full audit log. Built + locally tested (WP 7.0.4). Only shared-code touch = 1 `require_once` in functions.php. Google OIDC / directory page / member docs / giving = future phases. | inc/member-auth.php (new), page-member-login.php (new), page-member-dashboard.php (new), assets/css/member.css (new), assets/js/member.js (new), functions.php, MEMBER_LOGIN_DESIGN.md |
 | 2026-09-02 | Home page "Latest Event Video" row — Customizer field `sjioc_latest_video_url` (YouTube link, same pattern as Welcome Video); row is absent from the DOM entirely (not just CSS-hidden) when blank, same as Flash News; 16:9 responsive facade+lazy-iframe via `aspect-ratio`, placed between Events+Fellowship CTA and New to SJIOC, `bg-cream` to keep the section color rhythm | front-page.php, inc/setup.php, style.css, functions.php (SJIOC_VER bump) |
 | 2026-07-07 | Office Bearers CPT makes About Leadership + Committees editable in WP Admin (transient-cached, static fallback) | inc/office.php, functions.php, page-about-us.php |
