@@ -754,6 +754,12 @@ function sjioc_chat_settings_page() {
     ?>
     <div class="wrap">
         <h1>SJIOC Chat — Settings</h1>
+        <?php if ($chat_err = get_transient('sjioc_chat_last_error')): ?>
+        <div class="notice notice-error">
+            <p><strong>Last chat failure:</strong> <code><?php echo esc_html($chat_err); ?></code></p>
+            <p style="color:#555;font-size:12px">HTTP 429 = Azure OpenAI rate/quota limit (raise the deployment's tokens-per-minute, or lower Max Response Tokens). HTTP 401/404 or "DeploymentNotFound" = check the <code>SJIOC_AZURE_OAI_*</code> values in wp-config. <code>finish_reason=content_filter</code> = Azure blocked the reply. Clears automatically on the next successful reply.</p>
+        </div>
+        <?php endif; ?>
         <form method="post">
             <?php wp_nonce_field('sjioc_chat_nonce'); ?>
 

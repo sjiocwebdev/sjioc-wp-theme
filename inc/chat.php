@@ -282,6 +282,9 @@ function sjioc_azure_oai(string $message, string $kb_excerpt = ''): array {
 
         if (is_wp_error($res)) {
             error_log('[sjioc-chat] Azure OpenAI request failed: ' . $res->get_error_message());
+            set_transient('sjioc_chat_last_error',
+                gmdate('Y-m-d H:i:s') . ' UTC — connection error: ' . $res->get_error_message(),
+                6 * HOUR_IN_SECONDS);
             return ['html' => 'Sorry, I\'m having trouble connecting. Please call us at <strong>' . esc_html(sjioc_phone()) . '</strong>.', 'usage' => $usage_total];
         }
 
@@ -295,6 +298,7 @@ function sjioc_azure_oai(string $message, string $kb_excerpt = ''): array {
         }
 
         if ($reply) {
+            delete_transient('sjioc_chat_last_error');
             return [
                 'html'  => wp_kses(sjioc_chat_format_reply($reply), ['strong' => [], 'em' => [], 'br' => [], 'a' => ['href' => [], 'target' => [], 'style' => []]]),
                 'usage' => $usage_total,
@@ -308,6 +312,11 @@ function sjioc_azure_oai(string $message, string $kb_excerpt = ''): array {
         error_log("[sjioc-chat] Azure OpenAI attempt {$attempt}: HTTP {$code} — {$why}");
         if ($code === 429 || $code >= 500) break;
     }
+
+    // Surface the reason on the admin Chat Settings screen (cleared on the next success).
+    set_transient('sjioc_chat_last_error',
+        gmdate('Y-m-d H:i:s') . ' UTC — HTTP ' . ($code ?? 0) . ' — ' . ($why ?? 'unknown'),
+        6 * HOUR_IN_SECONDS);
 
     return ['html' => 'Sorry — I couldn\'t get an answer just now. Please try again in a moment, or call us at <strong>' . esc_html(sjioc_phone()) . '</strong>.', 'usage' => $usage_total];
 }
