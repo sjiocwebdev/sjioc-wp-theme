@@ -52,13 +52,58 @@ add_action('init', 'sjioc_register_milestone');
 ───────────────────────────────────── */
 function sjioc_about_section_config() {
     return [
-        'about-us'    => 'About Us (hub page intro)',
-        'our-parish'  => 'Our Parish',
-        'our-diocese' => 'Our Diocese',
-        'our-church'  => 'Our Church',
-        'our-vicar'   => 'Our Vicar',
+        'about-us'       => 'About Us (hub page intro)',
+        'about-us-story'  => 'About Us Page — Story / Mission / Vicar',
+        'our-parish'     => 'Our Parish',
+        'our-diocese'    => 'Our Diocese',
+        'our-church'     => 'Our Church',
+        'our-vicar'      => 'Our Vicar',
     ];
 }
+
+/* Default narrative for the "About Us Page" template — used to seed the
+   editable About Section, and as the front-end fallback if it is ever emptied. */
+function sjioc_about_us_story_default() {
+    $name = esc_html(sjioc_name());
+    return "<p>We warmly welcome you to {$name}. Our church is a place of faith, fellowship, and tradition for all who seek the living God.</p>\n"
+        . "<p>The worshipping community of the Malankara Orthodox Church around the Delaware Valley area in Pennsylvania had been cherishing a dream of forming a parish. By the Grace of God, the Diocesan Metropolitan announced the new parish via <em>Kalpana No. K81/2006</em>.</p>\n"
+        . "<p>Father Geevarghese Erakkath was appointed first Vicar. His Grace Mathews Mar Barnabas, Diocesan Metropolitan, blessed the church and celebrated the first Holy Qurbana on <strong>November 25, 2006</strong>, declaring the formation of the congregation.</p>\n"
+        . "<h3>Our Mission</h3>\n"
+        . "<p>To glorify God, proclaim the Gospel of Jesus Christ, nurture our parish family in holiness, and serve our community with love &mdash; rooted in the ancient apostolic faith.</p>\n"
+        . "<h3>Our Vicar</h3>\n"
+        . "<p>Our parish is led by <strong>Rev. Fr. Tojo Baby</strong>, who shepherds our community with deep pastoral love and theological wisdom.</p>";
+}
+
+/* One-time seed of the "About Us Page" narrative section (separate flag — the
+   original seeder already ran on live installs). */
+function sjioc_seed_about_us_story() {
+    if (get_option('sjioc_about_us_story_seeded')) return;
+
+    $existing = get_posts([
+        'post_type'      => 'sjioc_about_section',
+        'post_status'    => 'any',
+        'posts_per_page' => 1,
+        'meta_key'       => 'about_section_key',
+        'meta_value'     => 'about-us-story',
+        'fields'         => 'ids',
+    ]);
+
+    if (!$existing) {
+        $id = wp_insert_post([
+            'post_type'    => 'sjioc_about_section',
+            'post_status'  => 'publish',
+            'post_title'   => 'About Us Page — Story, Mission & Vicar',
+            'post_content' => sjioc_about_us_story_default(),
+        ]);
+        if ($id && !is_wp_error($id)) {
+            update_post_meta($id, 'about_section_key', 'about-us-story');
+        }
+    }
+
+    update_option('sjioc_about_us_story_seeded', 1);
+    delete_transient('sjioc_about_sections_data');
+}
+add_action('admin_init', 'sjioc_seed_about_us_story');
 
 /* ─────────────────────────────────────
    Seed placeholder posts once so admins have something to edit immediately.
@@ -237,7 +282,7 @@ function sjioc_about_page_key_meta_box_html($post) {
     <select name="sjioc_about_page_key" style="width:100%">
         <option value="">— none —</option>
         <?php foreach (sjioc_about_section_config() as $slug => $label):
-            if ($slug === 'about-us') continue; // About Us uses its own dedicated hub template
+            if ($slug === 'about-us' || $slug === 'about-us-story') continue; // these drive their own dedicated templates
         ?>
         <option value="<?php echo esc_attr($slug); ?>" <?php selected($key, $slug); ?>><?php echo esc_html($label); ?></option>
         <?php endforeach; ?>

@@ -19,16 +19,28 @@ get_header();
       <span class="stag">Our Story</span>
       <h2 class="stitle" style="text-align:left"><?php echo esc_html(sjioc_name()); ?></h2>
       <div class="divider divider-l"></div>
-      <p>We warmly welcome you to <?php echo esc_html(sjioc_name()); ?>. Our church is a place of faith, fellowship, and tradition for all who seek the living God.</p>
-      <p>The worshipping community of the Malankara Orthodox Church around the Delaware Valley area in Pennsylvania had been cherishing a dream of forming a parish. By the Grace of God, the Diocesan Metropolitan announced the new parish via <em>Kalpana No. K81/2006</em>.</p>
-      <p>Father Geevarghese Erakkath was appointed first Vicar. His Grace Mathews Mar Barnabas, Diocesan Metropolitan, blessed the church and celebrated the first Holy Qurbana on <strong>November 25, 2006</strong>, declaring the formation of the congregation.</p>
+      <?php
+      /* Story / Mission / Vicar — editable at WP Admin → About Sections →
+         "About Us Page — Story / Mission / Vicar". Falls back to the seeded
+         default text below if that section is ever emptied or deleted. */
+      $about_story = sjioc_get_about_section('about-us-story');
+      if ($about_story && trim(wp_strip_all_tags($about_story['content'])) !== ''):
+      ?>
+      <div class="about-story entry-content"><?php echo wp_kses_post($about_story['content']); ?></div>
+      <?php else: ?>
+      <div class="about-story entry-content">
+        <p>We warmly welcome you to <?php echo esc_html(sjioc_name()); ?>. Our church is a place of faith, fellowship, and tradition for all who seek the living God.</p>
+        <p>The worshipping community of the Malankara Orthodox Church around the Delaware Valley area in Pennsylvania had been cherishing a dream of forming a parish. By the Grace of God, the Diocesan Metropolitan announced the new parish via <em>Kalpana No. K81/2006</em>.</p>
+        <p>Father Geevarghese Erakkath was appointed first Vicar. His Grace Mathews Mar Barnabas, Diocesan Metropolitan, blessed the church and celebrated the first Holy Qurbana on <strong>November 25, 2006</strong>, declaring the formation of the congregation.</p>
+        <h3>Our Mission</h3>
+        <p>To glorify God, proclaim the Gospel of Jesus Christ, nurture our parish family in holiness, and serve our community with love &mdash; rooted in the ancient apostolic faith.</p>
+        <h3>Our Vicar</h3>
+        <p>Our parish is led by <strong>Rev. Fr. Tojo Baby</strong>, who shepherds our community with deep pastoral love and theological wisdom.</p>
+      </div>
+      <?php endif; ?>
       <?php if (have_posts()): while (have_posts()): the_post(); ?>
         <div class="entry-content" style="margin-top:1rem"><?php the_content(); ?></div>
       <?php endwhile; endif; ?>
-      <h3 style="font-family:'Playfair Display',serif;color:var(--cr);margin:24px 0 10px;font-size:1.25rem">Our Mission</h3>
-      <p>To glorify God, proclaim the Gospel of Jesus Christ, nurture our parish family in holiness, and serve our community with love — rooted in the ancient apostolic faith.</p>
-      <h3 style="font-family:'Playfair Display',serif;color:var(--cr);margin:20px 0 10px;font-size:1.25rem">Our Vicar</h3>
-      <p>Our parish is led by <strong>Rev. Fr. Tojo Baby</strong>, who shepherds our community with deep pastoral love and theological wisdom.</p>
       <br><a href="<?php echo esc_url(home_url('/contact-us/')); ?>" class="btn btn-cr">Get In Touch</a>
     </div>
     <div class="about-img">
