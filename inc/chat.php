@@ -281,11 +281,14 @@ function sjioc_azure_oai(string $message, string $kb_excerpt = ''): array {
         ]);
 
         if (is_wp_error($res)) {
+            error_log('[sjioc-chat] Azure OpenAI request failed: ' . $res->get_error_message());
             return ['html' => 'Sorry, I\'m having trouble connecting. Please call us at <strong>' . esc_html(sjioc_phone()) . '</strong>.', 'usage' => $usage_total];
         }
 
-        $data  = json_decode(wp_remote_retrieve_body($res), true);
-        $reply = trim($data['choices'][0]['message']['content'] ?? '');
+        $code   = (int) wp_remote_retrieve_response_code($res);
+        $data   = json_decode(wp_remote_retrieve_body($res), true);
+        $reply  = trim($data['choices'][0]['message']['content'] ?? '');
+        $finish = $data['choices'][0]['finish_reason'] ?? '';
 
         foreach (($data['usage'] ?? []) as $k => $v) {
             if (isset($usage_total[$k])) $usage_total[$k] += (int) $v;
@@ -297,9 +300,16 @@ function sjioc_azure_oai(string $message, string $kb_excerpt = ''): array {
                 'usage' => $usage_total,
             ];
         }
+
+        // Empty reply — log why so the failure isn't silent, and stop hammering
+        // a rate-limited or broken endpoint with the immediate retry.
+        $why = $data['error']['message']
+            ?? ($finish ? "finish_reason={$finish}" : 'empty content, no error field');
+        error_log("[sjioc-chat] Azure OpenAI attempt {$attempt}: HTTP {$code} — {$why}");
+        if ($code === 429 || $code >= 500) break;
     }
 
-    return ['html' => 'I\'m not sure about that. Please contact our <strong>Secretary</strong> or <strong>Trustee</strong> at ' . esc_html(sjioc_phone()) . '.', 'usage' => $usage_total];
+    return ['html' => 'Sorry — I couldn\'t get an answer just now. Please try again in a moment, or call us at <strong>' . esc_html(sjioc_phone()) . '</strong>.', 'usage' => $usage_total];
 }
 
 /**
