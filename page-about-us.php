@@ -26,9 +26,9 @@ get_header();
       $about_story = sjioc_get_about_section('about-us-story');
       if ($about_story && trim(wp_strip_all_tags($about_story['content'])) !== ''):
       ?>
-      <div class="about-story entry-content"><?php echo wp_kses_post($about_story['content']); ?></div>
+      <div class="about-story"><?php echo wp_kses_post($about_story['content']); ?></div>
       <?php else: ?>
-      <div class="about-story entry-content">
+      <div class="about-story">
         <p>We warmly welcome you to <?php echo esc_html(sjioc_name()); ?>. Our church is a place of faith, fellowship, and tradition for all who seek the living God.</p>
         <p>The worshipping community of the Malankara Orthodox Church around the Delaware Valley area in Pennsylvania had been cherishing a dream of forming a parish. By the Grace of God, the Diocesan Metropolitan announced the new parish via <em>Kalpana No. K81/2006</em>.</p>
         <p>Father Geevarghese Erakkath was appointed first Vicar. His Grace Mathews Mar Barnabas, Diocesan Metropolitan, blessed the church and celebrated the first Holy Qurbana on <strong>November 25, 2006</strong>, declaring the formation of the congregation.</p>
