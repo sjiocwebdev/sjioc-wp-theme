@@ -759,7 +759,8 @@ function sjioc_chat_settings_page() {
 
             <h2>AI Behavior Rules</h2>
             <p style="color:#555;max-width:720px">Controls how the AI responds. Church name, address, phone, and service times are injected automatically from <a href="<?php echo esc_url(admin_url('customize.php')); ?>">Customizer</a> — no need to repeat them here.</p>
-            <textarea name="sjioc_chat_rules" rows="7" style="width:100%;max-width:800px;font-family:monospace;font-size:13px"><?php echo esc_textarea($rules); ?></textarea>
+            <textarea name="sjioc_chat_rules" rows="24" style="width:100%;max-width:800px;font-family:monospace;font-size:13px"><?php echo esc_textarea($rules); ?></textarea>
+            <p class="description">Supports <code>{church_name} {address} {phone} {email} {secretary_email} {trustee_email} {vicar_email} {services}</code> — these are filled in automatically.</p>
 
             <h2 style="margin-top:28px">Response Settings</h2>
             <table class="form-table" style="max-width:500px">

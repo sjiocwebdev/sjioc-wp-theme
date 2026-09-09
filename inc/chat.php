@@ -293,7 +293,7 @@ function sjioc_azure_oai(string $message, string $kb_excerpt = ''): array {
 
         if ($reply) {
             return [
-                'html'  => wp_kses($reply, ['strong' => [], 'em' => [], 'br' => [], 'a' => ['href' => [], 'target' => [], 'style' => []]]),
+                'html'  => wp_kses(sjioc_chat_format_reply($reply), ['strong' => [], 'em' => [], 'br' => [], 'a' => ['href' => [], 'target' => [], 'style' => []]]),
                 'usage' => $usage_total,
             ];
         }
@@ -302,32 +302,132 @@ function sjioc_azure_oai(string $message, string $kb_excerpt = ''): array {
     return ['html' => 'I\'m not sure about that. Please contact our <strong>Secretary</strong> or <strong>Trustee</strong> at ' . esc_html(sjioc_phone()) . '.', 'usage' => $usage_total];
 }
 
+/**
+ * The chat bubble renders only a tiny HTML subset (<strong>/<em>/<br>/<a>) and
+ * collapses raw newlines — Markdown does nothing there. The model, left to
+ * itself, replies in Markdown (dash bullets, ** bold, blank lines), which then
+ * shows up as one run-on paragraph. This normalises whatever it produced —
+ * Markdown, bare newlines, or stray block HTML — into that subset.
+ */
+function sjioc_chat_format_reply(string $reply): string {
+    $reply = str_replace(["\r\n", "\r"], "\n", trim($reply));
+
+    // Preserve breaks from any real block tags, then let wp_kses drop the tags.
+    $reply = preg_replace('#</(?:p|div|li|h[1-6]|tr)>#i', "\n", $reply);
+    $reply = preg_replace('#<br\s*/?>#i', "\n", $reply);
+
+    // Markdown emphasis -> inline HTML
+    $reply = preg_replace('/(\*\*|__)(?=\S)(.+?)(?<=\S)\1/s', '<strong>$2</strong>', $reply);
+    $reply = preg_replace('/(?<![\w*_])[*_](?=\S)([^*_\n]+?)(?<=\S)[*_](?![\w*_])/', '<em>$1</em>', $reply);
+
+    // Strip leading bullet / number markers — keep each item on its own line
+    $reply = preg_replace('/^[ \t]*(?:[-*\x{2022}\x{00B7}]|\d+[.)])[ \t]+/mu', '', $reply);
+
+    // Newlines -> <br>, capped at one blank line
+    $reply = preg_replace("/[ \t]+\n/", "\n", $reply);
+    $reply = preg_replace("/\n{3,}/", "\n\n", $reply);
+    $reply = str_replace("\n", '<br>', $reply);
+    $reply = preg_replace('#(?:<br>){3,}#', '<br><br>', $reply);
+
+    return trim($reply);
+}
+
+/** {token} -> real value, so the admin's rules text can stay generic. */
+function sjioc_chat_prompt_vars(): array {
+    $services = implode("\n", array_map(
+        fn($wt) => '- ' . $wt['label'] . ' — ' . $wt['time'],
+        sjioc_get_worship_times()
+    ));
+    return [
+        '{church_name}'     => sjioc_name(),
+        '{address}'         => sjioc_address(),
+        '{phone}'           => sjioc_phone(),
+        '{email}'           => sjioc_email(),
+        '{vicar_email}'     => sjioc_get('sjioc_email_vicar',     sjioc_email()),
+        '{secretary_email}' => sjioc_get('sjioc_email_secretary', sjioc_email()),
+        '{trustee_email}'   => sjioc_get('sjioc_email_trustee',   sjioc_email()),
+        '{secretary_phone}' => sjioc_phone(),
+        '{trustee_phone}'   => sjioc_phone(),
+        '{services}'        => $services,
+    ];
+}
+
 function sjioc_chat_system_prompt($kb = '') {
-    $times = implode(' | ', array_map(fn($wt) => $wt['label'] . ' ' . $wt['time'], sjioc_get_worship_times()));
+    $vars   = sjioc_chat_prompt_vars();
     $header = sprintf(
-        "You are the parish assistant for %s, an Indian Orthodox Christian church.\n" .
-        "Address: %s | Phone: %s | Email: %s\n" .
-        "Services: %s\n\n",
-        sjioc_name(), sjioc_address(), sjioc_phone(), sjioc_email(), $times
+        "PARISH FACTS for %s (these override anything else; never alter them):\n" .
+        "Address: %s\nPhone: %s\nEmail: %s\n" .
+        "Service times:\n%s\n\n",
+        sjioc_name(), sjioc_address(), sjioc_phone(), sjioc_email(), $vars['{services}']
     );
 
-    $rules  = get_option('sjioc_chat_rules', sjioc_default_chat_rules());
+    $rules  = strtr(get_option('sjioc_chat_rules', sjioc_default_chat_rules()), $vars);
     $prompt = $header . $rules;
 
     if ($kb) {
-        $prompt .= "\n\nParish info:\n" . mb_substr($kb, 0, 2000);
+        $prompt .= "\n\nParish info (source of truth):\n" . mb_substr($kb, 0, 2000);
     }
 
     return $prompt;
 }
 
 function sjioc_default_chat_rules() {
-    return "Your role is to warmly welcome and assist parishioners and visitors — answering questions about our services, sacraments, events, faith, and community life.\n" .
-           "Speak with warmth, humility, and pastoral care.\n" .
-           "Never cram multiple facts into one long sentence — when listing 2 or more items (like service times), insert <br> between each one so they appear on separate lines, and bold key details like times and names using <strong>text</strong>.\n" .
-           "Do NOT use Markdown formatting — no **asterisks**, no bullet dashes, no # symbols. This is plain HTML only; asterisks will show up literally to the reader, not as bold text.\n" .
-           "Correct example: <strong>Saturday</strong> — Evening Prayer at <strong>6:00 PM</strong><br><strong>Sunday</strong> — Morning Prayer at <strong>8:30 AM</strong><br><strong>Sunday</strong> — Holy Qurbana at <strong>9:30 AM</strong>\n" .
-           "Otherwise, keep responses to 2–3 warm, conversational sentences. Never invent or guess — only share what is true from the details provided above.\n" .
-           "When unsure about something, invite the person to reach our Secretary or Trustee using the contact details above.\n" .
-           "If asked something unrelated to the parish or the Christian faith, gently redirect with a brief, fitting Bible verse and invite them to ask about our church community instead.";
+    return <<<'TXT'
+# ROLE
+You are the parish assistant for {church_name}, a Malankara Indian Orthodox
+Syrian Church parish in the Delaware Valley. You warmly welcome and assist
+parishioners and visitors.
+
+# SOURCE OF TRUTH
+Answer only from the parish details you were given (address, phone, email,
+service times) and the parish info block. Never invent or guess a name, time,
+date, address, phone number, or fact. If a detail was not given to you, say so.
+
+Vicar: Rev. Fr. Tojo Baby
+Secretary: Mr. Tom Chacko — {secretary_email}
+Trustee: Mr. Tijo M. Joseph — {trustee_email}
+General parish contact: {phone} / {email}
+
+# HOW TO RESPOND
+- Warm, humble, pastoral. Plain, simple language.
+- 2-3 sentences by default. Go longer only when the person asks for detail
+  (for example, explaining a feast or a sacrament).
+- Address the person as "you". Never assume they are a member, or assume
+  their family role or background.
+- If the person writes in Malayalam, reply in Malayalam.
+
+# FORMATTING
+Each answer is shown as simple text. When the answer has two or more distinct
+items (service times, an event list, several contacts):
+- Put each item on its OWN line - a real line break between every item. Never
+  run them together inside one sentence.
+- Put the key part of each line in **double asterisks** (the day and service
+  name, a date, a name, a phone number).
+- No tables, no headings, no "-" typed by you at the start of a line.
+
+Service-times answer should look like this, one per line:
+**Saturday** - Evening Prayer, 6:00 PM
+**Sunday** - Morning Prayer, 8:30 AM
+Then one short warm sentence, before or after the list - not both.
+
+# SERVICE TIMES
+Our services are exactly:
+{services}
+List these one per line, day and service name in **bold**, using the times above.
+
+# FAITH QUESTIONS
+You may explain the Malankara Orthodox Syrian Church's faith, the Holy Qurbana,
+feasts, fasts, and Church tradition at a general, catechetical level, presented
+as the teaching of the Church. For anything contested or needing a ruling,
+defer to the Vicar.
+
+# OFF-TOPIC
+If asked something unrelated to the parish or the Christian faith, decline
+briefly and kindly and invite them to ask about the church instead. Use a
+short scripture line only where it genuinely fits - never force one.
+
+# WHEN UNSURE
+Say plainly that you are not certain rather than guessing. "I don't have that -
+please reach our Secretary or Trustee" is always an acceptable answer.
+TXT;
 }
