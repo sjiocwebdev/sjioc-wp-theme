@@ -320,26 +320,31 @@ function sjioc_azure_oai(string $message, string $kb_excerpt = ''): array {
  * Markdown, bare newlines, or stray block HTML — into that subset.
  */
 function sjioc_chat_format_reply(string $reply): string {
-    $reply = str_replace(["\r\n", "\r"], "\n", trim($reply));
+    $orig  = trim($reply);
+    $reply = str_replace(["\r\n", "\r"], "\n", $orig);
 
+    // `?? $reply` keeps the last good value if a pattern ever returns null
+    // (invalid UTF-8 on a /u pattern, PCRE backtrack limit, etc.).
     // Preserve breaks from any real block tags, then let wp_kses drop the tags.
-    $reply = preg_replace('#</(?:p|div|li|h[1-6]|tr)>#i', "\n", $reply);
-    $reply = preg_replace('#<br\s*/?>#i', "\n", $reply);
+    $reply = preg_replace('#</(?:p|div|li|h[1-6]|tr)>#i', "\n", $reply) ?? $reply;
+    $reply = preg_replace('#<br\s*/?>#i', "\n", $reply) ?? $reply;
 
     // Markdown emphasis -> inline HTML
-    $reply = preg_replace('/(\*\*|__)(?=\S)(.+?)(?<=\S)\1/s', '<strong>$2</strong>', $reply);
-    $reply = preg_replace('/(?<![\w*_])[*_](?=\S)([^*_\n]+?)(?<=\S)[*_](?![\w*_])/', '<em>$1</em>', $reply);
+    $reply = preg_replace('/(\*\*|__)(?=\S)(.+?)(?<=\S)\1/s', '<strong>$2</strong>', $reply) ?? $reply;
+    $reply = preg_replace('/(?<![\w*_])[*_](?=\S)([^*_\n]+?)(?<=\S)[*_](?![\w*_])/', '<em>$1</em>', $reply) ?? $reply;
 
     // Strip leading bullet / number markers — keep each item on its own line
-    $reply = preg_replace('/^[ \t]*(?:[-*\x{2022}\x{00B7}]|\d+[.)])[ \t]+/mu', '', $reply);
+    $reply = preg_replace('/^[ \t]*(?:[-*\x{2022}\x{00B7}]|\d+[.)])[ \t]+/mu', '', $reply) ?? $reply;
 
     // Newlines -> <br>, capped at one blank line
-    $reply = preg_replace("/[ \t]+\n/", "\n", $reply);
-    $reply = preg_replace("/\n{3,}/", "\n\n", $reply);
+    $reply = preg_replace("/[ \t]+\n/", "\n", $reply) ?? $reply;
+    $reply = preg_replace("/\n{3,}/", "\n\n", $reply) ?? $reply;
     $reply = str_replace("\n", '<br>', $reply);
-    $reply = preg_replace('#(?:<br>){3,}#', '<br><br>', $reply);
+    $reply = preg_replace('#(?:<br>){3,}#', '<br><br>', $reply) ?? $reply;
 
-    return trim($reply);
+    $reply = trim($reply);
+    // A formatting hiccup must never blank out a real reply.
+    return $reply !== '' ? $reply : nl2br($orig, false);
 }
 
 /** {token} -> real value, so the admin's rules text can stay generic. */
