@@ -454,9 +454,14 @@ if ($announcements):
       </div>
 
       <!-- Fellowship CTA -->
-      <div class="fellowship-box">
-        <h3>Join Us in Worship<br>and Fellowship</h3>
-        <p>Every Sunday at <?php echo esc_html(sjioc_address()); ?>. We'd love to have you join our parish family.</p>
+      <?php
+      $fb_img_id  = get_theme_mod('sjioc_fellowship_bg_img', '');
+      $fb_img_url = $fb_img_id ? wp_get_attachment_image_url($fb_img_id, 'large') : '';
+      ?>
+      <div class="fellowship-box"<?php echo $fb_img_url ? ' style="--fellowship-bg:url(' . esc_url($fb_img_url) . ')"' : ''; ?>>
+        <h3>Join Us<br>In<br>Worship &amp; Fellowship</h3>
+        <p class="fw-address">@ <?php echo esc_html(sjioc_address()); ?></p>
+        <p>We'd love to have you join our parish family.</p>
         <a href="<?php echo esc_url(home_url('/contact-us/')); ?>" class="btn btn-cr">Contact Us</a>
       </div>
     </div>

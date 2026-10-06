@@ -304,6 +304,19 @@ function sjioc_customizer($wp_customize) {
         'description' => __('Shown in the "Welcome" section on the home page, below the hero banner.', 'sjioc'),
     ]));
 
+    // Home page "Join Us in Worship & Fellowship" box background image
+    $wp_customize->add_setting('sjioc_fellowship_bg_img', [
+        'default'           => '',
+        'sanitize_callback' => 'absint',
+        'transport'         => 'refresh',
+    ]);
+    $wp_customize->add_control(new WP_Customize_Media_Control($wp_customize, 'sjioc_fellowship_bg_img', [
+        'label'       => __('Fellowship Box Background Image', 'sjioc'),
+        'section'     => 'sjioc_hero',
+        'mime_type'   => 'image',
+        'description' => __('Background photo behind the "Join Us in Worship & Fellowship" box on the home page. Leave blank to use the default photo.', 'sjioc'),
+    ]));
+
     // About Us page intro image
     $wp_customize->add_setting('sjioc_about_img', [
         'default'           => '',

@@ -168,7 +168,7 @@ get_header();
   word-break:break-all;
 }
 .give-qr-wrap { margin-top:24px; }
-.give-qr { width:160px; height:160px; object-fit:contain; margin:0 auto; display:block; }
+.give-qr { width:210px; height:210px; object-fit:contain; margin:0 auto; display:block; }
 .give-qr-caption { font-size:.75rem; color:rgba(0,0,0,.45); margin-top:8px; }
 
 /* Steps */
