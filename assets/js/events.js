@@ -196,7 +196,7 @@
            + '" tabindex="0" role="button" aria-label="' + esc(ev.title) + '">'
            + '<div class="ev-list-date"><span class="ev-mon">' + esc(mon) + '</span>'
            + '<span class="ev-day">' + day + '</span><span class="ev-yr">' + yr + '</span></div>'
-           + '<div class="ev-list-body"><h4>' + esc(ev.title) + '</h4>'
+           + '<div class="ev-list-body"><h4>' + esc(ev.title) + (ev.is_highlight ? ' <span class="ev-badge">Special</span>' : '') + '</h4>'
            + '<div class="ev-list-meta"><span>&#128336; ' + esc(time) + '</span>'
            + (ev.location ? '<span>&#128205; ' + esc(ev.location) + '</span>' : '') + '</div>'
            + (desc ? '<p>' + esc(desc) + (rawDesc.length > 110 ? '&hellip;' : '') + '</p>' : '')

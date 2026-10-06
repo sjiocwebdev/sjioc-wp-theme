@@ -445,7 +445,7 @@ if ($announcements):
         <?php foreach (sjioc_front_page_events() as $e) : ?>
         <div class="ev-item">
           <div class="ev-date-box"><span class="ev-mon"><?php echo esc_html($e['mon']); ?></span><span class="ev-day"><?php echo esc_html($e['day']); ?></span></div>
-          <div class="ev-info"><h4><?php echo esc_html($e['title']); ?></h4><p><?php echo esc_html($e['excerpt']); ?></p></div>
+          <div class="ev-info"><h4><?php echo esc_html($e['title']); ?><?php if (!empty($e['is_highlight'])) : ?> <span class="ev-badge">Special</span><?php endif; ?></h4><p><?php echo esc_html($e['excerpt']); ?></p></div>
         </div>
         <?php endforeach; ?>
         <br>

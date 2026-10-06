@@ -2,13 +2,8 @@
 defined('ABSPATH') || exit;
 
 /* ─────────────────────────────────────
-   EVENTS — DB-backed, GCal sync + manual
+   EVENTS — DB-backed; monthly calendar upload + manual
 ───────────────────────────────────── */
-
-// ── Constants (wp-config preferred; fallback to DB options) ────────────────
-if (!defined('SJIOC_GCAL_KEY')) define('SJIOC_GCAL_KEY', get_option('sjioc_gcal_key', ''));
-if (!defined('SJIOC_GCAL_ID'))  define('SJIOC_GCAL_ID',  get_option('sjioc_gcal_id',  ''));
-if (!defined('SJIOC_GCAL_ICS')) define('SJIOC_GCAL_ICS', get_option('sjioc_gcal_ics', ''));
 
 // ── DB table ───────────────────────────────────────────────────────────────
 function sjioc_events_table(): string {
@@ -18,9 +13,14 @@ function sjioc_events_table(): string {
 
 add_action('after_switch_theme', 'sjioc_create_events_table');
 add_action('admin_init', function () {
-    if (get_option('sjioc_events_db_ver') !== '1') {
+    if (get_option('sjioc_events_db_ver') !== '2') {
         sjioc_create_events_table();
-        update_option('sjioc_events_db_ver', '1');
+        // Outlook/Google Calendar sync has been removed — drop any events it
+        // previously synced in; spreadsheet upload + manual entry are now
+        // the only sources, and both use source='manual'.
+        global $wpdb;
+        $wpdb->query("DELETE FROM " . sjioc_events_table() . " WHERE source IN ('gcal','outlook')");
+        update_option('sjioc_events_db_ver', '2');
     }
     // CSV template download — must run before any HTML output
     if (($_GET['page'] ?? '') === 'sjioc-events'
@@ -56,6 +56,7 @@ function sjioc_create_events_table(): void {
         url         varchar(500) DEFAULT '',
         source      varchar(20)  DEFAULT 'manual',
         gcal_id     varchar(255) DEFAULT NULL,
+        is_highlight tinyint(1)  DEFAULT 0,
         PRIMARY KEY  (id),
         KEY          idx_start (start_date),
         UNIQUE KEY   uq_gcal (gcal_id)
@@ -71,8 +72,6 @@ add_action('wp_enqueue_scripts', function () {
     wp_enqueue_script('sjioc-events', SJIOC_URI . '/assets/js/events.js',   [], SJIOC_VER, true);
     wp_localize_script('sjioc-events', 'SJIOC_EVENTS', [
         'restUrl' => rest_url('sjioc/v1/events'),
-
-        'calId'   => SJIOC_GCAL_ID,
         'nonce'   => wp_create_nonce('wp_rest'),
     ]);
 });
@@ -136,16 +135,17 @@ function sjioc_get_db_events(int $months = 6): array {
                 : ($r->end_date . 'T' . ($r->end_time ?: '00:00:00'));
         }
         return [
-            'id'          => (string) $r->id,
-            'title'       => $r->title,
-            'description' => $r->description ?: '',
-            'location'    => $r->location    ?: '',
-            'start'       => $start,
-            'end'         => $end,
-            'all_day'     => $all,
-            'mon'         => $mshort[(int)date('n', $ts) - 1],
-            'day'         => (int)date('j', $ts),
-            'url'         => $r->url ?: '',
+            'id'           => (string) $r->id,
+            'title'        => $r->title,
+            'description'  => $r->description ?: '',
+            'location'     => $r->location    ?: '',
+            'start'        => $start,
+            'end'          => $end,
+            'all_day'      => $all,
+            'mon'          => $mshort[(int)date('n', $ts) - 1],
+            'day'          => (int)date('j', $ts),
+            'url'          => $r->url ?: '',
+            'is_highlight' => (bool)(int)$r->is_highlight,
         ];
     }, $rows);
 }
@@ -155,16 +155,17 @@ function sjioc_front_page_events(): array {
     $items = sjioc_get_db_events(1);
     if ($items) {
         return array_slice(array_map(fn($e) => [
-            'mon'     => $e['mon'],
-            'day'     => $e['day'],
-            'title'   => $e['title'],
-            'excerpt' => wp_trim_words($e['description'], 14, '…'),
+            'mon'          => $e['mon'],
+            'day'          => $e['day'],
+            'title'        => $e['title'],
+            'excerpt'      => wp_trim_words($e['description'], 14, '…'),
+            'is_highlight' => $e['is_highlight'],
         ], $items), 0, 3);
     }
     return [
-        ['mon' => 'Upcoming', 'day' => '', 'title' => 'Holy Qurbana',     'excerpt' => 'Every Sunday. Feast day celebrations posted on our calendar.'],
-        ['mon' => 'Upcoming', 'day' => '', 'title' => 'Sunday School',    'excerpt' => 'Classes for all ages following Holy Qurbana. New students welcome.'],
-        ['mon' => 'Upcoming', 'day' => '', 'title' => 'Parish Fellowship', 'excerpt' => 'Monthly fellowship gathering after service. All welcome.'],
+        ['mon' => 'Upcoming', 'day' => '', 'title' => 'Holy Qurbana',     'excerpt' => 'Every Sunday. Feast day celebrations posted on our calendar.', 'is_highlight' => false],
+        ['mon' => 'Upcoming', 'day' => '', 'title' => 'Sunday School',    'excerpt' => 'Classes for all ages following Holy Qurbana. New students welcome.', 'is_highlight' => false],
+        ['mon' => 'Upcoming', 'day' => '', 'title' => 'Parish Fellowship', 'excerpt' => 'Monthly fellowship gathering after service. All welcome.', 'is_highlight' => false],
     ];
 }
 
@@ -177,95 +178,6 @@ function sjioc_get_widget_calendar_events(): array {
     $items = sjioc_front_page_events();
     set_transient('sjioc_widget_calendar_events', $items, 30 * MINUTE_IN_SECONDS);
     return $items;
-}
-
-// ── AJAX: GCal sync ────────────────────────────────────────────────────────
-add_action('wp_ajax_sjioc_gcal_sync', 'sjioc_gcal_sync_ajax');
-function sjioc_gcal_sync_ajax(): void {
-    check_ajax_referer('sjioc_events_admin', 'nonce');
-    if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
-
-    $events = sjioc_fetch_gcal_events(6);
-    if (empty($events)) {
-        wp_send_json_error(SJIOC_GCAL_KEY ? 'No events returned — check Calendar ID and that it is public.' : 'API key not configured.');
-    }
-
-    global $wpdb;
-    $t      = sjioc_events_table();
-    $synced = 0;
-
-    foreach ($events as $e) {
-        if (!$e['id'] || !$e['start']) continue;
-        $ts      = strtotime($e['start']);
-        $start_d = date('Y-m-d', $ts);
-        $start_t = $e['all_day'] ? null : date('H:i:s', $ts);
-        $end_d   = null;
-        $end_t   = null;
-        if ($e['end']) {
-            $te    = strtotime($e['end']);
-            $end_d = $e['all_day'] ? date('Y-m-d', $te - 86400) : date('Y-m-d', $te); // convert exclusive → inclusive
-            $end_t = $e['all_day'] ? null : date('H:i:s', $te);
-        }
-
-        // INSERT … ON DUPLICATE KEY UPDATE — preserves existing DB id
-        $wpdb->query($wpdb->prepare(
-            "INSERT INTO {$t} (gcal_id, title, description, location, start_date, start_time, end_date, end_time, all_day, url, source)
-             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %d, %s, 'gcal')
-             ON DUPLICATE KEY UPDATE
-               title=%s, description=%s, location=%s, start_date=%s, start_time=%s, end_date=%s, end_time=%s, all_day=%d, url=%s",
-            $e['id'], $e['title'], $e['description'], $e['location'], $start_d, $start_t, $end_d, $end_t, (int)$e['all_day'], $e['url'],
-            $e['title'], $e['description'], $e['location'], $start_d, $start_t, $end_d, $end_t, (int)$e['all_day'], $e['url']
-        ));
-        $synced++;
-    }
-
-    update_option('sjioc_gcal_last_sync', current_time('mysql'));
-    wp_send_json_success(['count' => $synced]);
-}
-
-// ── AJAX: ICS / Outlook sync ───────────────────────────────────────────────
-add_action('wp_ajax_sjioc_ics_sync', 'sjioc_ics_sync_ajax');
-function sjioc_ics_sync_ajax(): void {
-    check_ajax_referer('sjioc_events_admin', 'nonce');
-    if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
-
-    $url = get_option('sjioc_gcal_ics', '');
-    if (!$url) wp_send_json_error('No ICS URL configured. Paste an Outlook ICS URL and save settings first.');
-
-    $events = sjioc_parse_ics_feed($url);
-    if (empty($events)) {
-        wp_send_json_error('No events returned — check the ICS URL is correct and the calendar is public.');
-    }
-
-    global $wpdb;
-    $t      = sjioc_events_table();
-    $synced = 0;
-
-    foreach ($events as $e) {
-        if (!$e['start_date']) continue;
-
-        // For all-day events ICS DTEND is exclusive (day after last day) — convert to inclusive
-        $end_date = $e['end_date'];
-        if ($e['all_day'] && $end_date) {
-            $end_date = date('Y-m-d', strtotime($end_date . ' -1 day'));
-            if ($end_date === $e['start_date']) $end_date = null;
-        }
-
-        $wpdb->query($wpdb->prepare(
-            "INSERT INTO {$t} (gcal_id, title, description, location, start_date, start_time, end_date, end_time, all_day, url, source)
-             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %d, %s, 'outlook')
-             ON DUPLICATE KEY UPDATE
-               title=%s, description=%s, location=%s, start_date=%s, start_time=%s, end_date=%s, end_time=%s, all_day=%d, url=%s",
-            'ics:' . $e['uid'], $e['title'], $e['description'], $e['location'],
-            $e['start_date'], $e['start_time'], $end_date, $e['end_time'], (int)$e['all_day'], $e['url'],
-            $e['title'], $e['description'], $e['location'],
-            $e['start_date'], $e['start_time'], $end_date, $e['end_time'], (int)$e['all_day'], $e['url']
-        ));
-        $synced++;
-    }
-
-    update_option('sjioc_ics_last_sync', current_time('mysql'));
-    wp_send_json_success(['count' => $synced]);
 }
 
 // ── Admin page ─────────────────────────────────────────────────────────────
@@ -292,13 +204,21 @@ function sjioc_events_settings_page(): void {
         }
     }
 
-    // ── Save GCal credentials ────────────────────────────────────────────
-    if (isset($_POST['sjioc_save_gcal'])) {
+    // ── Import monthly calendar (.xlsx) ───────────────────────────────────
+    if (isset($_POST['sjioc_import_xlsx'])) {
         check_admin_referer('sjioc_events_admin');
-        update_option('sjioc_gcal_key', sanitize_text_field(wp_unslash($_POST['sjioc_gcal_key'] ?? '')));
-        update_option('sjioc_gcal_id',  sanitize_text_field(wp_unslash($_POST['sjioc_gcal_id']  ?? '')));
-        update_option('sjioc_gcal_ics', esc_url_raw(wp_unslash($_POST['sjioc_gcal_ics'] ?? '')));
-        $notice = '<div class="notice notice-success is-dismissible"><p>Settings saved.</p></div>';
+        if (!empty($_FILES['ev_xlsx']['tmp_name']) && $_FILES['ev_xlsx']['error'] === UPLOAD_ERR_OK) {
+            $result = sjioc_parse_import_xlsx($_FILES['ev_xlsx']['tmp_name']);
+            if ($result['errors']) {
+                $notice = '<div class="notice notice-error"><p>' . esc_html(implode(' | ', $result['errors'])) . '</p></div>';
+            } else {
+                $msg = $result['imported'] . ' event(s) imported.';
+                if ($result['skipped']) $msg .= ' ' . $result['skipped'] . ' already on the calendar, skipped.';
+                $notice = '<div class="notice notice-success is-dismissible"><p>' . esc_html($msg) . '</p></div>';
+            }
+        } else {
+            $notice = '<div class="notice notice-error"><p>No file selected or upload failed.</p></div>';
+        }
     }
 
     // ── Add / update manual event ────────────────────────────────────────
@@ -354,13 +274,7 @@ function sjioc_events_settings_page(): void {
     }
 
     // ── Data for display ─────────────────────────────────────────────────
-    $gcal_key  = esc_attr(get_option('sjioc_gcal_key', ''));
-    $gcal_id   = esc_attr(get_option('sjioc_gcal_id',  ''));
-    $gcal_ics  = esc_attr(get_option('sjioc_gcal_ics', ''));
-    $last_sync     = get_option('sjioc_gcal_last_sync', '');
-    $ics_last_sync = get_option('sjioc_ics_last_sync',  '');
-    $base_url      = admin_url('admin.php?page=sjioc-events');
-    $nonce_val = wp_create_nonce('sjioc_events_admin');
+    $base_url = admin_url('admin.php?page=sjioc-events');
 
     $today      = current_time('Y-m-d');
     $all_events = $wpdb->get_results(
@@ -371,64 +285,27 @@ function sjioc_events_settings_page(): void {
     <h1>Events</h1>
     <?php echo $notice; ?>
 
-    <!-- ── Calendar Sync ── -->
-    <h2 class="title">Calendar Sync</h2>
-    <form method="post">
+    <!-- ── Upload Monthly Calendar ── -->
+    <h2 class="title">Upload Monthly Calendar</h2>
+    <p style="color:#555;margin-bottom:12px">
+      Upload the secretary's monthly calendar workbook (.xlsx) exactly as-is — no reformatting needed.
+      Each day's text becomes one or more events automatically; entries already on the calendar are skipped.
+    </p>
+    <form method="post" enctype="multipart/form-data">
     <?php wp_nonce_field('sjioc_events_admin'); ?>
-
-    <h3 style="margin:16px 0 6px">Outlook / ICS Calendar</h3>
-    <p style="color:#555;margin:0 0 12px;font-size:13px">Paste your Outlook published ICS URL. Used to sync events to the website and as the subscribe link on the Events page.</p>
-    <table class="form-table" style="max-width:640px"><tbody>
-      <tr>
-        <th><label for="gcal_ics">ICS Feed URL</label></th>
-        <td><input type="url" id="gcal_ics" name="sjioc_gcal_ics" value="<?php echo $gcal_ics; ?>" class="regular-text" placeholder="https://outlook.live.com/owa/calendar/..."></td>
-      </tr>
-    </tbody></table>
-    <p style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 0 200px">
-      <button type="button" id="ics-sync-btn" class="button button-primary"
-              <?php echo $gcal_ics ? '' : 'disabled title="Save an ICS URL first"'; ?>>
-        &#8635; Sync from Outlook
-      </button>
-      <span id="ics-sync-status" style="color:#666;font-size:13px">
-        <?php if ($ics_last_sync) echo 'Last synced: ' . esc_html(date('M j, Y g:i a', strtotime($ics_last_sync))); ?>
-      </span>
-    </p>
-
-    <hr style="margin:24px 0">
-
-    <h3 style="margin:0 0 6px">Google Calendar <span style="font-weight:400;color:#888;font-size:13px">(optional)</span></h3>
-    <p style="color:#555;margin:0 0 12px;font-size:13px">Only needed if syncing from a public Google Calendar via API key.</p>
-    <table class="form-table" style="max-width:640px"><tbody>
-      <tr>
-        <th><label for="gcal_key">API Key</label></th>
-        <td><input type="password" id="gcal_key" name="sjioc_gcal_key" value="<?php echo $gcal_key; ?>" class="regular-text" autocomplete="off"></td>
-      </tr>
-      <tr>
-        <th><label for="gcal_id">Calendar ID</label></th>
-        <td><input type="text" id="gcal_id" name="sjioc_gcal_id" value="<?php echo $gcal_id; ?>" class="regular-text" placeholder="abc123@group.calendar.google.com"></td>
-      </tr>
-    </tbody></table>
-    <p style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 0 200px">
-      <button type="button" id="gcal-sync-btn" class="button button-primary"
-              <?php echo SJIOC_GCAL_KEY ? '' : 'disabled title="Save an API key first"'; ?>>
-        &#8635; Sync from Google Calendar
-      </button>
-      <span id="gcal-sync-status" style="color:#666;font-size:13px">
-        <?php if ($last_sync) echo 'Last synced: ' . esc_html(date('M j, Y g:i a', strtotime($last_sync))); ?>
-      </span>
-    </p>
-
-    <p class="submit">
-      <?php submit_button('Save Settings', 'secondary', 'sjioc_save_gcal', false); ?>
+    <p>
+      <input type="file" name="ev_xlsx" accept=".xlsx">
+      &nbsp;
+      <?php submit_button('Upload Calendar', 'primary', 'sjioc_import_xlsx', false); ?>
     </p>
     </form>
 
     <hr style="margin:28px 0">
 
     <!-- ── Import from Spreadsheet ── -->
-    <h2 class="title">Import from Spreadsheet</h2>
+    <h2 class="title">Import from Spreadsheet (CSV)</h2>
     <p style="color:#555;margin-bottom:12px">
-      Upload a CSV file. Each row is one event.
+      For a simple one-row-per-event list instead of the monthly calendar above.
       <a href="<?php echo esc_url(wp_nonce_url($base_url . '&action=csv_template', 'sjioc_csv_template')); ?>">
         Download template
       </a> to see the required column format.
@@ -511,40 +388,30 @@ function sjioc_events_settings_page(): void {
       <th style="width:110px">Date</th>
       <th>Title</th>
       <th style="width:170px">Location</th>
-      <th style="width:64px">Source</th>
       <th style="width:120px">Actions</th>
     </tr></thead><tbody>
     <?php foreach ($all_events as $ev) :
-        $del_url     = wp_nonce_url($base_url . '&del_ev=' . $ev->id, 'sjioc_del_ev_' . $ev->id);
-        $edit_url    = $base_url . '&edit_ev=' . $ev->id . '#ev-form-heading';
-        $is_external = $ev->source !== 'manual';
-        $src_label   = match($ev->source) { 'gcal' => 'GCal', 'outlook' => 'Outlook', default => 'Manual' };
-        $src_color   = match($ev->source) { 'gcal' => '#2271b1', 'outlook' => '#0078d4', default => '#888' };
-        $mgd_label   = match($ev->source) { 'outlook' => 'Managed in Outlook', default => 'Managed in GCal' };
+        $del_url  = wp_nonce_url($base_url . '&del_ev=' . $ev->id, 'sjioc_del_ev_' . $ev->id);
+        $edit_url = $base_url . '&edit_ev=' . $ev->id . '#ev-form-heading';
     ?>
     <tr>
       <td><?php echo esc_html(date('M j, Y', strtotime($ev->start_date))); ?></td>
-      <td><?php echo esc_html($ev->title); ?></td>
+      <td><?php echo esc_html($ev->title); ?>
+        <?php if ($ev->is_highlight) : ?><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9a6b00;background:#fdf0d0;border-radius:3px;padding:2px 6px;margin-left:6px">Special</span><?php endif; ?>
+      </td>
       <td><?php echo esc_html($ev->location ?: '—'); ?></td>
-      <td><span style="font-size:11px;color:<?php echo $src_color; ?>">
-        <?php echo $src_label; ?>
-      </span></td>
       <td>
-        <?php if (!$is_external) : ?>
-          <a href="<?php echo esc_url($edit_url); ?>">Edit</a>
-          &nbsp;|&nbsp;
-          <a href="<?php echo esc_url($del_url); ?>"
-             onclick="return confirm('Delete \'<?php echo esc_js($ev->title); ?>\'?')"
-             style="color:#b32d2e">Delete</a>
-        <?php else : ?>
-          <span style="color:#aaa;font-size:11px"><?php echo $mgd_label; ?></span>
-        <?php endif; ?>
+        <a href="<?php echo esc_url($edit_url); ?>">Edit</a>
+        &nbsp;|&nbsp;
+        <a href="<?php echo esc_url($del_url); ?>"
+           onclick="return confirm('Delete \'<?php echo esc_js($ev->title); ?>\'?')"
+           style="color:#b32d2e">Delete</a>
       </td>
     </tr>
     <?php endforeach; ?>
     </tbody></table>
     <?php else : ?>
-    <p style="color:#666">No upcoming events. Add one above or sync from Outlook / Google Calendar.</p>
+    <p style="color:#666">No upcoming events. Add one above, or upload the monthly calendar.</p>
     <?php endif; ?>
     </div>
 
@@ -561,70 +428,6 @@ function sjioc_events_settings_page(): void {
         startT.required      = !hide;
       }
       allDay.addEventListener('change', toggleTime);
-
-      // Outlook / ICS sync button
-      var icsSyncBtn = document.getElementById('ics-sync-btn');
-      var icsSyncSt  = document.getElementById('ics-sync-status');
-      if (icsSyncBtn && !icsSyncBtn.disabled) {
-        icsSyncBtn.addEventListener('click', function () {
-          icsSyncBtn.disabled   = true;
-          icsSyncSt.style.color = '#666';
-          icsSyncSt.textContent = 'Syncing…';
-          fetch(ajaxurl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'action=sjioc_ics_sync&nonce=<?php echo esc_js($nonce_val); ?>'
-          })
-          .then(function (r) { return r.json(); })
-          .then(function (d) {
-            if (d.success) {
-              icsSyncSt.textContent = 'Synced ' + d.data.count + ' event(s). Reloading…';
-              setTimeout(function () { location.reload(); }, 900);
-            } else {
-              icsSyncSt.style.color = 'red';
-              icsSyncSt.textContent = d.data || 'Sync failed.';
-              icsSyncBtn.disabled   = false;
-            }
-          })
-          .catch(function () {
-            icsSyncSt.style.color = 'red';
-            icsSyncSt.textContent = 'Request failed — check your connection.';
-            icsSyncBtn.disabled   = false;
-          });
-        });
-      }
-
-      // GCal sync button
-      var syncBtn = document.getElementById('gcal-sync-btn');
-      var syncSt  = document.getElementById('gcal-sync-status');
-      if (syncBtn && !syncBtn.disabled) {
-        syncBtn.addEventListener('click', function () {
-          syncBtn.disabled    = true;
-          syncSt.style.color  = '#666';
-          syncSt.textContent  = 'Syncing…';
-          fetch(ajaxurl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'action=sjioc_gcal_sync&nonce=<?php echo esc_js($nonce_val); ?>'
-          })
-          .then(function (r) { return r.json(); })
-          .then(function (d) {
-            if (d.success) {
-              syncSt.textContent = 'Synced ' + d.data.count + ' event(s). Reloading…';
-              setTimeout(function () { location.reload(); }, 900);
-            } else {
-              syncSt.style.color = 'red';
-              syncSt.textContent = d.data || 'Sync failed.';
-              syncBtn.disabled   = false;
-            }
-          })
-          .catch(function () {
-            syncSt.style.color = 'red';
-            syncSt.textContent = 'Request failed — check your connection.';
-            syncBtn.disabled   = false;
-          });
-        });
-      }
     })();
     </script>
     <?php
@@ -781,124 +584,211 @@ function sjioc_parse_import_csv(string $file): array {
     return ['imported' => $imported, 'errors' => $errors];
 }
 
-// ── ICS feed parser (Outlook / any iCal) ──────────────────────────────────
-function sjioc_ics_unescape(string $s): string {
-    return str_replace(['\\n', '\\N', '\\,', '\\;', '\\\\'], ["\n", "\n", ',', ';', '\\'], $s);
+// ── Monthly calendar (.xlsx) import ─────────────────────────────────────────
+// Reads the uploaded workbook's first sheet directly (xlsx is just a zip of
+// XML — no external library). The secretary's sheet is a visual month grid:
+// a row of real date cells, immediately followed by a row holding that
+// week's text, one cell per weekday. Each day's cell can hold more than one
+// item, separated by the long runs of spaces she already uses as a line
+// break. A cell's red font marks a feast day; anything on a day other than
+// Sunday is inherently non-routine too — both get flagged as "Special".
+
+function sjioc_xlsx_shared_strings(ZipArchive $zip): array {
+    $xml = $zip->getFromName('xl/sharedStrings.xml');
+    if ($xml === false) return [];
+    $sx = @simplexml_load_string($xml);
+    if (!$sx) return [];
+    $out = [];
+    foreach ($sx->si as $si) {
+        if (isset($si->t)) {
+            $out[] = (string) $si->t;
+        } else {
+            $text = '';
+            foreach ($si->r as $r) $text .= (string) $r->t;
+            $out[] = $text;
+        }
+    }
+    return $out;
 }
 
-function sjioc_parse_ics_dt(string $value, string $params): array {
-    if (str_contains($params, 'VALUE=DATE')) {
-        return [
-            'all_day' => true,
-            'date'    => substr($value, 0, 4) . '-' . substr($value, 4, 2) . '-' . substr($value, 6, 2),
-            'time'    => null,
-        ];
+// Maps each cellXfs style index to that cell's font color (RRGGBB), if any.
+function sjioc_xlsx_style_font_colors(ZipArchive $zip): array {
+    $xml = $zip->getFromName('xl/styles.xml');
+    if ($xml === false) return [];
+    $sx = @simplexml_load_string($xml);
+    if (!$sx) return [];
+
+    $font_colors = [];
+    if (isset($sx->fonts)) {
+        $i = 0;
+        foreach ($sx->fonts->font as $font) {
+            $font_colors[$i] = (isset($font->color) && isset($font->color['rgb']))
+                ? strtoupper(substr((string) $font->color['rgb'], -6))
+                : null;
+            $i++;
+        }
     }
-    $is_utc = str_ends_with($value, 'Z');
-    $tz     = new DateTimeZone($is_utc ? 'UTC' : wp_timezone_string());
-    $dt     = DateTimeImmutable::createFromFormat('Ymd\THis', rtrim($value, 'Zz'), $tz);
-    if (!$dt) return ['all_day' => false, 'date' => null, 'time' => null];
-    if ($is_utc) $dt = $dt->setTimezone(wp_timezone());
-    return ['all_day' => false, 'date' => $dt->format('Y-m-d'), 'time' => $dt->format('H:i:s')];
+
+    $style_map = [];
+    if (isset($sx->cellXfs)) {
+        $i = 0;
+        foreach ($sx->cellXfs->xf as $xf) {
+            $font_id = isset($xf['fontId']) ? (int) $xf['fontId'] : 0;
+            $style_map[$i] = $font_colors[$font_id] ?? null;
+            $i++;
+        }
+    }
+    return $style_map;
 }
 
-function sjioc_parse_ics_feed(string $url): array {
-    $res = wp_remote_get($url, ['timeout' => 20]);
-    if (is_wp_error($res)) return [];
-    $body = wp_remote_retrieve_body($res);
-    if (!$body) return [];
-
-    // Unfold continuation lines per RFC 5545 §3.1
-    $body  = preg_replace('/\r?\n[ \t]/', '', $body);
-    $lines = preg_split('/\r?\n/', $body);
-
-    $events  = [];
-    $current = null;
-
-    foreach ($lines as $raw) {
-        $line = rtrim($raw);
-        if ($line === 'BEGIN:VEVENT') { $current = []; continue; }
-        if ($line === 'END:VEVENT')   { if ($current !== null) $events[] = $current; $current = null; continue; }
-        if ($current === null) continue;
-
-        $colon     = strpos($line, ':');
-        if ($colon === false) continue;
-        $prop_full = substr($line, 0, $colon);
-        $value     = substr($line, $colon + 1);
-        $semi      = strpos($prop_full, ';');
-        $prop_name = $semi !== false ? substr($prop_full, 0, $semi) : $prop_full;
-        $params    = $semi !== false ? substr($prop_full, $semi + 1) : '';
-
-        $current[$prop_name] = ['value' => $value, 'params' => $params];
-    }
-
-    $result = [];
-    foreach ($events as $ev) {
-        $uid = $ev['UID']['value'] ?? '';
-        $sum = sjioc_ics_unescape($ev['SUMMARY']['value'] ?? '');
-        if (!$uid || !$sum) continue;
-        if (!isset($ev['DTSTART'])) continue;
-
-        $dtstart = sjioc_parse_ics_dt($ev['DTSTART']['value'], $ev['DTSTART']['params'] ?? '');
-        if (!$dtstart['date']) continue;
-
-        $dtend = isset($ev['DTEND'])
-            ? sjioc_parse_ics_dt($ev['DTEND']['value'], $ev['DTEND']['params'] ?? '')
-            : null;
-
-        $result[] = [
-            'uid'         => $uid,
-            'title'       => $sum,
-            'description' => sjioc_ics_unescape($ev['DESCRIPTION']['value'] ?? ''),
-            'location'    => sjioc_ics_unescape($ev['LOCATION']['value']    ?? ''),
-            'url'         => $ev['URL']['value'] ?? '',
-            'all_day'     => $dtstart['all_day'],
-            'start_date'  => $dtstart['date'],
-            'start_time'  => $dtstart['time'],
-            'end_date'    => $dtend ? $dtend['date'] : null,
-            'end_time'    => ($dtend && !$dtend['all_day']) ? $dtend['time'] : null,
-        ];
-    }
-    return $result;
+function sjioc_xlsx_serial_to_ymd(string $raw): ?string {
+    if (!is_numeric($raw)) return null;
+    $serial = (float) $raw;
+    if ($serial < 2 || $serial > 60000) return null; // plausible 1900–2064 range
+    $unix = ($serial - 25569) * 86400; // Excel epoch 1899-12-30 → Unix epoch
+    return gmdate('Y-m-d', (int) round($unix));
 }
 
-// ── Google Calendar API fetch ──────────────────────────────────────────────
-function sjioc_fetch_gcal_events(int $months = 6): array {
-    $key = SJIOC_GCAL_KEY;
-    $id  = SJIOC_GCAL_ID;
-    if (!$key || !$id) return [];
+function sjioc_parse_import_xlsx(string $file): array {
+    $imported = 0;
+    $skipped  = 0;
 
-    $time_min = gmdate('Y-m-d\TH:i:s\Z');
-    $time_max = gmdate('Y-m-d\TH:i:s\Z', strtotime("+{$months} months"));
-    $url      = 'https://www.googleapis.com/calendar/v3/calendars/' . rawurlencode($id)
-              . '/events?key=' . rawurlencode($key)
-              . '&timeMin=' . rawurlencode($time_min)
-              . '&timeMax=' . rawurlencode($time_max)
-              . '&singleEvents=true&orderBy=startTime&maxResults=100';
+    $zip = new ZipArchive();
+    if ($zip->open($file) !== true) {
+        return ['imported' => 0, 'skipped' => 0, 'errors' => ['Could not open the file — is it a valid .xlsx?']];
+    }
 
-    $res = wp_remote_get($url, ['timeout' => 15]);
-    if (is_wp_error($res)) return [];
+    // Resolve the first sheet listed in the workbook, whatever it's named.
+    $sheet_path = 'xl/worksheets/sheet1.xml';
+    $wb_xml   = $zip->getFromName('xl/workbook.xml');
+    $rels_xml = $zip->getFromName('xl/_rels/workbook.xml.rels');
+    if ($wb_xml && $rels_xml) {
+        $wb   = @simplexml_load_string($wb_xml);
+        $rels = @simplexml_load_string($rels_xml);
+        $first_sheet = $wb->sheets->sheet[0] ?? null;
+        if ($first_sheet && $rels) {
+            $rid = (string) $first_sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];
+            foreach ($rels->Relationship as $rel) {
+                if ((string) $rel['Id'] === $rid) {
+                    $sheet_path = 'xl/' . ltrim((string) $rel['Target'], '/');
+                    break;
+                }
+            }
+        }
+    }
 
-    $data  = json_decode(wp_remote_retrieve_body($res), true);
-    $items = $data['items'] ?? [];
-    $ms    = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    $sheet_xml = $zip->getFromName($sheet_path);
+    if ($sheet_xml === false) {
+        $zip->close();
+        return ['imported' => 0, 'skipped' => 0, 'errors' => ['Could not read the first sheet in that file.']];
+    }
+    $shared = sjioc_xlsx_shared_strings($zip);
+    $styles = sjioc_xlsx_style_font_colors($zip);
+    $zip->close();
 
-    return array_values(array_map(function ($item) use ($ms) {
-        $start   = $item['start']['dateTime'] ?? $item['start']['date'] ?? '';
-        $end     = $item['end']['dateTime']   ?? $item['end']['date']   ?? '';
-        $all_day = !isset($item['start']['dateTime']);
-        $ts      = $start ? strtotime($start) : 0;
-        return [
-            'id'          => $item['id']          ?? '',
-            'title'       => $item['summary']     ?? '',
-            'description' => $item['description'] ?? '',
-            'location'    => $item['location']    ?? '',
-            'start'       => $start,
-            'end'         => $end,
-            'all_day'     => $all_day,
-            'mon'         => $ts ? $ms[(int)date('n', $ts) - 1] : '',
-            'day'         => $ts ? (int)date('j', $ts) : '',
-            'url'         => $item['htmlLink']    ?? '',
-        ];
-    }, $items));
+    $sx = @simplexml_load_string($sheet_xml);
+    if (!$sx || !isset($sx->sheetData)) {
+        return ['imported' => 0, 'skipped' => 0, 'errors' => ['Could not read that sheet — is it a valid calendar export?']];
+    }
+
+    // Build [row_num][col_letter] => ['text'=>?, 'date'=>?, 'red'=>bool]
+    $grid = [];
+    foreach ($sx->sheetData->row as $row) {
+        $r = (int) $row['r'];
+        foreach ($row->c as $c) {
+            if (!preg_match('/^([A-Z]+)\d+$/', (string) $c['r'], $m)) continue;
+            $col    = $m[1];
+            $type   = (string) ($c['t'] ?? '');
+            $s_idx  = isset($c['s']) ? (int) $c['s'] : 0;
+            $raw    = isset($c->v) ? (string) $c->v : null;
+            if ($raw === null) continue;
+
+            $text = null;
+            $date = null;
+            if ($type === 's') {
+                $text = $shared[(int) $raw] ?? '';
+            } elseif ($type === 'str') {
+                $text = $raw;
+            } elseif ($type === '' || $type === 'n') {
+                $date = sjioc_xlsx_serial_to_ymd($raw);
+                if ($date === null) $text = $raw;
+            }
+            if ($text === null && $date === null) continue;
+
+            $grid[$r][$col] = ['text' => $text, 'date' => $date, 'red' => (($styles[$s_idx] ?? null) === 'FF0000')];
+        }
+    }
+
+    if (!$grid) {
+        return ['imported' => 0, 'skipped' => 0, 'errors' => ['No data found on that sheet.']];
+    }
+    ksort($grid);
+    $rows = array_keys($grid);
+
+    global $wpdb;
+    $t = sjioc_events_table();
+    $is_date_row = fn($cells) => count(array_filter($cells, fn($c) => $c['date'] !== null)) >= 3;
+
+    $i = 0;
+    $n = count($rows);
+    while ($i < $n) {
+        $r = $rows[$i];
+        if (!$is_date_row($grid[$r])) { $i++; continue; }
+
+        // A real per-week date row is always followed by a content row, never
+        // another date row. A row that IS followed by another date row is a
+        // one-off header strip (e.g. weekday names built from formatted date
+        // serials) — skip just that row and re-check the next one.
+        $peek = $rows[$i + 1] ?? null;
+        if ($peek !== null && $is_date_row($grid[$peek])) { $i++; continue; }
+
+        $date_cells = array_filter($grid[$r], fn($c) => $c['date'] !== null);
+        $i++;
+        $content_row = (isset($rows[$i]) && $rows[$i] === $r + 1) ? $grid[$rows[$i]] : [];
+        if ($content_row) $i++;
+
+        foreach ($date_cells as $col => $date_cell) {
+            $day_cell = $content_row[$col] ?? null;
+            if (!$day_cell || $day_cell['text'] === null || trim($day_cell['text']) === '') continue;
+
+            $date    = $date_cell['date'];
+            $weekday = (int) gmdate('w', strtotime($date)); // 0 = Sunday
+            $special = $day_cell['red'] || $weekday !== 0;
+
+            foreach (preg_split('/\s{3,}/', trim($day_cell['text'])) as $seg) {
+                $seg = trim(preg_replace('/\s+/', ' ', $seg), " \t\n\r\0\x0B,-–—");
+                if ($seg === '') continue;
+
+                $start_time = null;
+                if (preg_match('/\b(1[0-2]|0?[1-9])(:[0-5]\d)?\s*([AaPp]\.?[Mm]\.?)\b/', $seg, $tm)) {
+                    $ts = strtotime($tm[1] . ($tm[2] ?: ':00') . ' ' . strtoupper(str_replace('.', '', $tm[3])));
+                    if ($ts) $start_time = date('H:i:s', $ts);
+                }
+
+                $title = sanitize_text_field(mb_substr($seg, 0, 255));
+
+                $exists = $wpdb->get_var($wpdb->prepare(
+                    "SELECT id FROM {$t} WHERE title=%s AND start_date=%s LIMIT 1", $title, $date
+                ));
+                if ($exists) { $skipped++; continue; }
+
+                $wpdb->insert($t, [
+                    'title'        => $title,
+                    'description'  => '',
+                    'location'     => '',
+                    'start_date'   => $date,
+                    'start_time'   => $start_time,
+                    'end_date'     => null,
+                    'end_time'     => null,
+                    'all_day'      => $start_time ? 0 : 1,
+                    'url'          => '',
+                    'source'       => 'manual',
+                    'is_highlight' => $special ? 1 : 0,
+                ], ['%s','%s','%s','%s','%s','%s','%s','%d','%s','%s','%d']);
+                $imported++;
+            }
+        }
+    }
+
+    return ['imported' => $imported, 'skipped' => $skipped, 'errors' => []];
 }
