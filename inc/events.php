@@ -207,9 +207,7 @@ function sjioc_events_settings_page(): void {
     // ── Import monthly calendar (.xlsx) ───────────────────────────────────
     if (isset($_POST['sjioc_import_xlsx'])) {
         check_admin_referer('sjioc_events_admin');
-        if (!class_exists('ZipArchive')) {
-            $notice = '<div class="notice notice-error"><p>This server\'s PHP is missing the Zip extension — the .xlsx upload can\'t run.</p></div>';
-        } elseif (!empty($_FILES['ev_xlsx']['tmp_name']) && $_FILES['ev_xlsx']['error'] === UPLOAD_ERR_OK) {
+        if (!empty($_FILES['ev_xlsx']['tmp_name']) && $_FILES['ev_xlsx']['error'] === UPLOAD_ERR_OK) {
             $result = sjioc_parse_import_xlsx($_FILES['ev_xlsx']['tmp_name']);
             if ($result['errors']) {
                 $notice = '<div class="notice notice-error"><p>' . esc_html(implode(' | ', $result['errors'])) . '</p></div>';
@@ -289,12 +287,6 @@ function sjioc_events_settings_page(): void {
 
     <!-- ── Upload Monthly Calendar ── -->
     <h2 class="title">Upload Monthly Calendar</h2>
-    <?php if (!class_exists('ZipArchive')) : ?>
-    <div class="notice notice-error" style="margin:0 0 12px"><p>
-      This server's PHP is missing the <strong>Zip</strong> extension, which the .xlsx upload below needs to read the file.
-      Ask your host (Azure App Service → Advanced Tools → Debug console) to confirm the <code>zip</code> PHP extension is enabled.
-    </p></div>
-    <?php endif; ?>
     <p style="color:#555;margin-bottom:12px">
       Upload the secretary's monthly calendar workbook (.xlsx) exactly as-is — no reformatting needed.
       Each day's text becomes one or more events automatically; entries already on the calendar are skipped.
@@ -302,9 +294,9 @@ function sjioc_events_settings_page(): void {
     <form method="post" enctype="multipart/form-data">
     <?php wp_nonce_field('sjioc_events_admin'); ?>
     <p>
-      <input type="file" name="ev_xlsx" accept=".xlsx" <?php echo class_exists('ZipArchive') ? '' : 'disabled'; ?>>
+      <input type="file" name="ev_xlsx" accept=".xlsx">
       &nbsp;
-      <?php submit_button('Upload Calendar', 'primary', 'sjioc_import_xlsx', false, class_exists('ZipArchive') ? [] : ['disabled' => 'disabled']); ?>
+      <?php submit_button('Upload Calendar', 'primary', 'sjioc_import_xlsx', false); ?>
     </p>
     </form>
 
