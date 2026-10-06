@@ -7,7 +7,7 @@
 
 defined('ABSPATH') || exit;
 
-define('SJIOC_VER', '2.0.53');
+define('SJIOC_VER', '2.0.54');
 define('SJIOC_DIR', get_template_directory());
 define('SJIOC_URI', get_template_directory_uri());
 

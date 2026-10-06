@@ -106,7 +106,6 @@
   line-height: 1.4;
 }
 .ev-cal-event-label:hover    { background: var(--cr-dk); }
-.ev-cal-event-label.is-allday { background: var(--go); color: var(--td); }
 .ev-cal-more {
   display: block;
   font-size: .58rem;

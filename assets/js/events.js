@@ -153,8 +153,8 @@
             + '" role="gridcell" aria-label="' + esc(ariaLbl) + '">'
             + '<span class="ev-cal-num">' + d + '</span>';
       evs.slice(0, 2).forEach(function (ev) {
-        html += '<span class="ev-cal-event-label' + (ev.all_day ? ' is-allday' : '')
-              + '" data-evid="' + esc(ev.id) + '" tabindex="0" role="button" aria-label="' + esc(ev.title) + '">'
+        html += '<span class="ev-cal-event-label" data-evid="' + esc(ev.id)
+              + '" tabindex="0" role="button" aria-label="' + esc(ev.title) + '">'
               + esc(ev.title) + '</span>';
       });
       if (evs.length > 2) {
