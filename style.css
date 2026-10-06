@@ -2057,3 +2057,35 @@ iframe.lv-embed { border:0; }
 .about-hub-link { font-size:.76rem; font-weight:700; color:var(--go); letter-spacing:.03em; }
 @media (max-width:960px) { .about-hub-grid { grid-template-columns:repeat(2, 1fr); } }
 @media (max-width:640px) { .about-hub-grid { grid-template-columns:1fr; } }
+
+/* ── Lectionary page ── */
+.lect-nav { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:10px; margin-top:22px; }
+.lect-year { padding:6px 16px; border:1px solid var(--go); border-radius:3px; font-size:.8rem; font-weight:700; color:var(--cr); }
+.lect-year.is-active { background:var(--cr); border-color:var(--cr); color:#fff; }
+.lect-wrap { max-width:900px; }
+.lect-month { font-family:'Playfair Display', serif; color:var(--cr); font-size:1.4rem; margin:36px 0 14px; padding-bottom:8px; border-bottom:2px solid var(--go); }
+.lect-month:first-child { margin-top:0; }
+.lect-day { display:flex; gap:20px; background:#fff; border:1px solid var(--border); border-radius:6px; padding:20px; margin-bottom:14px; scroll-margin-top:calc(var(--navh) + 16px); }
+.lect-day.is-next { border:2px solid var(--go); box-shadow:0 8px 28px rgba(123,24,24,.12); }
+.lect-day.is-past { opacity:.62; }
+.lect-date { flex:0 0 64px; text-align:center; background:var(--cr); color:#fff; border-radius:4px; padding:8px 4px; align-self:flex-start; }
+.lect-dow, .lect-mon { display:block; font-size:.6rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--go-lt); }
+.lect-dnum { display:block; font-family:'Playfair Display', serif; font-size:1.7rem; font-weight:700; line-height:1.1; }
+.lect-body { flex:1; min-width:0; }
+.lect-badge { display:inline-block; font-size:.6rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#9a6b00; background:#fdf0d0; border-radius:3px; padding:2px 8px; margin-bottom:6px; }
+.lect-body h4 { font-family:'Playfair Display', serif; color:var(--cr); font-size:1.12rem; line-height:1.35; margin-bottom:6px; }
+.lect-note { font-size:.86rem; color:var(--tl); line-height:1.6; margin-bottom:8px; }
+.lect-sections { display:grid; grid-template-columns:repeat(2, 1fr); gap:14px 24px; margin-top:10px; }
+.lect-sec h5 { font-size:.66rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--go); margin-bottom:6px; }
+.lect-sec ul { list-style:none; margin:0; padding:0; }
+.lect-sec li { font-size:.88rem; color:var(--tm); line-height:1.5; margin-bottom:5px; }
+.lect-ref { margin-right:6px; }
+.lect-sec li a { display:inline-block; font-size:.7rem; font-weight:700; color:var(--cr); border:1px solid var(--border); border-radius:3px; padding:1px 7px; margin-right:4px; }
+.lect-sec li a:hover { background:var(--cr); border-color:var(--cr); color:#fff; }
+.lect-credit, .lect-empty { text-align:center; font-size:.85rem; color:var(--tl); font-style:italic; margin-top:24px; }
+@media (max-width:640px) {
+  .lect-day { flex-direction:column; gap:12px; padding:16px; }
+  .lect-date { display:flex; gap:8px; align-items:baseline; justify-content:center; padding:6px 12px; }
+  .lect-dnum { font-size:1.2rem; }
+  .lect-sections { grid-template-columns:1fr; }
+}

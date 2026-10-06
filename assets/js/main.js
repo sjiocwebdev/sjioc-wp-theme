@@ -472,4 +472,8 @@
     });
   });
 
+  /* ── Lectionary: open at the upcoming day, like the #now link ── */
+  var lectNow = document.querySelector('.lect-day#now');
+  if (lectNow && !location.hash) lectNow.scrollIntoView({ block: 'start' });
+
 })();
