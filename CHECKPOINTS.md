@@ -33,6 +33,7 @@ To deploy a checkpoint: `git archive --format=zip -o sjioc-theme-checkpoint-2026
 | Date | Tag | Commit | State |
 | --- | --- | --- | --- |
 | 2026-09-05 | `checkpoint-2026-09-05` | `1b21b96` | Baseline **before Member Login work begins.** |
+| 2026-10-06 | `checkpoint-2026-10-06` | `34d8d9c` | Baseline **before Event Photos + Lectionary work begins.** |
 
 ### `checkpoint-2026-09-05` — `1b21b96`
 
@@ -54,3 +55,10 @@ Verification status: working tree clean, all commits pushed to `origin/main`.
 Not functionally re-tested locally this session (no local PHP/Docker available) —
 treat as good based on it being the current live-intended `main`. Confirm visually
 on the site before relying on it as a rollback target.
+
+### `checkpoint-2026-10-06` — `34d8d9c`
+
+Baseline before adding per-event photos (special-day cell backgrounds) and the
+Lectionary page. Includes the .xlsx monthly calendar upload, past-months browsing
+on the Events page, the single-day all-day Calendar fix, and up to 5 events per
+day cell. Events page verified on the local Docker WP (localhost:8080).
