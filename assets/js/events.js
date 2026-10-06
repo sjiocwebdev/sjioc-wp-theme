@@ -118,7 +118,8 @@
       if (!ev.start) return false;
       var sd = ev.start.slice(0, 10);
       if (ev.all_day) {
-        var ed = ev.end ? ev.end.slice(0, 10) : sd;
+        if (!ev.end) return ds === sd;
+        var ed = ev.end.slice(0, 10);
         return ds >= sd && ds < ed;
       }
       return sd === ds;
