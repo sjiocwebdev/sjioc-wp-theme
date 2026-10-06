@@ -152,14 +152,14 @@
       html += '<div class="ev-cal-day' + (isToday ? ' is-today' : '') + (evs.length ? ' has-events' : '')
             + '" role="gridcell" aria-label="' + esc(ariaLbl) + '">'
             + '<span class="ev-cal-num">' + d + '</span>';
-      evs.slice(0, 2).forEach(function (ev) {
+      evs.slice(0, 5).forEach(function (ev) {
         html += '<span class="ev-cal-event-label" data-evid="' + esc(ev.id)
               + '" tabindex="0" role="button" aria-label="' + esc(ev.title) + '">'
               + esc(ev.title) + '</span>';
       });
-      if (evs.length > 2) {
+      if (evs.length > 5) {
         html += '<span class="ev-cal-more" data-date="' + String(calYear) + '-' + pad2(calMonth + 1) + '-' + pad2(d) + '">+'
-              + (evs.length - 2) + ' more</span>';
+              + (evs.length - 5) + ' more</span>';
       }
       html += '</div>';
     }

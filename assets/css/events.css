@@ -61,7 +61,7 @@
   padding: 9px 4px;
 }
 .ev-cal-day {
-  min-height: 90px;
+  min-height: 130px;
   padding: 8px 6px 4px;
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
