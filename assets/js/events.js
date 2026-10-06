@@ -149,8 +149,10 @@
       var isToday = (today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === d);
       var evs     = eventsOnDate(calYear, calMonth, d);
       var ariaLbl = MSHORT[calMonth] + ' ' + d + ', ' + calYear + (evs.length ? ', ' + evs.length + ' event' + (evs.length !== 1 ? 's' : '') : '');
-      html += '<div class="ev-cal-day' + (isToday ? ' is-today' : '') + (evs.length ? ' has-events' : '')
-            + '" role="gridcell" aria-label="' + esc(ariaLbl) + '">'
+      var photoEv = evs.find(function (ev) { return ev.image; });
+      html += '<div class="ev-cal-day' + (isToday ? ' is-today' : '') + (evs.length ? ' has-events' : '') + (photoEv ? ' has-photo' : '')
+            + '" role="gridcell" aria-label="' + esc(ariaLbl) + '"'
+            + (photoEv ? ' style="--ev-photo:url(&quot;' + esc(encodeURI(photoEv.image)) + '&quot;)"' : '') + '>'
             + '<span class="ev-cal-num">' + d + '</span>';
       evs.slice(0, 5).forEach(function (ev) {
         html += '<span class="ev-cal-event-label" data-evid="' + esc(ev.id)
@@ -217,6 +219,10 @@
     document.getElementById('em-mon').textContent   = ts ? MSHORT[ts.getMonth()] : '';
     document.getElementById('em-day').textContent   = ts ? ts.getDate()          : '';
     document.getElementById('em-title').textContent = ev.title || '';
+
+    var photoEl = document.getElementById('em-photo');
+    photoEl.hidden = !ev.image;
+    if (ev.image) photoEl.src = ev.image; else photoEl.removeAttribute('src');
 
     var timeStr = '';
     if (ts) {

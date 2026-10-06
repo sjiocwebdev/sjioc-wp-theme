@@ -58,6 +58,7 @@ get_header();
      onclick="if(event.target===this)evCloseModal()">
   <div class="ev-modal-inner">
     <button class="ev-modal-close" onclick="evCloseModal()" aria-label="Close">&times;</button>
+    <img id="em-photo" class="ev-modal-photo" alt="" hidden>
     <div class="ev-modal-date-box">
       <span class="ev-mon" id="em-mon"></span>
       <span class="ev-day" id="em-day"></span>

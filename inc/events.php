@@ -13,14 +13,14 @@ function sjioc_events_table(): string {
 
 add_action('after_switch_theme', 'sjioc_create_events_table');
 add_action('admin_init', function () {
-    if (get_option('sjioc_events_db_ver') !== '2') {
+    if (get_option('sjioc_events_db_ver') !== '3') {
         sjioc_create_events_table();
         // Outlook/Google Calendar sync has been removed — drop any events it
         // previously synced in; spreadsheet upload + manual entry are now
         // the only sources, and both use source='manual'.
         global $wpdb;
         $wpdb->query("DELETE FROM " . sjioc_events_table() . " WHERE source IN ('gcal','outlook')");
-        update_option('sjioc_events_db_ver', '2');
+        update_option('sjioc_events_db_ver', '3');
     }
     // CSV template download — must run before any HTML output
     if (($_GET['page'] ?? '') === 'sjioc-events'
@@ -57,6 +57,7 @@ function sjioc_create_events_table(): void {
         source      varchar(20)  DEFAULT 'manual',
         gcal_id     varchar(255) DEFAULT NULL,
         is_highlight tinyint(1)  DEFAULT 0,
+        image_id    bigint(20)   unsigned NOT NULL DEFAULT 0,
         PRIMARY KEY  (id),
         KEY          idx_start (start_date),
         UNIQUE KEY   uq_gcal (gcal_id)
@@ -132,6 +133,9 @@ function sjioc_get_db_events(int $months = 6, int $months_back = 0): array {
 
     if (!$rows) return [];
 
+    $image_ids = array_filter(array_map(fn($r) => (int) $r->image_id, $rows));
+    if ($image_ids) _prime_post_caches($image_ids, false, true);
+
     return array_map(function ($r) use ($mshort) {
         $ts    = strtotime($r->start_date);
         $all   = (bool)(int)$r->all_day;
@@ -154,6 +158,7 @@ function sjioc_get_db_events(int $months = 6, int $months_back = 0): array {
             'day'          => (int)date('j', $ts),
             'url'          => $r->url ?: '',
             'is_highlight' => (bool)(int)$r->is_highlight,
+            'image'        => $r->image_id ? (wp_get_attachment_image_url((int) $r->image_id, 'medium_large') ?: '') : '',
         ];
     }, $rows);
 }
@@ -254,7 +259,32 @@ function sjioc_events_settings_page(): void {
         ];
         $fmt = ['%s','%s','%s','%s','%s','%s','%s','%d','%s','%s'];
 
-        if (!$data['title'] || !$data['start_date'] || (!$all_day && !$data['start_time'])) {
+        $valid       = $data['title'] && $data['start_date'] && ($all_day || $data['start_time']);
+        $photo_error = '';
+        if ($valid && !empty($_FILES['ev_photo']['name'])) {
+            $ext = strtolower(pathinfo(sanitize_file_name($_FILES['ev_photo']['name']), PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)) {
+                $photo_error = 'Photo must be a JPG, PNG, WebP or GIF image.';
+            } else {
+                require_once ABSPATH . 'wp-admin/includes/file.php';
+                require_once ABSPATH . 'wp-admin/includes/media.php';
+                require_once ABSPATH . 'wp-admin/includes/image.php';
+                $att_id = media_handle_upload('ev_photo', 0);
+                if (is_wp_error($att_id)) {
+                    $photo_error = 'Photo upload failed: ' . $att_id->get_error_message();
+                } else {
+                    $data['image_id'] = $att_id;
+                    $fmt[] = '%d';
+                }
+            }
+        } elseif (!empty($_POST['ev_photo_remove'])) {
+            $data['image_id'] = 0;
+            $fmt[] = '%d';
+        }
+
+        if ($photo_error) {
+            $notice = '<div class="notice notice-error"><p>' . esc_html($photo_error) . '</p></div>';
+        } elseif (!$valid) {
             $notice = '<div class="notice notice-error"><p>Title, start date, and start time are required.</p></div>';
         } elseif ($ev_id) {
             $wpdb->update($t, $data, ['id' => $ev_id, 'source' => 'manual'], $fmt, ['%d','%s']);
@@ -332,7 +362,7 @@ function sjioc_events_settings_page(): void {
 
     <!-- ── Add / Edit Event ── -->
     <h2 class="title" id="ev-form-heading"><?php echo $editing ? 'Edit Event' : 'Add Event'; ?></h2>
-    <form method="post" id="ev-form">
+    <form method="post" id="ev-form" enctype="multipart/form-data">
     <?php wp_nonce_field('sjioc_events_admin'); ?>
     <input type="hidden" name="ev_id" value="<?php echo $editing ? (int)$editing->id : 0; ?>">
     <table class="form-table" style="max-width:700px"><tbody>
@@ -373,6 +403,17 @@ function sjioc_events_settings_page(): void {
       <tr>
         <th><label for="ev_url">Link / URL</label></th>
         <td><input type="url" id="ev_url" name="ev_url" value="<?php echo esc_attr($editing->url ?? ''); ?>" class="regular-text" placeholder="https://"></td>
+      </tr>
+      <tr>
+        <th><label for="ev_photo">Special-Day Photo</label></th>
+        <td>
+          <?php if (!empty($editing->image_id)) : ?>
+            <?php echo wp_get_attachment_image((int) $editing->image_id, 'thumbnail'); ?><br>
+            <label><input type="checkbox" name="ev_photo_remove" value="1"> Remove photo</label><br>
+          <?php endif; ?>
+          <input type="file" id="ev_photo" name="ev_photo" accept="image/jpeg,image/png,image/webp,image/gif">
+          <p class="description">Optional. Fills this day's box on the Calendar (e.g. a saint's icon on a feast day) and shows at the top of the event popup.</p>
+        </td>
       </tr>
     </tbody></table>
     <p class="submit">
