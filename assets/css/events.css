@@ -152,6 +152,9 @@
 .ev-list-meta { font-size: .78rem; color: var(--tl); display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
 .ev-list-body p { font-size: .85rem; color: var(--tl); line-height: 1.6; margin: 0; }
 .ev-badge { display: inline-block; font-size: .56rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #8a5a00; background: #fbe9c2; border-radius: 3px; padding: 2px 6px; vertical-align: middle; }
+.ev-list-past-divider { display: flex; align-items: center; gap: 14px; margin: 18px 0 4px; color: var(--tl); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.ev-list-past-divider::before, .ev-list-past-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+#ev-list-grid .ev-list-past-divider ~ .ev-list-card { opacity: .72; }
 
 /* ── Subscribe bar ─────────────────────────────────────────────── */
 .ev-subscribe {

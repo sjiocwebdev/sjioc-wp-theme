@@ -83,7 +83,8 @@ add_action('rest_api_init', function () {
         'callback'            => 'sjioc_events_rest',
         'permission_callback' => '__return_true',
         'args'                => [
-            'months' => ['default' => 6, 'sanitize_callback' => fn($v) => max(1, min(12, (int)$v))],
+            'months'      => ['default' => 6, 'sanitize_callback' => fn($v) => max(1, min(12, (int)$v))],
+            'months_back' => ['default' => 0, 'sanitize_callback' => fn($v) => max(0, min(24, (int)$v))],
         ],
     ]);
     register_rest_route('sjioc/v1', '/calendar\.ics', [
@@ -107,19 +108,26 @@ function sjioc_events_rest(WP_REST_Request $req): WP_REST_Response {
     if (sjioc_rest_rate_limited('sjioc_rl_events_', 30, 5 * MINUTE_IN_SECONDS)) {
         return new WP_REST_Response(['message' => 'Too many requests.'], 429);
     }
-    return rest_ensure_response(sjioc_get_db_events((int)$req->get_param('months')));
+    return rest_ensure_response(sjioc_get_db_events((int)$req->get_param('months'), (int)$req->get_param('months_back')));
 }
 
-function sjioc_get_db_events(int $months = 6): array {
+// $months_back > 0 widens the lower bound into the past — used by the public
+// Events page so visitors can browse earlier months; every other caller
+// (home page teaser, widget-bar panel, the outbound .ics feed) leaves it at
+// 0 and stays future-only, which is the right default for those.
+function sjioc_get_db_events(int $months = 6, int $months_back = 0): array {
     global $wpdb;
     $t        = sjioc_events_table();
     $today    = current_time('Y-m-d');
+    $min_date = $months_back > 0
+        ? date('Y-m-d', strtotime("-{$months_back} months", current_time('timestamp')))
+        : $today;
     $max_date = date('Y-m-d', strtotime("+{$months} months", current_time('timestamp')));
     $mshort   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     $rows = $wpdb->get_results($wpdb->prepare(
         "SELECT * FROM {$t} WHERE start_date >= %s AND start_date <= %s ORDER BY start_date, start_time",
-        $today, $max_date
+        $min_date, $max_date
     ));
 
     if (!$rows) return [];
