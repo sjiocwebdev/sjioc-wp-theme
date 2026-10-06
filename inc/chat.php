@@ -88,21 +88,43 @@ function sjioc_chat_ajax(): void {
 
 function sjioc_chat_kb_excerpt(string $message, string $kb): string {
     if (!$kb) return '';
-    $words = array_unique(array_filter(
+    $words = array_values(array_unique(array_filter(
         preg_split('/\s+/', mb_strtolower(preg_replace('/[^\w\s]/u', '', $message))),
         fn($w) => mb_strlen($w) > 3
-    ));
+    )));
     if (!$words) return '';
-    $lines   = preg_split('/\r?\n/', mb_substr($kb, 0, 2000));
-    $matched = [];
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if (!$line) continue;
-        $ll = mb_strtolower($line);
-        foreach ($words as $word) {
-            if (str_contains($ll, $word)) { $matched[] = $line; break; }
+    $lines = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', mb_substr($kb, 0, 2000)))));
+    if (!$lines) return '';
+
+    $match_lines = function (array $words) use ($lines): array {
+        $matched = [];
+        foreach ($lines as $line) {
+            $ll = mb_strtolower($line);
+            foreach ($words as $word) {
+                if (str_contains($ll, $word)) { $matched[] = $line; break; }
+            }
         }
-    }
+        return $matched;
+    };
+
+    // Drop words that show up in most of the KB's lines (e.g. the parish's
+    // own name, repeated at the start of nearly every bullet) — matching on
+    // those alone turns "relevant excerpt" into "basically the whole KB."
+    $discriminating = array_values(array_filter($words, function ($word) use ($lines) {
+        $hits = 0;
+        foreach ($lines as $line) {
+            if (str_contains(mb_strtolower($line), $word)) $hits++;
+        }
+        return ($hits / count($lines)) <= 0.4;
+    }));
+
+    $matched = $discriminating ? $match_lines($discriminating) : [];
+    // A discriminating word alone can miss a real match when it's the ONLY
+    // lexical link to the KB (e.g. "founded" doesn't appear verbatim in a
+    // line that only says "SJIOC was formed...", but "sjioc" does) — in that
+    // case fall back to the full original word list rather than return
+    // nothing just because the one shared word happened to be too common.
+    if (!$matched) $matched = $match_lines($words);
     // Cap at 10 lines and 500 words
     $result = [];
     $wcount = 0;
