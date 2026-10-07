@@ -499,7 +499,7 @@ function sjioc_calendar_ics_endpoint(): void {
 }
 
 function sjioc_generate_ics(): string {
-    $events = sjioc_get_db_events(12);
+    $events = sjioc_get_db_events(12, 12);
     $host   = parse_url(home_url(), PHP_URL_HOST) ?: 'sjioc';
     $now    = gmdate('Ymd\THis\Z');
     $lines  = [
