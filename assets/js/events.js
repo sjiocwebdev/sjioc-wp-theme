@@ -63,9 +63,23 @@
       if (card) openById(card.dataset.evid);
     });
 
+    // Remove-subscription help modal
+    var unsub = document.getElementById('ev-unsub-modal');
+    function closeUnsub() {
+      unsub.classList.remove('is-open');
+      document.body.style.overflow = '';
+    }
+    document.getElementById('ev-unsub-open').addEventListener('click', function () {
+      unsub.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+      document.getElementById('ev-unsub-close').focus();
+    });
+    document.getElementById('ev-unsub-close').addEventListener('click', closeUnsub);
+    unsub.addEventListener('click', function (e) { if (e.target === unsub) closeUnsub(); });
+
     // Escape closes modal
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') evCloseModal();
+      if (e.key === 'Escape') { evCloseModal(); closeUnsub(); }
     });
   });
 
